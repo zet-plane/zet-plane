@@ -227,10 +227,16 @@ Event Pipeline ──[需分析事件]──▶ Agent Orchestrator
                            Knowledge Sedimentation Engine
 ```
 
+**两个核心约束**：
+
+1. **KE 必须锚定到 Node**：KnowledgeEntry 的 `nodeId` 是强制字段，不存在游离于 Graph 之外的知识条目。知识沉淀的导航结构由 Graph 提供，后来者通过节点找到对应的上下文，而非在平铺列表中搜索。
+
+2. **Core Checkpoint**：每个项目流程中存在若干核心检查点节点（`type: 'checkpoint'`），作为阶段性验证门。Checkpoint 完成时 Agent 自动触发该阶段的知识汇总，也是新成员理解项目阶段进展的主要入口。
+
 详细设计见各自文档：
 
-- [Scaffold Graph Engine](./design/scaffold-graph-engine.md) — Graph 结构、节点生命周期、模板管理
-- [Knowledge Sedimentation Engine](./design/knowledge-sedimentation-engine.md) — KE 生命周期、渐进式沉淀、修订历史
+- [Scaffold Graph Engine](./design/scaffold-graph-engine.md) — Graph 结构、节点生命周期、Checkpoint 机制、模板管理
+- [Knowledge Sedimentation Engine](./design/knowledge-sedimentation-engine.md) — KE 与 Node 的强绑定、渐进式沉淀、修订历史
 - [Agent Orchestrator](./design/agent-orchestrator.md) — 混合任务调度、LLM 集成、能力边界执行
 
 ---

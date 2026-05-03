@@ -9,15 +9,16 @@
 ## 内部模块
 
 ```
-EventRouter       — 从 Pipeline Route 阶段接收事件，映射为 Task 类型，投入队列
-TaskScheduler     — Cron 注册表，触发定时任务
-TaskQueue         — BullMQ 队列，管理优先级、重试、延迟
-TaskExecutor      — Worker 进程，按 Task 类型分发到 Handler
-  ├── AnalyzeHandler      — 事件分析 → 读 Graph 上下文 → LLM → 写 draft KE
-  ├── SummarizeHandler    — 周期摘要 → 读 KE + Graph → LLM → Adapter.notify
-  ├── DetectStaleHandler  — 扫描 active 节点 → 判断停滞 → 写 blocker KE + 建议通知
-  └── NotifyHandler       — 纯转发：调用目标 Adapter 的 notify 方法
-LLMClient         — 封装 Anthropic/OpenAI SDK，统一 prompt 入口和 token 计量
+EventRouter            — 从 Pipeline Route 阶段接收事件，映射为 Task 类型，投入队列
+TaskScheduler          — Cron 注册表，触发定时任务
+TaskQueue              — BullMQ 队列，管理优先级、重试、延迟
+TaskExecutor           — Worker 进程，按 Task 类型分发到 Handler
+  ├── AnalyzeHandler          — 事件分析 → 读 Graph 上下文 → LLM → 写 draft KE
+  ├── CheckpointSummaryHandler— Checkpoint 完成 → 汇总前置节点 KE → LLM → 写 checkpoint-summary KE
+  ├── SummarizeHandler        — 周期摘要 → 读 KE + Graph → LLM → Adapter.notify
+  ├── DetectStaleHandler      — 扫描 active 节点 → 判断停滞 → 写 blocker KE + 建议通知
+  └── NotifyHandler           — 纯转发：调用目标 Adapter 的 notify 方法
+LLMClient              — 封装 Anthropic/OpenAI SDK，统一 prompt 入口和 token 计量
 ```
 
 ---
@@ -27,6 +28,7 @@ LLMClient         — 封装 Anthropic/OpenAI SDK，统一 prompt 入口和 toke
 | 触发方式 | Handler | 示例 |
 |---|---|---|
 | 事件驱动 | AnalyzeHandler | PR 合并 → 提取决策上下文 → draft KE |
+| 事件驱动 | CheckpointSummaryHandler | Checkpoint 节点完成 → 汇总该阶段所有 KE → checkpoint-summary KE |
 | 事件驱动 | NotifyHandler | 节点状态变更 → 通知 owner |
 | 定时（30 min）| EventRouter | poll 各 Adapter 补充遗漏事件 |
 | 定时（每日）| DetectStaleHandler | 扫描 active 超 N 天未更新节点 |

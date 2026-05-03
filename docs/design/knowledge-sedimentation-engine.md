@@ -21,9 +21,9 @@ LinkingService   — KE ↔ Node、KE ↔ Event 的关联关系维护
 ```
 KnowledgeEntry
   ├── id
-  ├── nodeId              — 关联的 Graph 节点
+  ├── nodeId              — 【必填】锚定到的 Graph 节点，不允许为空
   ├── type                — 'decision' | 'context' | 'blocker' | 'lesson'
-  │                          | 'handoff' | 'ai-session-context'
+  │                          | 'handoff' | 'ai-session-context' | 'checkpoint-summary'
   ├── title
   ├── content             — 人类可读的自然语言，能被无上下文的后来者独立理解
   ├── sources: EventRef[] — [{eventId, excerpt}]，溯源到原始事件
@@ -32,6 +32,8 @@ KnowledgeEntry
   ├── status              — 'draft' | 'confirmed' | 'superseded'
   └── revisions[]         — 渐进式修订历史（见下）
 ```
+
+**`nodeId` 强制约束**：KE 必须锚定到一个 Graph 节点，不存在游离的知识条目。知识的导航结构由 Graph 提供——后来者通过节点找到上下文，不在平铺列表中搜索。如果一条知识找不到合适的节点，应先在 Graph 中补充节点，再关联 KE。
 
 ---
 
@@ -77,6 +79,7 @@ KnowledgeRevision
 | `lesson` | 踩坑记录，供后来者规避 | 事后总结、人工输入 |
 | `handoff` | 交接说明，面向接替者 | 成员离开时触发 |
 | `ai-session-context` | AI 辅助开发过程中的决策讨论 | Claude Code / Codex session |
+| `checkpoint-summary` | Checkpoint 完成时的阶段性汇总 | Checkpoint 节点完成事件（Agent 自动生成） |
 
 ---
 
