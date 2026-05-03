@@ -1,0 +1,500 @@
+# Zet Plane — 高层架构设计
+
+---
+
+## 架构总览
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        External Endpoints                          │
+│  GitHub · Feishu · QQ · Grafana · Aliyun · User Input · ...        │
+└──────────┬──────────────────────────────────────────────┬───────────┘
+           │ Webhook / Poll / Manual                      │ Notify / Push
+           ▼                                              ▲
+┌──────────────────────────────────────────────────────────────────────┐
+│                         Adapter Layer                               │
+│                                                                     │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐  │
+│  │ GitHub   │ │ Feishu   │ │ QQ       │ │ Monitor  │ │ Manual   │  │
+│  │ Adapter  │ │ Adapter  │ │ Adapter  │ │ Adapter  │ │ Adapter  │  │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘ └────┬─────┘  │
+│       │             │            │             │            │        │
+│       └─────────────┴────────────┴─────────────┴────────────┘        │
+│                          ▼ Normalized Event                         │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+                           ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Event Pipeline                               │
+│                                                                     │
+│  Ingest ──▶ Deduplicate ──▶ Enrich ──▶ Route ──▶ Event Store (PG)  │
+│                                          │                          │
+│                              ┌───────────┼───────────┐              │
+│                              ▼           ▼           ▼              │
+└──────────────────────────────────────────────────────────────────────┘
+                               │           │           │
+                ┌──────────────┘           │           └──────────────┐
+                ▼                          ▼                          ▼
+┌──────────────────────┐  ┌──────────────────────┐  ┌─────────────────────┐
+│  Scaffold Graph      │  │  Knowledge           │  │  Agent              │
+│  Engine              │  │  Sedimentation       │  │  Orchestrator       │
+│                      │  │  Engine               │  │                     │
+│  • Graph CRUD        │  │  • Extract & Link     │  │  • Event-triggered  │
+│  • Node Lifecycle    │  │  • Progressive Accum  │  │  • Scheduled Tasks  │
+│  • Dependency Resolve│  │  • Human-readable Gen │  │  • LLM Integration  │
+│  • Template Mgmt     │  │  • Conflict Resolve   │  │  • Task Queue       │
+└──────────┬───────────┘  └──────────┬───────────┘  └──────────┬──────────┘
+           │                         │                          │
+           └─────────────────────────┴──────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                        Storage Layer (PostgreSQL)                    │
+│                                                                     │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐    │
+│  │ Event Store│  │ Graph Store│  │ Knowledge  │  │ Task Store │    │
+│  │            │  │            │  │ Store      │  │            │    │
+│  └────────────┘  └────────────┘  └────────────┘  └────────────┘    │
+└──────────────────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                         API Layer                                   │
+│                                                                     │
+│  REST API (CRUD / Query)    WebSocket (Real-time Updates)           │
+│                                                                     │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │                      Web Dashboard                            │  │
+│  │  Graph Viewer · Knowledge Browser · Timeline · Settings       │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 技术选型
+
+| 层 | 选型 | 理由 |
+|---|---|---|
+| 运行时 | Node.js + TypeScript | 团队技术栈，生态成熟 |
+| Web 框架 | NestJS | 模块化架构天然匹配分层设计，DI 容器便于 Adapter 插拔 |
+| 数据库 | PostgreSQL | 关系模型适合 Graph 存储（邻接表），JSONB 支持半结构化知识条目 |
+| ORM | Prisma | 类型安全，迁移管理清晰 |
+| 队列 | BullMQ (Redis) | 轻量，支持延迟任务和重试，用于 Agent 任务调度 |
+| 实时通信 | WebSocket (socket.io) | 推送 Graph 状态变更和知识更新 |
+| LLM 接口 | Anthropic SDK / OpenAI SDK | Agent 分析和知识提取的 LLM 能力 |
+
+---
+
+## 核心模块设计
+
+### 1. Adapter Layer（适配器层）
+
+**职责**：将异构的外部端侧事件归一化为系统内部统一事件格式，同时提供向外推送通知的能力。
+
+**设计原则**：对应 specs 原则四「适配而非依赖端侧」——任何 Adapter 的增删不影响核心逻辑。
+
+```
+interface NormalizedEvent {
+  id: string;                     // 全局唯一
+  source: AdapterType;            // 'github' | 'feishu' | 'qq' | 'monitor' | 'manual'
+  sourceEventId: string;          // 原始事件 ID（用于去重）
+  type: string;                   // 'commit' | 'pr_opened' | 'message' | 'alert' | ...
+  timestamp: Date;
+  actor?: string;                 // 触发人
+  payload: Record<string, any>;   // 原始数据（JSONB 存储）
+  metadata: {
+    projectId: string;
+    relatedNodeIds?: string[];    // 关联的 Graph 节点（可由 Enrich 阶段填充）
+  };
+}
+```
+
+**Adapter 接口**：
+
+```
+interface Adapter {
+  type: AdapterType;
+
+  // 事件驱动：注册 webhook 回调
+  registerWebhook(config: WebhookConfig): Promise<void>;
+
+  // 定时补充：拉取自 lastSyncAt 以来的事件
+  poll(lastSyncAt: Date): Promise<NormalizedEvent[]>;
+
+  // 反向推送：通知到端侧
+  notify(target: NotifyTarget, message: NotifyMessage): Promise<void>;
+}
+```
+
+每个 Adapter 作为独立的 NestJS Module，通过 DI 注册。新增信息源 = 新增一个 Module，实现 `Adapter` 接口。
+
+---
+
+### 2. Event Pipeline（事件管线）
+
+**职责**：统一处理所有进入系统的事件，保证有序、去重、可追溯。
+
+```
+Ingest ──▶ Deduplicate ──▶ Enrich ──▶ Route ──▶ Persist
+```
+
+| 阶段 | 说明 |
+|---|---|
+| **Ingest** | 接收 Adapter 提交的 NormalizedEvent，校验格式 |
+| **Deduplicate** | 基于 `source + sourceEventId` 去重，防止 webhook 重发 |
+| **Enrich** | 关联 Graph 节点（通过启发式规则 + LLM 辅助匹配），补充 `relatedNodeIds` |
+| **Route** | 根据事件类型和关联节点，分发到对应引擎处理 |
+| **Persist** | 追加写入 Event Store（PostgreSQL 表，按时间分区） |
+
+Event Pipeline 本身是同步的 NestJS 中间件链。耗时操作（LLM 调用、知识提取）由 Route 阶段投递到 BullMQ 异步处理。
+
+---
+
+### 3. Scaffold Graph Engine（流程引导图引擎）
+
+**职责**：管理 Graph 的结构、节点生命周期和模板。
+
+**核心概念**：
+
+```
+Graph
+  └── Node（节点）
+        ├── type: 'milestone' | 'task' | 'decision' | 'review' | 'custom'
+        ├── status: 'planned' | 'active' | 'blocked' | 'completed' | 'abandoned'
+        ├── owner?: string
+        ├── edges: Edge[]           // 依赖关系
+        └── knowledgeEntries: KE[]  // 关联的知识条目
+  
+Edge
+  ├── from: NodeId
+  ├── to: NodeId
+  └── type: 'depends_on' | 'blocks' | 'related_to'
+```
+
+**节点生命周期**：
+
+```
+planned ──▶ active ──▶ completed
+              │
+              ├──▶ blocked ──▶ active（解除阻塞）
+              │
+              └──▶ abandoned（标记原因）
+```
+
+**关键设计决策**：
+
+- **Graph 是引导不是约束**（原则二）：节点状态转换无强制前置条件。`depends_on` 边仅作为可视化提示和 Agent 分析依据，不阻止用户推进任何节点。
+- **自由生长**：用户可以随时在 Graph 上新增节点和边。系统提供 Template（模板）作为起始骨架，但不限制偏离。
+- **邻接表存储**：Graph 以邻接表形式存储在 PostgreSQL 中（`nodes` 表 + `edges` 表），而非图数据库。社团规模下节点数量有限（百~千级），关系查询用 CTE 递归即可满足，无需引入额外基建。
+
+---
+
+### 4. Knowledge Sedimentation Engine（知识沉淀引擎）
+
+**职责**：从事件流中提取、组织、沉淀知识，使其可被后来者独立理解。
+
+**核心概念**：
+
+```
+KnowledgeEntry（知识条目）
+  ├── id: string
+  ├── nodeId: string              // 关联的 Graph 节点
+  ├── type: 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff'
+  ├── title: string
+  ├── content: string             // 人类可读的结构化内容
+  ├── sources: EventRef[]         // 溯源到原始事件
+  ├── createdBy: 'agent' | 'user'
+  ├── confidence: number          // Agent 生成时的置信度
+  ├── status: 'draft' | 'confirmed' | 'superseded'
+  └── timeline: Revision[]        // 渐进式修订历史
+```
+
+**渐进式沉淀流程**：
+
+```
+Event 到达
+  │
+  ▼
+Agent 分析事件 + 上下文
+  │
+  ├── 已有相关 KE？ ──▶ 追加 Revision（渐进更新）
+  │
+  └── 无相关 KE？ ──▶ 创建 draft KE
+                        │
+                        ▼
+                   用户确认或编辑 ──▶ confirmed
+```
+
+**关键设计决策**：
+
+- **面向人的输出**（原则三）：每个 KE 的 `content` 必须是自然语言，能独立阅读。Agent 生成时以「向一个没有上下文的新成员解释」为 prompt 目标。
+- **溯源链**：每个 KE 携带 `sources` 字段，指向触发它的原始事件。后来者不仅能读到结论，还能追溯到原始证据。
+- **draft → confirmed**：Agent 自动生成的 KE 默认为 `draft`，需要人类确认。这避免低质量知识污染知识库，同时保持 Agent 的主动性。
+- **superseded**：当同一主题的新 KE 取代旧 KE 时，旧条目标记为 `superseded` 而非删除，保留历史演变轨迹。
+
+---
+
+### 5. Agent Orchestrator（Agent 编排器）
+
+**职责**：管理 Agent 任务的生命周期，协调事件驱动和定时任务两种模式。
+
+**混合模式设计**：
+
+```
+┌───────────────────────────────────────────────┐
+│              Agent Orchestrator               │
+│                                               │
+│  ┌─────────────────┐  ┌────────────────────┐  │
+│  │ Event Listener  │  │ Scheduler (Cron)   │  │
+│  │                 │  │                    │  │
+│  │ 监听 Pipeline   │  │ • 每日摘要生成     │  │
+│  │ Route 阶段分发  │  │ • 周期性同步 Poll  │  │
+│  │                 │  │ • 停滞节点检测     │  │
+│  │                 │  │ • 知识库健康检查   │  │
+│  └────────┬────────┘  └────────┬───────────┘  │
+│           │                    │              │
+│           └─────────┬──────────┘              │
+│                     ▼                         │
+│           ┌─────────────────┐                 │
+│           │   Task Queue    │                 │
+│           │   (BullMQ)      │                 │
+│           └────────┬────────┘                 │
+│                    ▼                          │
+│           ┌─────────────────┐                 │
+│           │  Task Executor  │                 │
+│           │                 │                 │
+│           │  • LLM 调用     │                 │
+│           │  • KE 生成/更新 │                 │
+│           │  • 通知推送     │                 │
+│           └─────────────────┘                 │
+└───────────────────────────────────────────────┘
+```
+
+| 触发方式 | 任务类型 | 示例 |
+|---|---|---|
+| **事件驱动** | 即时分析 | PR 合并 → 提取决策上下文并关联 Graph 节点 |
+| **事件驱动** | 即时通知 | 节点状态变更 → 通知相关成员 |
+| **定时任务** | 周期同步 | 每 30 分钟 poll 各 Adapter 补充遗漏事件 |
+| **定时任务** | 主动检测 | 每日扫描 `active` 超过 N 天未更新的节点，标记为潜在阻塞 |
+| **定时任务** | 摘要生成 | 每日/每周生成项目进展摘要，推送到飞书/QQ 群 |
+
+**Agent 能力边界执行**（原则一）：Task Executor 内部硬编码能力白名单——只能读取外部数据、写入系统自身数据（KE、Graph 状态、通知），不能写入项目内容（代码、配置、PR）。
+
+---
+
+## 数据模型（PostgreSQL Schema 概要）
+
+```sql
+-- 项目
+CREATE TABLE projects (
+  id          UUID PRIMARY KEY,
+  name        TEXT NOT NULL,
+  config      JSONB,  -- Adapter 配置、模板偏好等
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- Scaffold Graph 节点
+CREATE TABLE nodes (
+  id          UUID PRIMARY KEY,
+  project_id  UUID REFERENCES projects(id),
+  type        TEXT NOT NULL,       -- 'milestone' | 'task' | 'decision' | 'review' | 'custom'
+  status      TEXT NOT NULL,       -- 'planned' | 'active' | 'blocked' | 'completed' | 'abandoned'
+  title       TEXT NOT NULL,
+  description TEXT,
+  owner       TEXT,
+  metadata    JSONB,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- Scaffold Graph 边
+CREATE TABLE edges (
+  id        UUID PRIMARY KEY,
+  from_id   UUID REFERENCES nodes(id) ON DELETE CASCADE,
+  to_id     UUID REFERENCES nodes(id) ON DELETE CASCADE,
+  type      TEXT NOT NULL,         -- 'depends_on' | 'blocks' | 'related_to'
+  UNIQUE(from_id, to_id, type)
+);
+
+-- 事件存储
+CREATE TABLE events (
+  id              UUID PRIMARY KEY,
+  source          TEXT NOT NULL,
+  source_event_id TEXT NOT NULL,
+  type            TEXT NOT NULL,
+  actor           TEXT,
+  payload         JSONB NOT NULL,
+  project_id      UUID REFERENCES projects(id),
+  related_node_ids UUID[],
+  timestamp       TIMESTAMPTZ NOT NULL,
+  ingested_at     TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(source, source_event_id)
+);
+
+-- 知识条目
+CREATE TABLE knowledge_entries (
+  id          UUID PRIMARY KEY,
+  node_id     UUID REFERENCES nodes(id),
+  project_id  UUID REFERENCES projects(id),
+  type        TEXT NOT NULL,       -- 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff'
+  title       TEXT NOT NULL,
+  content     TEXT NOT NULL,
+  sources     JSONB NOT NULL,      -- [{eventId, excerpt}]
+  created_by  TEXT NOT NULL,       -- 'agent' | 'user'
+  confidence  REAL,
+  status      TEXT NOT NULL,       -- 'draft' | 'confirmed' | 'superseded'
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- 知识条目修订历史（渐进式沉淀）
+CREATE TABLE knowledge_revisions (
+  id          UUID PRIMARY KEY,
+  entry_id    UUID REFERENCES knowledge_entries(id) ON DELETE CASCADE,
+  content     TEXT NOT NULL,
+  diff_reason TEXT,                -- 本次修订的原因
+  sources     JSONB,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- Agent 任务
+CREATE TABLE agent_tasks (
+  id          UUID PRIMARY KEY,
+  project_id  UUID REFERENCES projects(id),
+  trigger     TEXT NOT NULL,       -- 'event' | 'scheduled'
+  type        TEXT NOT NULL,       -- 'analyze' | 'summarize' | 'detect_stale' | 'notify' | ...
+  status      TEXT NOT NULL,       -- 'queued' | 'running' | 'completed' | 'failed'
+  input       JSONB,
+  output      JSONB,
+  error       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+```
+
+---
+
+## 关键数据流
+
+### 流程一：PR 合并 → 知识沉淀
+
+```
+1. GitHub Webhook 推送 PR merged 事件
+2. GitHub Adapter 归一化为 NormalizedEvent
+3. Event Pipeline:
+   - Deduplicate: 检查 source_event_id
+   - Enrich: 根据 PR title/branch 名匹配关联 Graph 节点
+   - Route: 分发到 Knowledge Sedimentation Engine
+   - Persist: 写入 Event Store
+4. Agent Orchestrator 创建 Task:
+   - 读取 PR diff、review comments、关联 issue
+   - LLM 分析：提取决策原因、被否决的替代方案、遗留风险
+   - 生成 draft KnowledgeEntry，关联到 Graph 节点
+5. 用户在 Dashboard 看到 draft KE，确认或编辑
+```
+
+### 流程二：定时检测停滞节点
+
+```
+1. Scheduler 触发 detect_stale 任务（每日）
+2. Agent 查询所有 status='active' 且超过 N 天无关联事件的节点
+3. 对每个停滞节点:
+   - 查看最近的关联事件和 KE，分析可能的阻塞原因
+   - 生成 blocker 类型的 draft KE
+   - 推送通知到节点 owner（通过 Adapter notify）
+4. 节点状态标记建议（不自动变更，由用户决定）
+```
+
+### 流程三：新成员 Onboarding
+
+```
+1. 新成员打开 Dashboard，选择项目
+2. 看到 Scaffold Graph 全局视图（节点 + 依赖 + 状态）
+3. 点击任意节点，查看:
+   - 节点描述和当前状态
+   - 关联的 KnowledgeEntries（按时间排序）
+   - 每个 KE 的 sources（可追溯到原始事件）
+4. 通过 Timeline 视图查看项目整体演变
+5. 无需询问老成员即可理解「为什么这样设计」
+```
+
+---
+
+## 项目结构（Monorepo）
+
+```
+zet-plane/
+├── apps/
+│   ├── server/                    # NestJS 主服务
+│   │   ├── src/
+│   │   │   ├── adapters/          # Adapter 模块
+│   │   │   │   ├── github/
+│   │   │   │   ├── feishu/
+│   │   │   │   ├── qq/
+│   │   │   │   ├── monitor/
+│   │   │   │   └── manual/
+│   │   │   ├── pipeline/          # Event Pipeline
+│   │   │   ├── graph/             # Scaffold Graph Engine
+│   │   │   ├── knowledge/         # Knowledge Sedimentation Engine
+│   │   │   ├── agent/             # Agent Orchestrator
+│   │   │   ├── api/               # REST + WebSocket controllers
+│   │   │   └── common/            # 共享类型、工具
+│   │   └── prisma/                # Prisma schema & migrations
+│   └── web/                       # 前端 Dashboard
+├── packages/
+│   └── shared/                    # 前后端共享类型定义
+├── docs/
+│   ├── specs.md
+│   └── architecture.md
+└── package.json                   # Monorepo root (pnpm workspace)
+```
+
+---
+
+## 非功能性考量
+
+### 规模估算
+
+目标用户为社团/小型团队（5-30 人），单项目事件量约：
+- 日均事件：~100-500 条（commits, messages, PR activities）
+- Graph 节点：~50-500 per project
+- 知识条目：~10-100 per project per month
+
+此规模下 **单实例 PostgreSQL + 单 Node.js 进程** 完全足够，无需分布式架构。
+
+### 可用性
+
+- 系统宕机不阻塞开发（原则二：引导而非约束）。团队可以在系统离线时正常使用 GitHub/飞书，系统恢复后通过 poll 补充遗漏事件。
+- 数据持久性依赖 PostgreSQL 常规备份策略。
+
+### 安全
+
+- Adapter 凭证（GitHub Token, Feishu App Secret 等）加密存储，不进入日志。
+- LLM 调用时脱敏：代码内容可传递给 LLM 分析，但需在项目配置中明确授权。
+- API 访问通过 JWT 鉴权，成员权限与项目绑定。
+
+---
+
+## Trade-off 分析
+
+| 决策 | 选择 | 替代方案 | 取舍 |
+|---|---|---|---|
+| Graph 存 PostgreSQL | 邻接表 + CTE | Neo4j / 图数据库 | 牺牲复杂图查询性能（社团规模不需要），换取运维简单和技术栈统一 |
+| NestJS | 模块化 DI 框架 | Express + 手动分层 | 增加框架学习成本，换取 Adapter 插拔的结构化支持 |
+| BullMQ | 轻量任务队列 | RabbitMQ / Kafka | 牺牲消息持久性保证，换取部署简单（仅需 Redis） |
+| draft → confirmed | 人工确认 Agent 产出 | 全自动入库 | 牺牲自动化程度，换取知识库质量可控 |
+| Monorepo | 前后端统一管理 | 多仓库 | 增加构建复杂度，换取类型共享和版本一致性 |
+| Event 全量存储 | 所有事件持久化到 Event Store | 只存分析结果 | 增加存储量，换取完整溯源能力和后续重新分析的可能 |
+
+---
+
+## 未来演进方向
+
+以下不在 v1 范围内，但架构设计时已预留扩展点：
+
+1. **多项目支持**：`projects` 表已就位，所有实体通过 `project_id` 隔离
+2. **Adapter Marketplace**：Adapter 接口标准化后可支持社区贡献的第三方 Adapter
+3. **知识搜索**：引入向量数据库（pgvector）支持语义搜索
+4. **Graph Template 共享**：跨项目复用 Scaffold Graph 模板
+5. **权限细粒度化**：节点级别的可见性控制
