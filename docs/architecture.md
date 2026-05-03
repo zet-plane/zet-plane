@@ -6,7 +6,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        External Endpoints                          │
+│                   Remote Endpoints (server-side)                   │
 │  GitHub · Feishu · QQ · Grafana · Aliyun · User Input · ...        │
 └──────────┬──────────────────────────────────────────────┬───────────┘
            │ Webhook / Poll / Manual                      │ Notify / Push
@@ -22,6 +22,21 @@
 │       └─────────────┴────────────┴─────────────┴────────────┘        │
 │                          ▼ Normalized Event                         │
 └──────────────────────────┬──────────────────────────────────────────┘
+           ▲ Client Push (HTTP)
+           │
+┌──────────────────────────────────────────────────────────────────────┐
+│                   Local Endpoints (client-side)                     │
+│                                                                     │
+│  ┌──────────────────────┐  ┌──────────────────────┐                 │
+│  │  Claude Code         │  │  Codex               │                 │
+│  │  Hook (Stop/PostTool)│  │  Plugin              │                 │
+│  └──────────┬───────────┘  └──────────┬───────────┘                 │
+│             │                         │                             │
+│             └──────────┬──────────────┘                             │
+│                        ▼                                            │
+│              zet-plane-cli (本地 SDK)                               │
+│              • 摘要提取 · 隐私过滤 · 离线缓冲 · HTTP Push           │
+└──────────────────────────────────────────────────────────────────────┘
                            │
                            ▼
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -97,9 +112,9 @@
 ```
 interface NormalizedEvent {
   id: string;                     // 全局唯一
-  source: AdapterType;            // 'github' | 'feishu' | 'qq' | 'monitor' | 'manual'
+  source: AdapterType;            // 'github' | 'feishu' | 'qq' | 'monitor' | 'manual' | 'claude-code' | 'codex'
   sourceEventId: string;          // 原始事件 ID（用于去重）
-  type: string;                   // 'commit' | 'pr_opened' | 'message' | 'alert' | ...
+  type: string;                   // 'commit' | 'pr_opened' | 'message' | 'alert' | 'ai-session' | ...
   timestamp: Date;
   actor?: string;                 // 触发人
   payload: Record<string, any>;   // 原始数据（JSONB 存储）
@@ -124,10 +139,37 @@ interface Adapter {
 
   // 反向推送：通知到端侧
   notify(target: NotifyTarget, message: NotifyMessage): Promise<void>;
+
+  // 客户端推送：接收 zet-plane-cli 上报的本地事件（Local Adapter 专用）
+  handleClientPush?(payload: unknown, token: string): Promise<NormalizedEvent>;
 }
 ```
 
 每个 Adapter 作为独立的 NestJS Module，通过 DI 注册。新增信息源 = 新增一个 Module，实现 `Adapter` 接口。
+
+**Local Adapter（本地推送型）** 与 Remote Adapter 的区别：
+
+| | Remote Adapter | Local Adapter |
+|---|---|---|
+| 运行位置 | 服务端 | 开发者本地机器（CLI） |
+| 触发方式 | webhook 入站 / 服务端 poll | 本地 hook 触发，主动 HTTP Push |
+| 典型实现 | GitHub, Feishu, QQ | Claude Code, Codex |
+| 离线处理 | 服务端等待重连 | CLI 本地缓冲，恢复后补传 |
+
+**Claude Code 集成方式**（`zet-plane-cli`）：
+
+```jsonc
+// .claude/settings.json
+{
+  "hooks": {
+    "Stop": [{
+      "command": "zet-plane upload-session --project $ZET_PROJECT_ID"
+    }]
+  }
+}
+```
+
+`zet-plane-cli` 在 session 结束时自动执行：读取 session 摘要 → 隐私过滤（可配置排除敏感文件） → 压缩为 `ai-session` 类型的 NormalizedEvent → POST 到 `POST /api/ingest`。开发者全程无感知。
 
 ---
 
@@ -200,7 +242,7 @@ planned ──▶ active ──▶ completed
 KnowledgeEntry（知识条目）
   ├── id: string
   ├── nodeId: string              // 关联的 Graph 节点
-  ├── type: 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff'
+  ├── type: 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff' | 'ai-session-context'
   ├── title: string
   ├── content: string             // 人类可读的结构化内容
   ├── sources: EventRef[]         // 溯源到原始事件
@@ -337,7 +379,7 @@ CREATE TABLE knowledge_entries (
   id          UUID PRIMARY KEY,
   node_id     UUID REFERENCES nodes(id),
   project_id  UUID REFERENCES projects(id),
-  type        TEXT NOT NULL,       -- 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff'
+  type        TEXT NOT NULL,       -- 'decision' | 'context' | 'blocker' | 'lesson' | 'handoff' | 'ai-session-context'
   title       TEXT NOT NULL,
   content     TEXT NOT NULL,
   sources     JSONB NOT NULL,      -- [{eventId, excerpt}]
@@ -406,7 +448,29 @@ CREATE TABLE agent_tasks (
 4. 节点状态标记建议（不自动变更，由用户决定）
 ```
 
-### 流程三：新成员 Onboarding
+### 流程三：Claude Code Session → 知识沉淀
+
+```
+1. 开发者在项目目录下使用 Claude Code，session 结束时 Stop hook 自动触发
+2. zet-plane-cli 执行:
+   - 读取 Claude Code session 摘要（对话 + tool calls 概要）
+   - 隐私过滤：剔除配置中标记的敏感文件内容
+   - 压缩为 NormalizedEvent { source: 'claude-code', type: 'ai-session' }
+   - 离线缓冲检查：若服务器不可达，写入本地队列，下次自动补传
+   - POST /api/ingest（Bearer token 鉴权）
+3. Event Pipeline 处理:
+   - Deduplicate: 基于 session ID 去重
+   - Enrich: 从 session 内容中提取提及的文件/模块，关联 Graph 节点
+   - Route: 分发到 Knowledge Sedimentation Engine
+4. Agent 分析 session，提取:
+   - 开发者遇到的决策点（为什么选 A 不选 B）
+   - 遇到的阻塞（卡在哪里、如何解决）
+   - 被否决的方案（AI 提议但被拒绝的设计）
+   - 生成 'ai-session-context' 类型 draft KE，关联到 Graph 节点
+5. 用户确认 KE，沉淀为可被后来者独立理解的记录
+```
+
+### 流程四：新成员 Onboarding
 
 ```
 1. 新成员打开 Dashboard，选择项目
@@ -433,7 +497,9 @@ zet-plane/
 │   │   │   │   ├── feishu/
 │   │   │   │   ├── qq/
 │   │   │   │   ├── monitor/
-│   │   │   │   └── manual/
+│   │   │   │   ├── manual/
+│   │   │   │   ├── claude-code/   # Local Adapter（接收 client push）
+│   │   │   │   └── codex/         # Local Adapter（接收 client push）
 │   │   │   ├── pipeline/          # Event Pipeline
 │   │   │   ├── graph/             # Scaffold Graph Engine
 │   │   │   ├── knowledge/         # Knowledge Sedimentation Engine
@@ -443,7 +509,13 @@ zet-plane/
 │   │   └── prisma/                # Prisma schema & migrations
 │   └── web/                       # 前端 Dashboard
 ├── packages/
-│   └── shared/                    # 前后端共享类型定义
+│   ├── shared/                    # 前后端共享类型定义
+│   └── cli/                       # zet-plane-cli（本地 SDK，发布为 npm 包）
+│       ├── src/
+│       │   ├── session/           # 读取 Claude Code / Codex session 摘要
+│       │   ├── filter/            # 隐私过滤（排除敏感文件路径等）
+│       │   ├── uploader/          # HTTP Push + 离线缓冲
+│       │   └── index.ts           # CLI 入口：zet-plane upload-session
 ├── docs/
 │   ├── specs.md
 │   └── architecture.md
