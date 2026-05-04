@@ -141,7 +141,9 @@ Graph Engine 只暴露被动 CRUD，不含 LLM 调用或主动逻辑。
 | `GET` | `/projects/:id/edges` | 查询项目下全部边 |
 | `PATCH` | `/nodes/:id/edges` | 原子性替换节点指定类型的边（移动节点用）；同样触发环检测 |
 
-### 内部事件（供 Agent Orchestrator 订阅）
+### 内部领域事件（Domain Event，供 Agent Orchestrator 订阅）
+
+Graph Engine 状态变更后向外发出的通知，属于系统内部信号，与 Event Pipeline 处理的外部触发事件（Trigger Event）性质不同。
 
 | 事件 | 触发时机 |
 |---|---|
@@ -164,27 +166,31 @@ GitHub Webhook
  Event Pipeline
   （去重 → Enrich → Route）
       │
-      ├── 确定性变更 ──────────────────────────▶ Graph Engine
-      │   （如：PR merged → 节点状态 → completed）    │
-      │                                             │ graph.node.* 事件
-      └── 需 LLM 分析 ──▶ Agent Orchestrator ◀──────┘
-                               │
-                    ┌──────────┴──────────┐
-                    ▼                     ▼
-             Graph Engine          Knowledge Engine
-          （创建/更新节点、边）      （创建/更新知识条目）
-                    │
-                    ▼
-              REST API / WebSocket
-                    │
-                    ▼
-             Web Dashboard
+      ▼
+ Agent Orchestrator
+  （所有事件统一经由 LLM 分析）
+      │                          Graph Engine 发出领域事件（pub/sub）
+      │                          如 checkpoint_elevated → 触发 AI 后续处理
+      │                          ◀──────────────────────────────────┐
+      │                                                             │
+      ├──────────────────────────▶ Graph Engine ───────────────────┘
+      │                        （创建/更新节点、边）
+      │
+      └──────────────────────────▶ Knowledge Engine
+                               （创建/更新知识条目）
+                                        │
+                               REST API / WebSocket
+                                        │
+                                  Web Dashboard
 ```
 
-**两条路径说明：**
+> 外部事件和Node的存储关系是多对一的关系
+> 可能会出现孤立event难以直接载入Node下的情况，需要agent orchestrator详细设计
 
-- **确定性变更**：Event Pipeline 直接写 Graph Engine，不经 LLM（规则可枚举，如 PR 合并 → 节点 completed）
-- **需分析的事件**：派发给 Agent Orchestrator；Orchestrator 读取 Graph 上下文，决定是否创建子节点、挂知识条目，再写回 Graph Engine 和 Knowledge Engine
+**术语区分：**
+
+- **外部触发事件（Trigger Event）**：来自 GitHub 的原始信号，由 Event Pipeline 归一化后全部路由到 Agent Orchestrator
+- **内部领域事件（Domain Event）**：Graph Engine 状态变更后发出的 pub/sub 通知；特定事件（如 `checkpoint_elevated`）会反向触发 Orchestrator 做 AI 后续处理
 
 ---
 

@@ -134,6 +134,7 @@
 | 队列 | BullMQ (Redis) | 轻量，支持延迟任务和重试，用于 Agent 任务调度 |
 | 实时通信 | WebSocket (socket.io) | 推送 Graph 状态变更和知识更新 |
 | LLM 接口 | Anthropic SDK / OpenAI SDK | Agent 分析和知识提取的 LLM 能力 |
+| 项目结构 | Turborepo + pnpm | 前后端分离、灵活扩展 |
 
 ---
 
