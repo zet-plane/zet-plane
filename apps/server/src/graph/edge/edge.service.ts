@@ -33,11 +33,13 @@ export class EdgeService {
       return { cyclePath: path, checkpointNodeId: nodeId }
     })
 
-    if (cyclePath && checkpointNodeId) {
-      await this.publisher.publish({
-        type: 'graph.node.checkpoint_elevated',
-        payload: { nodeId: checkpointNodeId, cyclePath, projectId: data.projectId },
-      })
+    if (cyclePath) {
+      if (checkpointNodeId) {
+        await this.publisher.publish({
+          type: 'graph.node.checkpoint_elevated',
+          payload: { nodeId: checkpointNodeId, cyclePath, projectId: data.projectId },
+        })
+      }
     } else {
       await this.publisher.publish({
         type: 'graph.edge.created',
@@ -70,6 +72,7 @@ export class EdgeService {
     ])
     if (!node) throw new NotFoundException(`Node ${nodeId} not found`)
     if (!newParent) throw new NotFoundException(`Node ${newFromId} not found`)
+    if (node.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (newParent.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
 
     const edge = await this.repo.replaceNodeEdges(nodeId, type, newFromId, projectId, createdBy)
