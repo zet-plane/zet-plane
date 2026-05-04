@@ -1,6 +1,16 @@
 import { Module } from '@nestjs/common'
+import { BullModule } from '@nestjs/bullmq'
+import { GraphModule } from './graph/graph.module'
 
 @Module({
-  imports: [],
+  imports: [
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST ?? 'localhost',
+        port: Number(process.env.REDIS_PORT ?? 6379),
+      },
+    }),
+    GraphModule,
+  ],
 })
 export class AppModule {}
