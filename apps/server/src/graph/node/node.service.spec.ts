@@ -73,7 +73,7 @@ describe('NodeService', () => {
     })
 
     it('throws 409 when setting active with unresolved dependency', async () => {
-      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.blocked }))
+      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.active }))
       mockRepo.findDependencyTargets.mockResolvedValue([
         makeNode({ id: 'dep1', status: NodeStatus.active }),
       ])
@@ -96,6 +96,11 @@ describe('NodeService', () => {
         type: 'graph.node.status_changed',
         payload: { nodeId: 'n1', status: NodeStatus.completed, previousStatus: NodeStatus.active, projectId: 'p1' },
       })
+    })
+
+    it('throws 409 when reverting completed node to active', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.completed }))
+      await expect(service.updateStatus('n1', NodeStatus.active)).rejects.toThrow(ConflictException)
     })
   })
 

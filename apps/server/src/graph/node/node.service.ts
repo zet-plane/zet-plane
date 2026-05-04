@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { NodeStatus, CheckpointResolution } from '@prisma/client'
-import type { Node } from '@prisma/client'
+import type { Node, Edge } from '@prisma/client'
 import type { GraphRepository, NodeCreateData, DeleteStrategy } from '../repository/graph.repository'
+import { HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 import type { GraphEventPublisher } from '../events/graph-event.publisher'
 
 @Injectable()
@@ -23,7 +24,7 @@ export class NodeService {
     return this.repo.listProjectNodes(projectId)
   }
 
-  async getSubgraph(nodeId: string): Promise<{ nodes: Node[]; edges: any[] }> {
+  async getSubgraph(nodeId: string): Promise<{ nodes: Node[]; edges: Edge[] }> {
     const node = await this.repo.findNode(nodeId)
     if (!node) throw new NotFoundException(`Node ${nodeId} not found`)
     return this.repo.getSubgraph(nodeId)
@@ -74,11 +75,11 @@ export class NodeService {
         payload: { nodeId, strategy, affectedNodeIds, projectId: node.projectId },
       })
       return { affectedNodeIds }
-    } catch (err: any) {
-      if (err.message === 'HAS_COMPOSITION_CHILDREN') {
+    } catch (err) {
+      if (err instanceof HasCompositionChildrenError) {
         throw new ConflictException({ error: 'HAS_ACTIVE_CHILDREN', affectedNodes: err.affectedNodes })
       }
-      if (err.message === 'AMBIGUOUS_PARENT') {
+      if (err instanceof AmbiguousParentError) {
         throw new ConflictException({ error: 'AMBIGUOUS_PARENT', parents: err.parents })
       }
       throw err
@@ -97,6 +98,9 @@ export class NodeService {
     }
     if (newStatus === NodeStatus.active && node.status === NodeStatus.blocked) {
       throw new ConflictException('USE_RESOLUTION_API')
+    }
+    if (node.status === NodeStatus.completed && newStatus !== NodeStatus.archived) {
+      throw new ConflictException('NODE_COMPLETED')
     }
     if (newStatus === NodeStatus.completed) {
       if (node.status === NodeStatus.blocked) {
