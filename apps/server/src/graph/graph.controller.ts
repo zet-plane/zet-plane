@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Delete, Param, Body } from '@nestjs/common'
+import { Controller, Post, Patch, Get, Delete, Param, Body, Query, BadRequestException } from '@nestjs/common'
 import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@prisma/client'
 import { NodeService } from './node/node.service'
 import { EdgeService } from './edge/edge.service'
@@ -44,7 +44,12 @@ export class GraphController {
     @Body() body: { title?: string; description?: string; isCheckpoint?: boolean; status?: NodeStatus },
   ) {
     const { status, ...rest } = body
-    if (status !== undefined) return this.nodeService.updateStatus(nodeId, status)
+    if (status !== undefined) {
+      if (Object.keys(rest).some(k => rest[k as keyof typeof rest] !== undefined)) {
+        throw new BadRequestException('Cannot mix status update with field updates in a single request')
+      }
+      return this.nodeService.updateStatus(nodeId, status)
+    }
     return this.nodeService.updateNode(nodeId, rest)
   }
 
@@ -59,9 +64,9 @@ export class GraphController {
   @Delete('nodes/:id')
   deleteNode(
     @Param('id') nodeId: string,
-    @Body() body: { strategy?: DeleteStrategy } = {},
+    @Query('strategy') strategy?: DeleteStrategy,
   ) {
-    return this.nodeService.deleteNode(nodeId, body.strategy)
+    return this.nodeService.deleteNode(nodeId, strategy)
   }
 
   // ── Edges ─────────────────────────────────────────────────────────────

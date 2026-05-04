@@ -64,9 +64,9 @@ describe('GraphController', () => {
     expect(mockNodeService.resolveCheckpoint).toHaveBeenCalledWith('n1', 'continue')
   })
 
-  it('deleteNode passes strategy from body', async () => {
+  it('deleteNode passes strategy from query', async () => {
     mockNodeService.deleteNode.mockResolvedValue({ affectedNodeIds: [] })
-    await controller.deleteNode('n1', { strategy: 'cascade' })
+    await controller.deleteNode('n1', 'cascade')
     expect(mockNodeService.deleteNode).toHaveBeenCalledWith('n1', 'cascade')
   })
 
