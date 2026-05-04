@@ -59,6 +59,10 @@ describe('CycleDetectorService', () => {
       const edges = [edge('root', 'a'), edge('a', 'b'), edge('b', 'c'), edge('c', 'd')]
       expect(detector.detect('c', 'd', edges)).toBeNull()
     })
+
+    it('returns null when fromId equals toId (self-edge has no traversable path)', () => {
+      expect(detector.detect('a', 'a', [edge('a', 'b'), edge('b', 'c')])).toBeNull()
+    })
   })
 
   describe('findHighestInDegreeNode', () => {
