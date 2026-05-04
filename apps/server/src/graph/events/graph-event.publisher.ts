@@ -2,10 +2,9 @@ import { Injectable } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
 import type { EdgeType, NodeStatus } from '@prisma/client'
+import type { DeleteStrategy } from '../repository/graph.repository'
 
 export const GRAPH_EVENTS_QUEUE = 'graph-events'
-
-export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'
 
 export type GraphJob =
   | { type: 'graph.edge.created'; payload: { edgeId: string; fromId: string; toId: string; edgeType: EdgeType; projectId: string } }

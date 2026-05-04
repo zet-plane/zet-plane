@@ -2,7 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { NodeType, NodeStatus, EdgeType, CreatedBy, CheckpointResolution } from '@prisma/client'
 import type { Node, Edge } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
-import type { DeleteStrategy } from '../events/graph-event.publisher'
+
+export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'
+
+export class HasCompositionChildrenError extends Error {
+  constructor(readonly affectedNodes: string[]) {
+    super('HAS_COMPOSITION_CHILDREN')
+  }
+}
+
+export class AmbiguousParentError extends Error {
+  constructor(readonly parents: string[]) {
+    super('AMBIGUOUS_PARENT')
+  }
+}
 
 export type NodeCreateData = {
   projectId: string
@@ -64,6 +77,8 @@ export class GraphRepository {
     id: string,
     data: Partial<Pick<Node, 'title' | 'description' | 'status' | 'isCheckpoint' | 'checkpointResolution'>>,
   ): Promise<Node> {
+    const node = await this.prisma.node.findUnique({ where: { id } })
+    if (!node) throw new NotFoundException(`Node ${id} not found`)
     return this.prisma.node.update({ where: { id }, data })
   }
 
@@ -118,6 +133,8 @@ export class GraphRepository {
   }
 
   async deleteEdge(id: string): Promise<void> {
+    const edge = await this.prisma.edge.findUnique({ where: { id } })
+    if (!edge) throw new NotFoundException(`Edge ${id} not found`)
     await this.prisma.edge.delete({ where: { id } })
   }
 
@@ -172,9 +189,7 @@ export class GraphRepository {
   private async deleteBlock(nodeId: string): Promise<string[]> {
     const children = await this.findCompositionChildren(nodeId)
     if (children.length > 0) {
-      const err: any = new Error('HAS_COMPOSITION_CHILDREN')
-      err.affectedNodes = children.map(c => c.id)
-      throw err
+      throw new HasCompositionChildrenError(children.map(c => c.id))
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.edge.deleteMany({ where: { OR: [{ fromId: nodeId }, { toId: nodeId }] } })
@@ -207,9 +222,7 @@ export class GraphRepository {
   private async deleteReparentToParent(nodeId: string, projectId: string): Promise<string[]> {
     const parents = await this.findCompositionParents(nodeId)
     if (parents.length !== 1) {
-      const err: any = new Error('AMBIGUOUS_PARENT')
-      err.parents = parents.map(p => p.id)
-      throw err
+      throw new AmbiguousParentError(parents.map(p => p.id))
     }
     const parent = parents[0]
     const children = await this.findCompositionChildren(nodeId)
