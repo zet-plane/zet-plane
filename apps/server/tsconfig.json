@@ -3,6 +3,9 @@
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",
+    "paths": {
+      "@generated/client": ["./src/generated/client/client"]
+    },
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true
   },

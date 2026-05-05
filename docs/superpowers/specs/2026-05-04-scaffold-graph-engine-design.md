@@ -110,6 +110,7 @@ enum CreatedBy            { human agent }
 | 设置 `completed` | 存在未 `completed` 的 `composition` 子节点（`fromId=本节点, type=composition`） | `409 INCOMPLETE_CHILDREN` |
 | 设置 `active` | 存在未 `completed` 的 `dependency` 目标（`fromId=本节点, type=dependency`） | `409 UNRESOLVED_DEPENDENCY` |
 | `blocked → active` 直接 PATCH | `blocked` 状态只能通过 resolution API 解锁 | `409 USE_RESOLUTION_API` |
+| `completed → <非 archived>` | `completed` 节点近不可变——唯一允许的出口是 `archived`（显式退役），其余状态变更一律拒绝，保证审计完整性 | `409 NODE_COMPLETED` |
 
 ---
 

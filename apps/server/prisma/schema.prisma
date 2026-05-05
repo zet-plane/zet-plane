@@ -1,10 +1,68 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/client"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-// 模型在各 Domain Service 设计文档确定后补充
+model Node {
+  id                   String                @id @default(uuid())
+  projectId            String
+  isProjectRoot        Boolean               @default(false)
+  type                 NodeType
+  title                String
+  description          String?
+  status               NodeStatus            @default(active)
+  isCheckpoint         Boolean               @default(false)
+  checkpointResolution CheckpointResolution?
+  createdBy            CreatedBy
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([projectId])
+}
+
+model Edge {
+  id        String    @id @default(uuid())
+  projectId String
+  fromId    String
+  toId      String
+  type      EdgeType
+  createdBy CreatedBy
+  createdAt DateTime  @default(now())
+
+  @@unique([fromId, toId, type])
+  @@index([projectId])
+  @@index([fromId])
+  @@index([toId])
+}
+
+enum NodeType {
+  scaffold
+  growth
+}
+
+enum NodeStatus {
+  active
+  blocked
+  completed
+  archived
+}
+
+enum CheckpointResolution {
+  continue
+  loop
+}
+
+enum EdgeType {
+  composition
+  dependency
+  reference
+}
+
+enum CreatedBy {
+  human
+  agent
+}
