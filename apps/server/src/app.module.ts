@@ -4,6 +4,7 @@ import { BullModule } from '@nestjs/bullmq'
 import { GraphModule } from './graph/graph.module'
 import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
+import { KnowledgeModule } from './knowledge/knowledge.module'
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AppConfig } from './config/app-config'
       },
     }),
     GraphModule,
+    KnowledgeModule,
   ],
 })
 export class AppModule {}
