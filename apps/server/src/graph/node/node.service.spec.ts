@@ -80,6 +80,16 @@ describe('NodeService', () => {
       await expect(service.updateStatus('n1', NodeStatus.active)).rejects.toThrow(ConflictException)
     })
 
+    it('does NOT block activation when dependency is archived', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.active }))
+      mockRepo.findDependencyTargets.mockResolvedValue([
+        makeNode({ id: 'dep1', status: NodeStatus.archived }),
+      ])
+      mockRepo.updateNode.mockResolvedValue(makeNode({ status: NodeStatus.active }))
+      await expect(service.updateStatus('n1', NodeStatus.active)).resolves.not.toThrow()
+      expect(mockRepo.updateNode).toHaveBeenCalledWith('n1', { status: NodeStatus.active })
+    })
+
     it('throws 409 when setting active directly on blocked node (must use resolution API)', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.blocked, isCheckpoint: true }))
       mockRepo.findDependencyTargets.mockResolvedValue([])

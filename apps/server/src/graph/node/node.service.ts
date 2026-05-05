@@ -117,7 +117,10 @@ export class NodeService {
     }
     if (newStatus === NodeStatus.active) {
       const deps = await this.repo.findDependencyTargets(node.id)
-      const unresolved = deps.filter(d => d.status !== NodeStatus.completed)
+      // Mirror the children-completion check: archived deps are retired and
+      // no longer block activation, just like archived composition children
+      // do not block a parent from completing.
+      const unresolved = deps.filter(d => d.status !== NodeStatus.completed && d.status !== NodeStatus.archived)
       if (unresolved.length > 0) {
         throw new ConflictException('UNRESOLVED_DEPENDENCY')
       }
