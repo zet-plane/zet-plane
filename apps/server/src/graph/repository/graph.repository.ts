@@ -50,15 +50,30 @@ export class GraphRepository {
   async initProjectRoot(projectId: string): Promise<Node> {
     const existing = await this.findProjectRoot(projectId)
     if (existing) return existing
-    return this.prisma.node.create({
-      data: {
-        projectId,
-        isProjectRoot: true,
-        type: NodeType.scaffold,
-        title: '[Project Root]',
-        createdBy: CreatedBy.human,
-      },
-    })
+    // TOCTOU note: a concurrent initProjectRoot call can race past the findFirst
+    // check above and both attempt the insert. We catch Prisma P2002 (unique
+    // violation) — which relies on the DB-level unique index on
+    // (projectId, isProjectRoot=true) enforced via the application invariant —
+    // and re-fetch the winner's row, making the operation idempotent without
+    // requiring a schema change or advisory lock.
+    try {
+      return await this.prisma.node.create({
+        data: {
+          projectId,
+          isProjectRoot: true,
+          type: NodeType.scaffold,
+          title: '[Project Root]',
+          createdBy: CreatedBy.human,
+        },
+      })
+    } catch (err: any) {
+      if (err?.code === 'P2002') {
+        // Another concurrent request won the race — return the existing root.
+        const winner = await this.findProjectRoot(projectId)
+        if (winner) return winner
+      }
+      throw err
+    }
   }
 
   async createNode(data: NodeCreateData): Promise<Node> {
