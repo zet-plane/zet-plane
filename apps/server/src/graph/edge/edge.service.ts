@@ -75,11 +75,29 @@ export class EdgeService {
     if (node.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (newParent.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
 
-    const edge = await this.repo.replaceNodeEdges(nodeId, type, newFromId, projectId, createdBy)
-    await this.publisher.publish({
-      type: 'graph.edge.created',
-      payload: { edgeId: edge.id, fromId: newFromId, toId: nodeId, edgeType: type, projectId },
-    })
+    const { edge, cyclePath, checkpointNodeId } = await this.repo.replaceNodeEdges(
+      nodeId, type, newFromId, projectId, createdBy,
+      (allEdges) => {
+        const path = this.detector.detect(newFromId, nodeId, allEdges)
+        if (!path) return { cyclePath: null, checkpointNodeId: null }
+        const cpId = this.detector.findHighestInDegreeNode(path, allEdges)
+        return { cyclePath: path, checkpointNodeId: cpId }
+      },
+    )
+
+    if (cyclePath) {
+      if (checkpointNodeId) {
+        await this.publisher.publish({
+          type: 'graph.node.checkpoint_elevated',
+          payload: { nodeId: checkpointNodeId, cyclePath, projectId },
+        })
+      }
+    } else {
+      await this.publisher.publish({
+        type: 'graph.edge.created',
+        payload: { edgeId: edge.id, fromId: newFromId, toId: nodeId, edgeType: type, projectId },
+      })
+    }
     return edge
   }
 }

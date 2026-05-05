@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { NodeType, NodeStatus, EdgeType, CreatedBy, CheckpointResolution } from '@prisma/client'
+import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@prisma/client'
 import type { Node, Edge } from '@prisma/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
@@ -144,10 +144,20 @@ export class GraphRepository {
     newFromId: string,
     projectId: string,
     createdBy: CreatedBy,
-  ): Promise<Edge> {
+    resolveCheckpoint: (allEdges: Edge[]) => { cyclePath: string[] | null; checkpointNodeId: string | null },
+  ): Promise<{ edge: Edge; cyclePath: string[] | null; checkpointNodeId: string | null }> {
     return this.prisma.$transaction(async (tx) => {
       await tx.edge.deleteMany({ where: { toId: nodeId, type } })
-      return tx.edge.create({ data: { projectId, fromId: newFromId, toId: nodeId, type, createdBy } })
+      const edge = await tx.edge.create({ data: { projectId, fromId: newFromId, toId: nodeId, type, createdBy } })
+      const allEdges = await tx.edge.findMany({ where: { projectId } })
+      const { cyclePath, checkpointNodeId } = resolveCheckpoint(allEdges)
+      if (checkpointNodeId) {
+        await tx.node.update({
+          where: { id: checkpointNodeId },
+          data: { isCheckpoint: true, status: NodeStatus.blocked },
+        })
+      }
+      return { edge, cyclePath, checkpointNodeId }
     })
   }
 

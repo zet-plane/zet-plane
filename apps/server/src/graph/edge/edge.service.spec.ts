@@ -37,6 +37,32 @@ describe('EdgeService', () => {
     service = new EdgeService(mockRepo, mockDetector, mockPublisher)
   })
 
+  describe('replaceNodeEdges', () => {
+    it('publishes graph.edge.created when no cycle on replace', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child' }))
+        .mockResolvedValueOnce(makeNode({ id: 'newParent' }))
+      const mockEdge = { id: 'e2', projectId: 'p1', fromId: 'newParent', toId: 'child', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.replaceNodeEdges.mockResolvedValue({ edge: mockEdge, cyclePath: null, checkpointNodeId: null })
+      await service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      expect(mockPublisher.publish).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'graph.edge.created' })
+      )
+    })
+
+    it('publishes graph.node.checkpoint_elevated when cycle detected on replace', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child' }))
+        .mockResolvedValueOnce(makeNode({ id: 'newParent' }))
+      const mockEdge = { id: 'e2', projectId: 'p1', fromId: 'newParent', toId: 'child', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.replaceNodeEdges.mockResolvedValue({ edge: mockEdge, cyclePath: ['newParent', 'child'], checkpointNodeId: 'newParent' })
+      await service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      expect(mockPublisher.publish).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'graph.node.checkpoint_elevated' })
+      )
+    })
+  })
+
   describe('createEdge', () => {
     it('throws 404 when fromNode does not exist', async () => {
       mockRepo.findNode.mockResolvedValue(null)
