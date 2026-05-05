@@ -4,13 +4,13 @@
 
 ## 当前状态
 
-**Scaffold Graph Engine 一期已交付**（2026-05-05）。完整实现 [scaffold-graph-engine 计划](docs/superpowers/plans/2026-05-04-scaffold-graph-engine.md) 的 8 个任务。
+**Scaffold Graph Engine 一期已交付并完成首轮加固**（2026-05-05）。完整实现 [scaffold-graph-engine 计划](docs/superpowers/plans/2026-05-04-scaffold-graph-engine.md) 的 8 个任务，并修复了首轮校验发现的全部 spec 偏差与 DI bug。
 
 ### 进度（8/8 ✓）
 
 | Task | 内容 | 状态 |
 |---|---|---|
-| 1 | Prisma Schema + PrismaService（含 OnModuleDestroy 修复） | ✓ |
+| 1 | Prisma Schema + PrismaService（含 OnModuleDestroy） | ✓ |
 | 2 | CycleDetectorService（DFS + 入度，reference 边跳过） | ✓ |
 | 3 | GraphEventPublisher + 5 种 BullMQ Job 类型 | ✓ |
 | 4 | GraphRepository + 4 种删除策略（block/cascade/reparent×2） | ✓ |
@@ -19,49 +19,57 @@
 | 7 | GraphController（全部路由） | ✓ |
 | 8 | GraphModule + AppModule 装配 + Redis 连接 | ✓ |
 
-### 测试（38/38 通过）
+### 加固轮次（2026-05-05 第二批）
+
+| 项 | 内容 |
+|---|---|
+| Spec 偏差修复 | 5 项全部完成（见 commits `50486b9..43496b9`） |
+| 单元测试补齐 | 26 个新用例（commit `2ea6d08`） |
+| BullMQ Worker | placeholder consumer 已就绪（commit `a0500d2`） |
+| E2E 脚手架 | Vitest 双 project + 自动跳过无基础设施场景（commit `d990147`） |
+| DI bug 修复 | NodeService/EdgeService 由 `import type` 引发的运行时 DI 解析失败（commit `b76a172`） |
+
+### 测试（68/68 通过）
 
 | Spec 文件 | 用例数 |
 |---|---|
+| node.service.spec.ts | 21 |
+| edge.service.spec.ts | 14 |
+| graph.controller.spec.ts | 13 |
 | cycle-detector.service.spec.ts | 10 |
-| node.service.spec.ts | 11 |
-| graph.controller.spec.ts | 7 |
-| edge.service.spec.ts | 5 |
 | graph-event.publisher.spec.ts | 5 |
+| graph-event.worker.spec.ts | 5 |
 
-GraphRepository 按计划不写单测（待 E2E 阶段覆盖）。
+E2E 套件位于 `apps/server/test/graph.e2e-spec.ts`，覆盖项目初始化、节点创建、环检测升级 Checkpoint、级联删除四个场景；运行命令 `pnpm test:e2e`，依赖本地 Redis + Postgres，否则自动跳过并打印 `E2E SKIPPED: infra not available`。
 
-### 架构评估
+### 启动验证
 
-✅ **整体良好**：分层（Controller→Service→Repository）清晰；CycleDetectorService 为纯函数；GraphEventPublisher 是 BullMQ 唯一出口；Checkpoint 升级与 Edge 创建在同一 `$transaction` 内，Job 在事务提交后推送。
+`pnpm dev` 已可顺利完成 NestFactory 引导、AppModule + BullModule 装配、Provider 解析；唯一阻断是连接 Redis（6379）/ Postgres（5432）时的 `ECONNREFUSED`，需要本机或容器化的实例：
+
+```bash
+# 一次性本地基础设施（任选其一即可）
+docker run -d --name zet-redis -p 6379:6379 redis:7-alpine
+docker run -d --name zet-pg -p 5432:5432 \
+  -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=zet_plane_dev postgres:16
+```
 
 ## 后续任务
 
-### 一、修复发现的 spec 偏差（优先级高）
+### 下一阶段（按设计文档）
 
-1. **[edge.service.ts:78](apps/server/src/graph/edge/edge.service.ts#L78) `replaceNodeEdges` 跳过了环检测** — Spec §5.5 要求与 POST /edges 共享环检测和 Checkpoint 升级流程，当前直接 swap 后无条件发 `graph.edge.created`，可能漏掉环。
-2. **[graph.controller.ts:67](apps/server/src/graph/graph.controller.ts#L67) `deleteNode` 使用 `@Query` 而 Spec §5.6 要求 request body** — API 契约偏差，需统一。
-3. **[node.service.ts:102-103](apps/server/src/graph/node/node.service.ts#L102-L103) `completed → X` 冻结守卫未在 Spec §4 描述** — 需在设计文档补完，或确认意图后从代码移除。
-4. **[node.service.ts:117](apps/server/src/graph/node/node.service.ts#L117) `UNRESOLVED_DEPENDENCY` 未排除 archived 依赖** — 与同函数中 children 检查处理不一致（children 已正确忽略 archived）。
-5. **[graph.repository.ts:50-62](apps/server/src/graph/repository/graph.repository.ts#L50-L62) `initProjectRoot` 存在 TOCTOU 竞态** — 建议 `(projectId, isProjectRoot)` 加部分唯一索引或改用 `upsert`。
+按 `apps/server/src/` 已留目录推进核心模块：
 
-### 二、补齐单元测试覆盖
+- **event-pipeline/** — 接入归一化事件管线（Ingest → Dedup → Enrich → Route → Persist），消费 Adapter Layer 输出。
+- **adapters/** — GitHub / Feishu / Claude Code Hook 三个首批 Adapter；遵循"适配而非依赖"。
+- **orchestrator/** — Agent Orchestrator（唯一主动智能层），订阅 graph-events 队列，对接 Anthropic SDK。
+- **knowledge/** — Knowledge Sedimentation Engine，知识条目锚定 Graph 节点。
+- **api/** — REST CRUD + WebSocket 实时推送（图状态 / 知识更新）。
 
-服务层多个方法仅在 mock 中桩出但未被测试调用：
+### 持续改进（小项）
 
-- **NodeService**：`createNode` / `deleteNode` / `listProjectNodes` / `getSubgraph` / `initProjectRoot`
-- **EdgeService**：`deleteEdge` / `replaceNodeEdges` / `listProjectEdges`
-- **GraphController**：`listProjectNodes` / `getSubgraph` / `deleteEdge` / `replaceNodeEdges` / `listProjectEdges` 路由
-
-### 三、E2E / 基础设施
-
-- 接入 Postgres + Redis 的 E2E 测试（覆盖 GraphRepository 与事务边界）
-- 本地 `pnpm dev` 启动验证（依赖 Redis 与 Postgres 实例）
-- BullMQ Job Worker 端实现（当前仅有 Publisher）
-
-### 四、下一阶段（按设计文档）
-
-进入 Knowledge / Orchestrator / Event-pipeline 模块（`apps/server/src/` 下已留目录）。
+- 接入 CI 流水线运行 `pnpm test`，新增 PR 自动跑单元测试。
+- 补充 GraphRepository 直接命中真实 Postgres 的 E2E 用例（当前仅覆盖跨服务流程）。
+- BullMQ Worker 当前仅打日志，待 Orchestrator 上线后接入实际处理。
 
 ## 技术栈
 
@@ -70,24 +78,46 @@ NestJS 10 · Prisma 5 · PostgreSQL · BullMQ 5 · Vitest 1 · TypeScript 5
 ## 项目结构
 
 ```
-apps/server/src/
-├── graph/                # 已交付：图引擎
-│   ├── cycle/            # CycleDetectorService（纯函数）
-│   ├── events/           # GraphEventPublisher（BullMQ 出口）
-│   ├── node/             # NodeService（状态护栏）
-│   ├── edge/             # EdgeService（环检测集成）
-│   ├── repository/       # GraphRepository（Prisma 封装）
-│   ├── graph.controller.ts
-│   └── graph.module.ts
-├── prisma/               # PrismaService
-├── adapters/             # 待实现
-├── api/                  # 待实现
-├── event-pipeline/       # 待实现：BullMQ Worker
-├── knowledge/            # 待实现
-└── orchestrator/         # 待实现
+apps/server/
+├── prisma/                       # schema + migrations
+├── src/
+│   ├── graph/                    # 已交付：图引擎
+│   │   ├── cycle/                # CycleDetectorService（纯函数）
+│   │   ├── events/               # Publisher + Worker（BullMQ 出入口）
+│   │   ├── node/                 # NodeService（状态护栏）
+│   │   ├── edge/                 # EdgeService（环检测集成）
+│   │   ├── repository/           # GraphRepository（Prisma 封装）
+│   │   ├── graph.controller.ts
+│   │   └── graph.module.ts
+│   ├── prisma/                   # PrismaService
+│   ├── adapters/                 # 待实现
+│   ├── api/                      # 待实现
+│   ├── event-pipeline/           # 待实现
+│   ├── knowledge/                # 待实现
+│   └── orchestrator/             # 待实现
+└── test/
+    └── graph.e2e-spec.ts         # 端到端用例（按需跳过）
+```
+
+## 常用命令
+
+```bash
+# 后端开发
+cd apps/server
+pnpm dev              # nest start --watch（端口 3000）
+pnpm test             # vitest run（仅单元测试）
+pnpm test:e2e         # E2E（需 Redis + Postgres）
+pnpm test:all         # 全量
+
+# 数据库
+pnpm prisma migrate dev --name <name>
+pnpm prisma generate
+pnpm prisma studio
 ```
 
 ## 文档
 
-- [设计文档](docs/superpowers/specs/2026-05-04-scaffold-graph-engine-design.md)
-- [实施计划](docs/superpowers/plans/2026-05-04-scaffold-graph-engine.md)
+- [总体架构](docs/architecture.md)
+- [Scaffold Graph Engine 设计](docs/superpowers/specs/2026-05-04-scaffold-graph-engine-design.md)
+- [Scaffold Graph Engine 实施计划](docs/superpowers/plans/2026-05-04-scaffold-graph-engine.md)
+- [Claude Code 开发指南](CLAUDE.md)
