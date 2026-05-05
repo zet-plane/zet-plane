@@ -1,10 +1,12 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/prisma/gen/client"
+  provider        = "prisma-client"
+  output          = "../src/prisma/gen/client"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [vector]
 }
 
 model Node {
@@ -65,4 +67,53 @@ enum EdgeType {
 enum CreatedBy {
   human
   agent
+}
+
+model KnowledgeEntry {
+  id              String          @id @default(uuid())
+  projectId       String
+  nodeId          String
+  category        EntryCategory
+  title           String
+  body            Json
+  status          EntryStatus     @default(draft)
+  embeddingStatus EmbeddingStatus @default(unindexed)
+  embedding       Unsupported("vector(1536)")?
+  createdBy       CreatedBy
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([projectId])
+  @@index([nodeId])
+}
+
+model KnowledgeRevision {
+  id         String    @id @default(uuid())
+  entryId    String
+  version    Int
+  body       Json
+  changeNote String?
+  createdBy  CreatedBy
+  createdAt  DateTime  @default(now())
+
+  @@unique([entryId, version])
+  @@index([entryId])
+}
+
+enum EntryCategory {
+  decision
+  pitfall
+  finding
+  context
+}
+
+enum EntryStatus {
+  draft
+  published
+  deprecated
+}
+
+enum EmbeddingStatus {
+  unindexed
+  indexed
 }

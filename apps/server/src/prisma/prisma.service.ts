@@ -10,6 +10,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
 
   get node() { return this.client.node }
   get edge() { return this.client.edge }
+  get knowledgeEntry() { return this.client.knowledgeEntry }
+  get knowledgeRevision() { return this.client.knowledgeRevision }
 
   // Overloads mirror PrismaClient.$transaction so callers (GraphRepository) compile correctly.
   $transaction<P extends Prisma.PrismaPromise<unknown>[]>(
@@ -23,6 +25,16 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   $transaction(...args: any[]): any {
     return (this.client.$transaction as (...a: unknown[]) => unknown)(...args)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  $executeRaw(query: any): Promise<number> {
+    return (this.client.$executeRaw as (...a: unknown[]) => Promise<number>)(query)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  $queryRaw<T = unknown>(query: any): Promise<T> {
+    return (this.client.$queryRaw as (...a: unknown[]) => Promise<T>)(query)
   }
 
   constructor(cfg: AppConfig) {
