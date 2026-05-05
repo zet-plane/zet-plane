@@ -99,6 +99,9 @@ export class NodeService {
     if (newStatus === NodeStatus.active && node.status === NodeStatus.blocked) {
       throw new ConflictException('USE_RESOLUTION_API')
     }
+    // Spec §4 rule 6: completed nodes are near-immutable — the only allowed
+    // transition out of completed is to archived (explicit retirement).
+    // All other status changes are rejected to preserve audit integrity.
     if (node.status === NodeStatus.completed && newStatus !== NodeStatus.archived) {
       throw new ConflictException('NODE_COMPLETED')
     }
