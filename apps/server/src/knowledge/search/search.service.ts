@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { EntryStatus } from '@generated/client'
-import type { KnowledgeRepository, SearchFilter, SearchResult } from '../repository/knowledge.repository'
-import type { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
+import { KnowledgeRepository } from '../repository/knowledge.repository'
+import type { SearchFilter, SearchResult } from '../repository/knowledge.repository'
+import { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
 
 type SearchOptions = {
   filters?: SearchFilter

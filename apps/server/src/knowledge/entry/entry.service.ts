@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { EntryStatus } from '@generated/client'
 import type { KnowledgeEntry } from '@generated/client'
-import type { KnowledgeRepository, EntryCreateData, EntryListFilters } from '../repository/knowledge.repository'
-import type { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
+import { KnowledgeRepository } from '../repository/knowledge.repository'
+import type { EntryCreateData, EntryListFilters } from '../repository/knowledge.repository'
+import { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
 
 @Injectable()
 export class EntryService {

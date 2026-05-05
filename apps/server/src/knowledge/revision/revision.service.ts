@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
 import { EntryStatus } from '@generated/client'
 import type { KnowledgeRevision, CreatedBy } from '@generated/client'
-import type { KnowledgeRepository } from '../repository/knowledge.repository'
-import type { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
+import { KnowledgeRepository } from '../repository/knowledge.repository'
+import { KnowledgeEventPublisher } from '../events/knowledge-event.publisher'
 
 type AppendRevisionInput = {
   body: unknown
