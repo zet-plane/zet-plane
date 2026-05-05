@@ -30,14 +30,12 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.19",
-    "@swc/core": "^1.15.33",
     "@types/pg": "^8.20.0",
     "@zet-plane/tsconfig": "workspace:*",
     "esbuild": "0.28.0",
     "prisma": "^7.8.0",
     "tsc-alias": "1.8.17",
     "typescript": "^6.0.3",
-    "unplugin-swc": "^1.5.9",
     "vite": "8.0.10",
     "vitest": "^4.1.5"
   }
