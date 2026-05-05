@@ -10,7 +10,7 @@
 
 | 包 | 当前 | 上游 latest | 落差 | 优先级 | 状态 |
 |---|---|---|---|---|---|
-| `vitest` (`@swc/core` 链路) | 1.6.1 | 4.1.5 | -3 major | 高 | 待升 |
+| `vitest` (`@swc/core` 链路) | 1.6.1 | 4.1.5 | -3 major | 高 | 已升级 (2026-05-05) → 4.1.5 |
 | `prisma` + `@prisma/client` | 5.22.0 | 7.8.0 | -2 major | 高 | 待升 |
 | `@nestjs/*`（core, common, platform-fastify, platform-socket.io, websockets, testing） | 10.4.22 | 11.1.19 | -1 major | 高 | 待升 |
 | `@nestjs/cli` | 10.4.9 | 11.0.21 | -1 major | 高 | 跟随 NestJS 一起升 |
@@ -116,7 +116,7 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 ## 升级顺序建议
 
 1. ~~`typescript` 5 → 6（独立，先跑通编译）~~ ✓ 已完成 (2026-05-05)
-2. `vitest` 1 → 4（独立 PR）
+2. ~~`vitest` 1 → 4（独立 PR）~~ ✓ 已完成 (2026-05-05)
 3. `prisma` 5 → 7（独立 PR，含 client 与 cli）
 4. `@nestjs/*` 10 → 11（独立 PR，cli + core/common/platform/testing/websockets 一起）
 5. `@anthropic-ai/sdk` 等 Orchestrator 模块开发时直接装 latest
