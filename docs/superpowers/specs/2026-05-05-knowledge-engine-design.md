@@ -63,6 +63,8 @@ interface KnowledgeEntry {
   title: string
   body: JsonValue             // JSONB，结构由 category 约定但不强制
   status: EntryStatus
+  embeddingStatus: 'unindexed' | 'indexed'  // 默认 unindexed
+  embedding: vector(1536) | null             // pgvector，维度由 embedding 模型决定
   createdBy: 'human' | 'agent'
   createdAt: Date
   updatedAt: Date
@@ -145,6 +147,33 @@ draft ──────────────────▶ published
 | `knowledge.entry.body_revised` | body 被更新，revision 追加 |
 | `knowledge.entry.status_changed` | status 变更 |
 | `knowledge.entry.reanchored` | nodeId 被更新（暂存图节点迁移到主图后触发） |
+| `knowledge.entry.indexed` | embedding 写入完成，embeddingStatus → `indexed` |
+
+> Orchestrator 订阅 `knowledge.entry.created` 和 `knowledge.entry.body_revised`，异步生成 embedding 后写回 KE，KE 发出 `knowledge.entry.indexed`。
+
+### 语义检索
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `PATCH` | `/entries/:id/embedding` | Orchestrator 写入预计算好的向量，embeddingStatus → `indexed` |
+| `POST` | `/projects/:id/entries/search` | 语义检索，接受预计算 query 向量 + 可选结构化过滤条件 |
+
+**搜索请求体：**
+
+```typescript
+{
+  vector: number[]          // 由 Orchestrator 预先计算好的 query embedding
+  filters?: {
+    category?: EntryCategory[]
+    status?: EntryStatus[]
+    nodeId?: string[]       // 限定在特定节点范围内搜索
+  }
+  limit?: number            // 默认 10
+  threshold?: number        // 余弦相似度阈值，低于此值的结果不返回
+}
+```
+
+返回按相似度降序排列的 entry 列表，含 `score` 字段。`unindexed` 条目不参与语义检索，仍可通过 `GET /projects/:id/entries` 结构化查询。
 
 ---
 
@@ -164,8 +193,11 @@ src/knowledge/
 │   └── revision.service.spec.ts
 ├── repository/
 │   └── knowledge.repository.ts        # Prisma 操作，事务封装
+├── search/
+│   ├── search.service.ts              # 语义检索、embedding 写入
+│   └── search.service.spec.ts
 └── events/
-    ├── knowledge-event.publisher.ts   # 发出四类领域事件
+    ├── knowledge-event.publisher.ts   # 发出领域事件
     └── knowledge-event.publisher.spec.ts
 ```
 
@@ -176,8 +208,9 @@ src/knowledge/
 | `KnowledgeController` | 路由 + DTO 校验，不含业务逻辑 |
 | `EntryService` | status 流转校验、reanchor 逻辑、调用 publisher |
 | `RevisionService` | version 自增、body 快照写入 |
-| `KnowledgeRepository` | 所有 Prisma 调用，`createEntryWithRevision` 用事务保证原子性 |
-| `KnowledgeEventPublisher` | 发出四类领域事件，接口与 `GraphEventPublisher` 对称 |
+| `SearchService` | embedding 写入、pgvector 相似度查询 |
+| `KnowledgeRepository` | 所有 Prisma 操作，`createEntryWithRevision` 用事务保证原子性 |
+| `KnowledgeEventPublisher` | 发出领域事件，接口与 `GraphEventPublisher` 对称 |
 
 ---
 
@@ -198,11 +231,23 @@ Agent Orchestrator
       │                                          ▼
       │                                   knowledge.entry.body_revised 事件
       │
-      └──── PATCH /entries/:id (nodeId) ──▶ EntryService
-                                              (reanchor，校验非 deprecated)
-                                                    │
-                                                    ▼
-                                             knowledge.entry.reanchored 事件
+      ├──── PATCH /entries/:id (nodeId) ──▶ EntryService
+      │                                       (reanchor，校验非 deprecated)
+      │                                             │
+      │                                             ▼
+      │                                      knowledge.entry.reanchored 事件
+      │
+      ├──── PATCH /entries/:id/embedding ──▶ SearchService
+      │                                       (写入向量，embeddingStatus → indexed)
+      │                                             │
+      │                                             ▼
+      │                                      knowledge.entry.indexed 事件
+      │
+      └──── POST /projects/:id/entries/search ──▶ SearchService
+                                                   (pgvector 余弦距离查询 + 结构化过滤)
+                                                         │
+                                                         ▼
+                                                   [{ entry, score }] 按相似度排序
 ```
 
 ---
