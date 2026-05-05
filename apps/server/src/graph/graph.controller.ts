@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Delete, Param, Body, Query, BadRequestException } from '@nestjs/common'
+import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException } from '@nestjs/common'
 import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@prisma/client'
 import { NodeService } from './node/node.service'
 import { EdgeService } from './edge/edge.service'
@@ -64,9 +64,9 @@ export class GraphController {
   @Delete('nodes/:id')
   deleteNode(
     @Param('id') nodeId: string,
-    @Query('strategy') strategy?: DeleteStrategy,
+    @Body() body?: { strategy?: DeleteStrategy },
   ) {
-    return this.nodeService.deleteNode(nodeId, strategy)
+    return this.nodeService.deleteNode(nodeId, body?.strategy)
   }
 
   // ── Edges ─────────────────────────────────────────────────────────────

@@ -64,10 +64,16 @@ describe('GraphController', () => {
     expect(mockNodeService.resolveCheckpoint).toHaveBeenCalledWith('n1', 'continue')
   })
 
-  it('deleteNode passes strategy from query', async () => {
+  it('deleteNode passes strategy from body', async () => {
     mockNodeService.deleteNode.mockResolvedValue({ affectedNodeIds: [] })
-    await controller.deleteNode('n1', 'cascade')
+    await controller.deleteNode('n1', { strategy: 'cascade' })
     expect(mockNodeService.deleteNode).toHaveBeenCalledWith('n1', 'cascade')
+  })
+
+  it('deleteNode uses default strategy when body is absent', async () => {
+    mockNodeService.deleteNode.mockResolvedValue({ affectedNodeIds: [] })
+    await controller.deleteNode('n1', undefined)
+    expect(mockNodeService.deleteNode).toHaveBeenCalledWith('n1', undefined)
   })
 
   it('createEdge delegates to edgeService', async () => {
