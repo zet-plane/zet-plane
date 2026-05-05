@@ -99,22 +99,18 @@ model KnowledgeEntry {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  revisions KnowledgeRevision[]
-
   @@index([projectId])
   @@index([nodeId])
 }
 
 model KnowledgeRevision {
-  id         String         @id @default(uuid())
+  id         String    @id @default(uuid())
   entryId    String
   version    Int
   body       Json
   changeNote String?
   createdBy  CreatedBy
-  createdAt  DateTime       @default(now())
-
-  entry KnowledgeEntry @relation(fields: [entryId], references: [id])
+  createdAt  DateTime  @default(now())
 
   @@unique([entryId, version])
   @@index([entryId])
