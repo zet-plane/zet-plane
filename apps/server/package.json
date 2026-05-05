@@ -30,7 +30,7 @@
     "@swc/core": "^1.15.33",
     "@zet-plane/tsconfig": "workspace:*",
     "prisma": "^5.13.0",
-    "typescript": "^5.4.0",
+    "typescript": "^6.0.3",
     "unplugin-swc": "^1.5.9",
     "vitest": "^1.5.0"
   }

@@ -5,5 +5,8 @@
   "exports": {
     "./base.json": "./base.json",
     "./nextjs.json": "./nextjs.json"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

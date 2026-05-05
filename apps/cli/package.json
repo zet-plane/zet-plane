@@ -1,7 +1,9 @@
 {
   "name": "@zet-plane/cli",
   "version": "0.0.1",
-  "bin": { "zet": "dist/index.js" },
+  "bin": {
+    "zet": "dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch"
@@ -11,6 +13,6 @@
   },
   "devDependencies": {
     "@zet-plane/tsconfig": "workspace:*",
-    "typescript": "^5.4.0"
+    "typescript": "^6.0.3"
   }
 }
