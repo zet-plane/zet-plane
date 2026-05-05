@@ -70,8 +70,27 @@ Non-obvious rules enforced in code:
 - **Errors at service boundary use Nest exceptions** (`NotFoundException`, `ConflictException`). Repository throws plain typed errors with `instanceof`-checkable shapes; service catches and rethrows as Nest exceptions.
 - **Plans + specs under `docs/superpowers/`** are the source of truth for in-flight features. When implementing from a plan, follow its task order and commit per task.
 
+## Dependency hygiene
+
+**Always prefer the latest stable major** when adding a new dependency or starting a new module. Do **not** copy version strings from older docs, plan files, or training-data memory — they go stale fast.
+
+Before writing a new `pnpm add` (or editing `package.json` by hand):
+
+1. Resolve the actual latest with `npm view <pkg> dist-tags` (or `pnpm view`) — never trust your memory of "the current version."
+2. If a plan/spec specifies a version, verify it against `dist-tags.latest`. If the plan is older than ~3 months, treat its version as advisory only.
+3. For libraries with active framework integrations (NestJS, Prisma, Vitest, Next.js, React), check that peer compatibility is satisfied — a major-version bump in one often forces companion bumps.
+4. If you cannot upgrade right now (e.g. it would break the current task), record the deferral in [docs/dependencies.md](docs/dependencies.md) with the reason, instead of silently leaving an old pin.
+
+When upgrading existing deps:
+- One PR per dependency (or per coherent group like all `@nestjs/*`). Don't bundle unrelated upgrades — review and rollback both get harder.
+- After the upgrade, re-run `pnpm test`, `pnpm test:e2e`, and `pnpm dev` boot. New majors silently change behavior; CI catches the obvious, manual smoke catches the rest.
+- Update [docs/dependencies.md](docs/dependencies.md) entry from "deferred" to "done" or remove it.
+
+For library API questions during/after an upgrade, **use the context7 MCP** (`resolve-library-id` then `query-docs`) instead of relying on training-data knowledge — version drift is exactly where the model is most wrong.
+
 ## Important docs to read before substantial changes
 
 1. [docs/architecture.md](docs/architecture.md) — system-level layering and invariants
 2. [docs/superpowers/specs/](docs/superpowers/specs/) — current feature specs
 3. [README.md](README.md) — current delivery status and known issues
+4. [docs/dependencies.md](docs/dependencies.md) — outstanding dep upgrades and per-package adaptation notes
