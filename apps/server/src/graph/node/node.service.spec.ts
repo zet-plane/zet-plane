@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ConflictException } from '@nestjs/common'
+import { ConflictException, NotFoundException } from '@nestjs/common'
 import { NodeService } from './node.service'
 import { NodeStatus, NodeType, CreatedBy, CheckpointResolution } from '@prisma/client'
 import type { Node } from '@prisma/client'
+import { HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 
 function makeNode(overrides: Partial<Node> = {}): Node {
   return {
@@ -37,6 +38,7 @@ describe('NodeService', () => {
       initProjectRoot: vi.fn(),
       findCompositionChildren: vi.fn(),
       findDependencyTargets: vi.fn(),
+      deleteNodeWithStrategy: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
     service = new NodeService(mockRepo, mockPublisher)
@@ -111,6 +113,87 @@ describe('NodeService', () => {
     it('throws 409 when reverting completed node to active', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.completed }))
       await expect(service.updateStatus('n1', NodeStatus.active)).rejects.toThrow(ConflictException)
+    })
+  })
+
+  describe('createNode', () => {
+    it('delegates to repo.createNode with the data passed through', async () => {
+      const data = { projectId: 'p1', type: NodeType.scaffold, title: 'New Node', createdBy: CreatedBy.human }
+      const created = makeNode({ id: 'n2', title: 'New Node' })
+      mockRepo.createNode.mockResolvedValue(created)
+      const result = await service.createNode(data)
+      expect(mockRepo.createNode).toHaveBeenCalledWith(data)
+      expect(result).toEqual(created)
+    })
+  })
+
+  describe('deleteNode', () => {
+    it('throws 409 when node is project root', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ isProjectRoot: true }))
+      await expect(service.deleteNode('n1', 'cascade')).rejects.toThrow(ConflictException)
+    })
+
+    it('successful cascade delete publishes graph.node.deleted with affectedNodeIds', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'n1', projectId: 'p1' }))
+      mockRepo.deleteNodeWithStrategy.mockResolvedValue(['child1', 'child2'])
+      const result = await service.deleteNode('n1', 'cascade')
+      expect(mockPublisher.publish).toHaveBeenCalledWith({
+        type: 'graph.node.deleted',
+        payload: { nodeId: 'n1', strategy: 'cascade', affectedNodeIds: ['child1', 'child2'], projectId: 'p1' },
+      })
+      expect(result).toEqual({ affectedNodeIds: ['child1', 'child2'] })
+    })
+
+    it('wraps HAS_COMPOSITION_CHILDREN repo error as HAS_ACTIVE_CHILDREN ConflictException with affectedNodes', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'n1', projectId: 'p1' }))
+      mockRepo.deleteNodeWithStrategy.mockRejectedValue(new HasCompositionChildrenError(['child1', 'child2']))
+      const err: any = await service.deleteNode('n1', 'block').catch(e => e)
+      expect(err).toBeInstanceOf(ConflictException)
+      expect(err.response).toMatchObject({ error: 'HAS_ACTIVE_CHILDREN', affectedNodes: ['child1', 'child2'] })
+    })
+
+    it('wraps AMBIGUOUS_PARENT repo error as ConflictException with parents payload', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'n1', projectId: 'p1' }))
+      mockRepo.deleteNodeWithStrategy.mockRejectedValue(new AmbiguousParentError(['p1', 'p2']))
+      const err: any = await service.deleteNode('n1', 'reparent-to-parent').catch(e => e)
+      expect(err).toBeInstanceOf(ConflictException)
+      expect(err.response).toMatchObject({ error: 'AMBIGUOUS_PARENT', parents: ['p1', 'p2'] })
+    })
+  })
+
+  describe('listProjectNodes', () => {
+    it('delegates to repo.listProjectNodes', async () => {
+      const nodes = [makeNode({ id: 'n2' }), makeNode({ id: 'n3' })]
+      mockRepo.listProjectNodes.mockResolvedValue(nodes)
+      const result = await service.listProjectNodes('p1')
+      expect(mockRepo.listProjectNodes).toHaveBeenCalledWith('p1')
+      expect(result).toEqual(nodes)
+    })
+  })
+
+  describe('getSubgraph', () => {
+    it('throws 404 when node does not exist', async () => {
+      mockRepo.findNode.mockResolvedValue(null)
+      await expect(service.getSubgraph('missing')).rejects.toThrow(NotFoundException)
+    })
+
+    it('returns repo.getSubgraph result when node exists', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'n1' }))
+      const subgraph = { nodes: [makeNode({ id: 'n1' })], edges: [] }
+      mockRepo.getSubgraph.mockResolvedValue(subgraph)
+      const result = await service.getSubgraph('n1')
+      expect(mockRepo.getSubgraph).toHaveBeenCalledWith('n1')
+      expect(result).toEqual(subgraph)
+    })
+  })
+
+  describe('initProjectRoot', () => {
+    it('delegates to repo.initProjectRoot', async () => {
+      const root = makeNode({ id: 'root', isProjectRoot: true })
+      mockRepo.initProjectRoot.mockResolvedValue(root)
+      const result = await service.initProjectRoot('p1')
+      expect(mockRepo.initProjectRoot).toHaveBeenCalledWith('p1')
+      expect(result).toEqual(root)
     })
   })
 

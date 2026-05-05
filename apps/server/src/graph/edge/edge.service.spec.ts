@@ -37,7 +37,67 @@ describe('EdgeService', () => {
     service = new EdgeService(mockRepo, mockDetector, mockPublisher)
   })
 
+  describe('deleteEdge', () => {
+    it('throws 404 when edge does not exist', async () => {
+      mockRepo.findEdge.mockResolvedValue(null)
+      await expect(service.deleteEdge('missing')).rejects.toThrow(NotFoundException)
+    })
+
+    it('calls repo.deleteEdge on successful delete', async () => {
+      const edge = { id: 'e1', projectId: 'p1', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.findEdge.mockResolvedValue(edge)
+      mockRepo.deleteEdge.mockResolvedValue(undefined)
+      await service.deleteEdge('e1')
+      expect(mockRepo.deleteEdge).toHaveBeenCalledWith('e1')
+    })
+
+    it('does NOT publish any job on successful delete', async () => {
+      const edge = { id: 'e1', projectId: 'p1', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.findEdge.mockResolvedValue(edge)
+      mockRepo.deleteEdge.mockResolvedValue(undefined)
+      await service.deleteEdge('e1')
+      expect(mockPublisher.publish).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('listProjectEdges', () => {
+    it('delegates to repo.listProjectEdges', async () => {
+      const edges = [
+        { id: 'e1', projectId: 'p1', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() },
+      ]
+      mockRepo.listProjectEdges.mockResolvedValue(edges)
+      const result = await service.listProjectEdges('p1')
+      expect(mockRepo.listProjectEdges).toHaveBeenCalledWith('p1')
+      expect(result).toEqual(edges)
+    })
+  })
+
   describe('replaceNodeEdges', () => {
+    it('throws 404 when node does not exist', async () => {
+      mockRepo.findNode.mockResolvedValueOnce(null)
+      await expect(
+        service.replaceNodeEdges('missing', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('throws 404 when newParent does not exist', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child' }))
+        .mockResolvedValueOnce(null)
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'missingParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('throws 409 when newParent is archived', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child' }))
+        .mockResolvedValueOnce(makeNode({ id: 'newParent', status: NodeStatus.archived }))
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(ConflictException)
+    })
+
     it('publishes graph.edge.created when no cycle on replace', async () => {
       mockRepo.findNode
         .mockResolvedValueOnce(makeNode({ id: 'child' }))

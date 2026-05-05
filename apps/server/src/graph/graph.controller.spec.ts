@@ -82,4 +82,43 @@ describe('GraphController', () => {
     await controller.createEdge('p1', body)
     expect(mockEdgeService.createEdge).toHaveBeenCalledWith({ projectId: 'p1', ...body })
   })
+
+  it('listNodes delegates to nodeService.listProjectNodes(projectId)', async () => {
+    const nodes = [{ id: 'n1', projectId: 'p1' }]
+    mockNodeService.listProjectNodes.mockResolvedValue(nodes)
+    const result = await controller.listNodes('p1')
+    expect(mockNodeService.listProjectNodes).toHaveBeenCalledWith('p1')
+    expect(result).toEqual(nodes)
+  })
+
+  it('getSubgraph delegates to nodeService.getSubgraph(nodeId)', async () => {
+    const subgraph = { nodes: [{ id: 'n1' }], edges: [] }
+    mockNodeService.getSubgraph.mockResolvedValue(subgraph)
+    const result = await controller.getSubgraph('n1')
+    expect(mockNodeService.getSubgraph).toHaveBeenCalledWith('n1')
+    expect(result).toEqual(subgraph)
+  })
+
+  it('listEdges delegates to edgeService.listProjectEdges(projectId)', async () => {
+    const edges = [{ id: 'e1', projectId: 'p1' }]
+    mockEdgeService.listProjectEdges.mockResolvedValue(edges)
+    const result = await controller.listEdges('p1')
+    expect(mockEdgeService.listProjectEdges).toHaveBeenCalledWith('p1')
+    expect(result).toEqual(edges)
+  })
+
+  it('deleteEdge route delegates to edgeService.deleteEdge(edgeId)', async () => {
+    mockEdgeService.deleteEdge.mockResolvedValue(undefined)
+    await controller.deleteEdge('e1')
+    expect(mockEdgeService.deleteEdge).toHaveBeenCalledWith('e1')
+  })
+
+  it('replaceEdges PATCH /nodes/:id/edges delegates with all body fields', async () => {
+    const body = { type: EdgeType.composition, newFromId: 'newParent', projectId: 'p1', createdBy: CreatedBy.human }
+    const edge = { id: 'e2', projectId: 'p1', fromId: 'newParent', toId: 'n1', type: EdgeType.composition }
+    mockEdgeService.replaceNodeEdges.mockResolvedValue(edge)
+    const result = await controller.replaceEdges('n1', body)
+    expect(mockEdgeService.replaceNodeEdges).toHaveBeenCalledWith('n1', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+    expect(result).toEqual(edge)
+  })
 })
