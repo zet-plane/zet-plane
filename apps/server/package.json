@@ -6,6 +6,8 @@
     "dev": "nest start --watch",
     "start": "node dist/main",
     "test": "vitest run",
+    "test:e2e": "vitest run --include 'test/**/*.e2e-spec.ts'",
+    "test:all": "vitest run --include 'src/**/*.spec.ts' --include 'test/**/*.e2e-spec.ts'",
     "test:watch": "vitest"
   },
   "dependencies": {
