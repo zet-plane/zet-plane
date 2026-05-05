@@ -12,8 +12,8 @@
 |---|---|---|---|---|---|
 | `vitest` (`@swc/core` 链路) | 1.6.1 | 4.1.5 | -3 major | 高 | 已升级 (2026-05-05) → 4.1.5 |
 | `prisma` + `@prisma/client` | 5.22.0 | 7.8.0 | -2 major | 高 | 已升级 (2026-05-05) → 7.8.0 |
-| `@nestjs/*`（core, common, platform-fastify, platform-socket.io, websockets, testing） | 10.4.22 | 11.1.19 | -1 major | 高 | 待升 |
-| `@nestjs/cli` | 10.4.9 | 11.0.21 | -1 major | 高 | 跟随 NestJS 一起升 |
+| `@nestjs/*`（core, common, platform-fastify, platform-socket.io, websockets, testing） | 10.4.22 | 11.1.19 | -1 major | 高 | 已升级 (2026-05-05) → 11.1.19 |
+| `@nestjs/cli` | 10.4.9 | 11.0.21 | -1 major | 高 | 已升级 (2026-05-05) → 11.0.21 |
 | `@anthropic-ai/sdk` | 0.24.3 | 0.93.0 | 多次小版本累积，含 Messages/Tool 重大重构 | 高 | 待升（Orchestrator 上线前必须） |
 | `next` (apps/web) | 14.2.35 | 16.2.4 | -2 major | 中 | 待升（web 仅脚手架） |
 | `react` + `react-dom` + `@types/react*` | 18.3.x | 19.2.x | -1 major | 中 | 跟随 Next 升 |
@@ -72,6 +72,8 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 
 **注意：** 升级 NestJS 前先升 `@nestjs/cli`，否则 `nest build` 可能报 schematics 不匹配。
 
+**升级结果 (2026-05-05)：** 无破坏性变更；`FastifyAdapter` 默认无参数构造即可，`nest-cli.json` 无需修改，全部 gate（build / 68 unit / 4 e2e / dev boot）零改动通过。
+
 ### `@anthropic-ai/sdk` 0.24 → 0.93（高，Orchestrator 上线前必须）
 
 **为什么滞后：** 计划中保留了一个非常老的 SDK 版本，且 Orchestrator 模块尚未实现，没有被实际使用。
@@ -120,7 +122,7 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 1. ~~`typescript` 5 → 6（独立，先跑通编译）~~ ✓ 已完成 (2026-05-05)
 2. ~~`vitest` 1 → 4（独立 PR）~~ ✓ 已完成 (2026-05-05)
 3. ~~`prisma` 5 → 7（独立 PR，含 client 与 cli）~~ ✓ 已完成 (2026-05-05)
-4. `@nestjs/*` 10 → 11（独立 PR，cli + core/common/platform/testing/websockets 一起）
+4. ~~`@nestjs/*` 10 → 11（独立 PR，cli + core/common/platform/testing/websockets 一起）~~ ✓ 已完成 (2026-05-05)
 5. `@anthropic-ai/sdk` 等 Orchestrator 模块开发时直接装 latest
 6. `next` + `react` + `@types/react*` 等 Dashboard 启动时一并升
 
