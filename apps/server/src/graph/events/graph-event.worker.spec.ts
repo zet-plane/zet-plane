@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type MockInstance } from 'vitest'
 import { GraphEventWorker } from './graph-event.worker'
 import { Logger } from '@nestjs/common'
 import type { Job } from 'bullmq'
@@ -9,7 +9,7 @@ function makeJob(name: string, data: Record<string, unknown>): Job {
 
 describe('GraphEventWorker', () => {
   let worker: GraphEventWorker
-  let logSpy: ReturnType<typeof vi.spyOn>
+  let logSpy: MockInstance
 
   beforeEach(() => {
     worker = new GraphEventWorker()
