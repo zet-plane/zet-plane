@@ -17,7 +17,7 @@
 | `@anthropic-ai/sdk` | 0.24.3 | 0.93.0 | 多次小版本累积，含 Messages/Tool 重大重构 | 高 | 待升（Orchestrator 上线前必须） |
 | `next` (apps/web) | 14.2.35 | 16.2.4 | -2 major | 中 | 待升（web 仅脚手架） |
 | `react` + `react-dom` + `@types/react*` | 18.3.x | 19.2.x | -1 major | 中 | 跟随 Next 升 |
-| `typescript` | 5.9.3 | 6.0.3 | -1 major | 中 | 待升 |
+| `typescript` | 6.0.3 | 6.0.3 | — | 中 | 已升级 (2026-05-05) |
 | `pnpm`（packageManager 字段） | 9.0.0 | 10.x | -1 major | 低 | 当前可用，无阻塞 |
 | `turbo` | 2.9.8 | 2.9.9 | patch | 低 | 自然滚动即可 |
 
@@ -115,7 +115,7 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 
 ## 升级顺序建议
 
-1. `typescript` 5 → 6（独立，先跑通编译）
+1. ~~`typescript` 5 → 6（独立，先跑通编译）~~ ✓ 已完成 (2026-05-05)
 2. `vitest` 1 → 4（独立 PR）
 3. `prisma` 5 → 7（独立 PR，含 client 与 cli）
 4. `@nestjs/*` 10 → 11（独立 PR，cli + core/common/platform/testing/websockets 一起）
