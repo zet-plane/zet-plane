@@ -1,3 +1,4 @@
+import 'reflect-metadata'
 import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import { Test, TestingModule } from '@nestjs/testing'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
@@ -102,7 +103,7 @@ describe('Graph E2E', () => {
       method: 'POST',
       url: `/projects/${projectId}/nodes`,
       payload: {
-        type: 'task',
+        type: 'scaffold',
         title: 'My first node',
         createdBy: CreatedBy.human,
       },
@@ -120,12 +121,12 @@ describe('Graph E2E', () => {
     const nodeA = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/nodes`,
-      payload: { type: 'task', title: 'Node A', createdBy: CreatedBy.human },
+      payload: { type: 'scaffold', title: 'Node A', createdBy: CreatedBy.human },
     })
     const nodeB = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/nodes`,
-      payload: { type: 'task', title: 'Node B', createdBy: CreatedBy.human },
+      payload: { type: 'scaffold', title: 'Node B', createdBy: CreatedBy.human },
     })
 
     const aId: string = nodeA.json().id
@@ -164,14 +165,14 @@ describe('Graph E2E', () => {
     const parent = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/nodes`,
-      payload: { type: 'task', title: 'Parent to delete', createdBy: CreatedBy.human },
+      payload: { type: 'scaffold', title: 'Parent to delete', createdBy: CreatedBy.human },
     })
     const parentId: string = parent.json().id
 
     const child = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/nodes`,
-      payload: { type: 'task', title: 'Child node', createdBy: CreatedBy.human },
+      payload: { type: 'scaffold', title: 'Child node', createdBy: CreatedBy.human },
     })
     const childId: string = child.json().id
 
@@ -192,6 +193,7 @@ describe('Graph E2E', () => {
     expect([200, 204]).toContain(delRes.statusCode)
 
     const body = delRes.json()
-    expect(body.affectedNodeIds).toContain(parentId)
+    // affectedNodeIds is the descendant list (parent itself is implicit)
+    expect(body.affectedNodeIds).toContain(childId)
   })
 })

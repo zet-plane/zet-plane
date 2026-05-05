@@ -6,8 +6,8 @@
     "dev": "nest start --watch",
     "start": "node dist/main",
     "test": "vitest run",
-    "test:e2e": "vitest run --include 'test/**/*.e2e-spec.ts'",
-    "test:all": "vitest run --include 'src/**/*.spec.ts' --include 'test/**/*.e2e-spec.ts'",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:all": "pnpm test && pnpm test:e2e",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -27,9 +27,11 @@
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",
     "@nestjs/testing": "^10.3.0",
+    "@swc/core": "^1.15.33",
     "@zet-plane/tsconfig": "workspace:*",
     "prisma": "^5.13.0",
     "typescript": "^5.4.0",
+    "unplugin-swc": "^1.5.9",
     "vitest": "^1.5.0"
   }
 }
