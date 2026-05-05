@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
-import { NodeStatus, CheckpointResolution } from '@prisma/client'
-import type { Node, Edge } from '@prisma/client'
+import { NodeStatus, CheckpointResolution } from '@generated/client'
+import type { Node, Edge } from '@generated/client'
 import { GraphRepository, HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 import type { NodeCreateData, DeleteStrategy } from '../repository/graph.repository'
 import { GraphEventPublisher } from '../events/graph-event.publisher'

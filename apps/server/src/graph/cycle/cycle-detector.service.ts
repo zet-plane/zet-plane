@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import { EdgeType } from '@prisma/client'
-import type { Edge } from '@prisma/client'
+import { EdgeType } from '@generated/client'
+import type { Edge } from '@generated/client'
 
 @Injectable()
 export class CycleDetectorService {

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { NodeService } from './node.service'
-import { NodeStatus, NodeType, CreatedBy, CheckpointResolution } from '@prisma/client'
-import type { Node } from '@prisma/client'
+import { NodeStatus, NodeType, CreatedBy, CheckpointResolution } from '@generated/client'
+import type { Node } from '@generated/client'
 import { HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 
 function makeNode(overrides: Partial<Node> = {}): Node {

@@ -11,7 +11,7 @@
 | 包 | 当前 | 上游 latest | 落差 | 优先级 | 状态 |
 |---|---|---|---|---|---|
 | `vitest` (`@swc/core` 链路) | 1.6.1 | 4.1.5 | -3 major | 高 | 已升级 (2026-05-05) → 4.1.5 |
-| `prisma` + `@prisma/client` | 5.22.0 | 7.8.0 | -2 major | 高 | 待升 |
+| `prisma` + `@prisma/client` | 5.22.0 | 7.8.0 | -2 major | 高 | 已升级 (2026-05-05) → 7.8.0 |
 | `@nestjs/*`（core, common, platform-fastify, platform-socket.io, websockets, testing） | 10.4.22 | 11.1.19 | -1 major | 高 | 待升 |
 | `@nestjs/cli` | 10.4.9 | 11.0.21 | -1 major | 高 | 跟随 NestJS 一起升 |
 | `@anthropic-ai/sdk` | 0.24.3 | 0.93.0 | 多次小版本累积，含 Messages/Tool 重大重构 | 高 | 待升（Orchestrator 上线前必须） |
@@ -57,6 +57,8 @@ pnpm add prisma@latest @prisma/client@latest --filter @zet-plane/server
 pnpm --filter @zet-plane/server prisma generate
 pnpm --filter @zet-plane/server prisma migrate deploy
 ```
+
+- 升级时切到 Prisma 7 新生成器 `prisma-client`，输出至 `src/generated/client`；导入统一用 `@generated/client` 路径别名（见 `tsconfig.json` `paths` 与 `nest-cli.json`）。
 
 ### `@nestjs/*` 10.x → 11.x（高）
 
@@ -117,7 +119,7 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 
 1. ~~`typescript` 5 → 6（独立，先跑通编译）~~ ✓ 已完成 (2026-05-05)
 2. ~~`vitest` 1 → 4（独立 PR）~~ ✓ 已完成 (2026-05-05)
-3. `prisma` 5 → 7（独立 PR，含 client 与 cli）
+3. ~~`prisma` 5 → 7（独立 PR，含 client 与 cli）~~ ✓ 已完成 (2026-05-05)
 4. `@nestjs/*` 10 → 11（独立 PR，cli + core/common/platform/testing/websockets 一起）
 5. `@anthropic-ai/sdk` 等 Orchestrator 模块开发时直接装 latest
 6. `next` + `react` + `@types/react*` 等 Dashboard 启动时一并升

@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ConflictException, NotFoundException } from '@nestjs/common'
 import { EdgeService } from './edge.service'
-import { EdgeType, NodeStatus, NodeType, CreatedBy } from '@prisma/client'
-import type { Node, Edge } from '@prisma/client'
+import { EdgeType, NodeStatus, NodeType, CreatedBy } from '@generated/client'
+import type { Node, Edge } from '@generated/client'
 
 function makeNode(overrides: Partial<Node> = {}): Node {
   return {

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@prisma/client'
-import type { Node, Edge } from '@prisma/client'
+import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@generated/client'
+import type { Node, Edge } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
 export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'

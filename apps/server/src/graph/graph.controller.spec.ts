@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GraphController } from './graph.controller'
-import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@prisma/client'
+import { NodeType, CreatedBy, NodeStatus, EdgeType } from '../generated/client/client'
 
 describe('GraphController', () => {
   let controller: GraphController

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
-import { EdgeType, NodeStatus, CreatedBy } from '@prisma/client'
-import type { Edge } from '@prisma/client'
+import { EdgeType, NodeStatus, CreatedBy } from '@generated/client'
+import type { Edge } from '@generated/client'
 import { GraphRepository } from '../repository/graph.repository'
 import type { EdgeCreateData } from '../repository/graph.repository'
 import { CycleDetectorService } from '../cycle/cycle-detector.service'

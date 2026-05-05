@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { GraphEventPublisher } from './graph-event.publisher'
-import { EdgeType, NodeStatus } from '@prisma/client'
+import { EdgeType, NodeStatus } from '@generated/client'
 
 describe('GraphEventPublisher', () => {
   let publisher: GraphEventPublisher

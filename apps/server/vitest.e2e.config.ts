@@ -2,6 +2,9 @@ import swc from 'unplugin-swc'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
     include: ['test/**/*.e2e-spec.ts'],
     testTimeout: 30_000,

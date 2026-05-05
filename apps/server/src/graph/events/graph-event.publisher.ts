@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
-import type { EdgeType, NodeStatus } from '@prisma/client'
+import type { EdgeType, NodeStatus } from '@generated/client'
 import type { DeleteStrategy } from '../repository/graph.repository'
 
 export const GRAPH_EVENTS_QUEUE = 'graph-events'

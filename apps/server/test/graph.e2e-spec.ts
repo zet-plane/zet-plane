@@ -3,7 +3,7 @@ import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import { Test, TestingModule } from '@nestjs/testing'
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify'
 import { AppModule } from '../src/app.module'
-import { EdgeType, CreatedBy } from '@prisma/client'
+import { EdgeType, CreatedBy } from '@generated/client'
 
 // ── Infrastructure availability probe ──────────────────────────────────────
 async function isRedisAvailable(): Promise<boolean> {

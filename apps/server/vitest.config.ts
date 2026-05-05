@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
+  resolve: {
+    tsconfigPaths: true,
+  },
   test: {
     // Default run: only unit tests (excludes e2e)
     include: ['src/**/*.spec.ts'],

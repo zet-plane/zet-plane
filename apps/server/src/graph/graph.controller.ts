@@ -1,5 +1,5 @@
 import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException } from '@nestjs/common'
-import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@prisma/client'
+import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@generated/client'
 import { NodeService } from './node/node.service'
 import { EdgeService } from './edge/edge.service'
 import type { DeleteStrategy } from './repository/graph.repository'

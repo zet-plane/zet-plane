@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { CycleDetectorService } from './cycle-detector.service'
-import { EdgeType, CreatedBy } from '@prisma/client'
-import type { Edge } from '@prisma/client'
+import { EdgeType, CreatedBy } from '@generated/client'
+import type { Edge } from '@generated/client'
 
 function edge(fromId: string, toId: string, type: EdgeType = EdgeType.composition): Edge {
   return {
