@@ -59,6 +59,7 @@ pnpm --filter @zet-plane/server prisma migrate deploy
 ```
 
 - 升级时切到 Prisma 7 新生成器 `prisma-client`，输出至 `src/generated/client`；导入统一用 `@generated/client` 路径别名（见 `tsconfig.json` `paths` 与 `nest-cli.json`）。
+- `src/generated/` 已加入根 `.gitignore`，由 `apps/server` 的 `postinstall: prisma generate` 在 install 后自动产出。`prisma.config.ts` 中 `DATABASE_URL` 提供了 placeholder fallback，因此无 env 也能跑 codegen（migrate / runtime 仍需真实值）。
 
 ### `@nestjs/*` 10.x → 11.x（高）
 

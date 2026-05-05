@@ -2,6 +2,7 @@
   "name": "@zet-plane/server",
   "version": "0.0.1",
   "scripts": {
+    "postinstall": "prisma generate",
     "build": "nest build && tsc-alias -p tsconfig.json",
     "dev": "nest start --watch",
     "start": "node dist/main",

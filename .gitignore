@@ -6,3 +6,5 @@ dist/
 !.env.example
 .superpowers/
 
+# Prisma 7 generated client (regenerated via postinstall)
+apps/server/src/generated/

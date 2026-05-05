@@ -1,4 +1,4 @@
-import { defineConfig, env } from 'prisma/config'
+import { defineConfig } from 'prisma/config'
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -6,6 +6,9 @@ export default defineConfig({
     path: 'prisma/migrations',
   },
   datasource: {
-    url: env('DATABASE_URL'),
+    // Fallback placeholder so `prisma generate` (codegen, no DB needed)
+    // can run during postinstall in environments without DATABASE_URL set.
+    // Migrate / runtime paths still require a real value via .env.
+    url: process.env.DATABASE_URL ?? 'postgresql://placeholder',
   },
 })
