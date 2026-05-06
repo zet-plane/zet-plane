@@ -12,9 +12,10 @@ import { validateConfig } from './config/app.config'
     }),
     BullModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        connection: cfg.getOrThrow<string>('REDIS_URL'),
-      }),
+      useFactory: (cfg: ConfigService) => {
+        const { hostname, port } = new URL(cfg.getOrThrow<string>('REDIS_URL'))
+        return { connection: { host: hostname, port: Number(port) || 6379 } }
+      },
     }),
     GraphModule,
   ],
