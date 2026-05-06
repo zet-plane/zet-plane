@@ -8,3 +8,6 @@ dist/
 
 # Prisma 7 generated client (regenerated via postinstall)
 apps/server/src/generated/
+
+# Local AppConfig YAML (copy from config.yaml.example for local dev)
+apps/server/config.yaml
