@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common'
 import { PrismaClient } from '@generated/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import type { Prisma } from '@generated/client'
+import { AppConfig } from '../config/app-config'
 
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
@@ -24,8 +25,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return (this.client.$transaction as (...a: unknown[]) => unknown)(...args)
   }
 
-  constructor() {
-    const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL ?? '' })
+  constructor(cfg: AppConfig) {
+    const adapter = new PrismaPg({ connectionString: cfg.database.url })
     this.client = new PrismaClient({ adapter })
   }
 

@@ -1,0 +1,16 @@
+server:
+  port: 3000
+database:
+  url: postgresql://postgres:postgres@localhost:5432/zet_plane_dev
+redis:
+  url: redis://localhost:6379
+auth:
+  jwtSecret: ""
+integrations:
+  anthropic:
+    apiKey: ""
+  github:
+    webhookSecret: ""
+  feishu:
+    appId: ""
+    appSecret: ""

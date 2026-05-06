@@ -1,13 +1,19 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphModule } from './graph/graph.module'
+import { AppConfigModule } from './config/app-config.module'
+import { AppConfig } from './config/app-config'
 
 @Module({
   imports: [
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: Number(process.env.REDIS_PORT ?? 6379),
+    ConfigModule.forRoot({ isGlobal: true }),
+    AppConfigModule,
+    BullModule.forRootAsync({
+      inject: [AppConfig],
+      useFactory: (cfg: AppConfig) => {
+        const { hostname, port } = new URL(cfg.redis.url)
+        return { connection: { host: hostname, port: Number(port) || 6379 } }
       },
     }),
     GraphModule,
