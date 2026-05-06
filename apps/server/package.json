@@ -15,6 +15,7 @@
     "@anthropic-ai/sdk": "^0.24.0",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.1.19",
+    "@nestjs/config": "4.0.4",
     "@nestjs/core": "^11.1.19",
     "@nestjs/platform-fastify": "^11.1.19",
     "@nestjs/platform-socket.io": "^11.1.19",
@@ -25,7 +26,8 @@
     "bullmq": "^5.4.0",
     "pg": "8.20.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",

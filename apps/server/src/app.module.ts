@@ -1,14 +1,20 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphModule } from './graph/graph.module'
+import { validateConfig } from './config/app.config'
 
 @Module({
   imports: [
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST ?? 'localhost',
-        port: Number(process.env.REDIS_PORT ?? 6379),
-      },
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateConfig,
+    }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) => ({
+        connection: cfg.getOrThrow<string>('REDIS_URL'),
+      }),
     }),
     GraphModule,
   ],
