@@ -24,6 +24,7 @@
     "@prisma/client": "^7.8.0",
     "@zet-plane/types": "workspace:*",
     "bullmq": "^5.4.0",
+    "js-yaml": "^4.1.1",
     "pg": "8.20.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -32,6 +33,7 @@
   "devDependencies": {
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.19",
+    "@types/js-yaml": "^4.0.9",
     "@types/pg": "^8.20.0",
     "@zet-plane/tsconfig": "workspace:*",
     "esbuild": "0.28.0",
