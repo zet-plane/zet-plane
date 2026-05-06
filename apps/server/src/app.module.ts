@@ -1,19 +1,18 @@
 import { Module } from '@nestjs/common'
-import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphModule } from './graph/graph.module'
-import { validateConfig } from './config/app.config'
+import { AppConfigModule } from './config/app-config.module'
+import { AppConfig } from './config/app-config'
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateConfig,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
+    AppConfigModule,
     BullModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => {
-        const { hostname, port } = new URL(cfg.getOrThrow<string>('REDIS_URL'))
+      inject: [AppConfig],
+      useFactory: (cfg: AppConfig) => {
+        const { hostname, port } = new URL(cfg.redis.url)
         return { connection: { host: hostname, port: Number(port) || 6379 } }
       },
     }),
