@@ -1,5 +1,7 @@
 # Scaffold Graph Engine Implementation Plan
 
+> **Superseded in part by [drop-reference-edge spec](../specs/2026-05-07-drop-reference-edge.md) (2026-05-07): the `reference` edge type has been removed.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现 Scaffold Graph Engine——项目图结构的领域服务，包含节点/边 CRUD、状态护栏校验、环检测与 Checkpoint 升级、BullMQ 事件推送。
