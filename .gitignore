@@ -7,7 +7,7 @@ dist/
 .superpowers/
 
 # Prisma 7 generated client (regenerated via postinstall)
-apps/server/src/prisma/generated/
+apps/server/src/prisma/gen/
 
 # Local AppConfig YAML (copy from config.yaml.example for local dev)
 apps/server/config.yaml
