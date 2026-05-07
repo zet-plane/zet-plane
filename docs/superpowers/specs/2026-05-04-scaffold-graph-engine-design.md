@@ -14,7 +14,6 @@
 | 状态传播方式 | Graph Engine 推事件 + 应用层护栏校验；Orchestrator 决定是否推进父节点 |
 | 环检测算法 | 局部 DFS（写边后从 `toId` 出发尝试回到 `fromId`） |
 | 入度并列处理 | 取 DFS 遍历顺序中第一个（确定性） |
-| reference 边与环检测 | reference 边不参与环检测（无流程约束语义） |
 | Project 根节点 | 真实 Node 记录（`isProjectRoot: true`），创建项目时自动生成 |
 | 外键约束 | 不使用 DB 外键，引用完整性由应用层保证 |
 | 删除中间节点 | 参数化策略，由 Orchestrator 或人决定 |
@@ -88,7 +87,7 @@ model Edge {
 enum NodeType             { scaffold growth }
 enum NodeStatus           { active blocked completed archived }
 enum CheckpointResolution { continue loop }
-enum EdgeType             { composition dependency reference }
+enum EdgeType             { composition dependency }
 enum CreatedBy            { human agent }
 ```
 
@@ -160,7 +159,7 @@ enum CreatedBy            { human agent }
 ```
 // 事务外校验
 1. 查 fromNode, toNode 存在且未 archived，否则 404
-2. type ≠ 'reference' 且 fromNode.status=completed → 409 COMPLETED_NODE_IMMUTABLE
+2. fromNode.status=completed → 409 COMPLETED_NODE_IMMUTABLE
 
 // DB 事务内
 3. 插入 Edge
@@ -219,8 +218,8 @@ Body: { type: 'composition' | 'dependency', newFromId: string }
 ```typescript
 // cycle-detector.service.ts — 纯函数，无任何 IO
 function detect(fromId: string, toId: string, edges: Edge[]): string[] | null {
-  // 只含 composition + dependency 边的邻接表
-  const graph = buildAdjacency(edges.filter(e => e.type !== 'reference'))
+  // 所有边均参与流程约束检测
+  const graph = buildAdjacency(edges)
   const path: string[] = []
   const visited = new Set<string>()
 

@@ -1,5 +1,7 @@
 # 知识沉淀引擎实现计划
 
+> **Superseded in part by [drop-reference-edge spec](../specs/2026-05-07-drop-reference-edge.md) (2026-05-07): the `reference` edge type has been removed.**
+
 > **给 Agent 执行者：** 必须使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 技能逐任务执行本计划。各步骤使用 checkbox（`- [ ]`）语法追踪进度。
 
 **目标：** 实现知识沉淀引擎——一个被动的 NestJS 领域服务，管理知识条目生命周期、渐进式修订历史，以及基于 pgvector 的语义检索，所有条目均锚定到 Graph 节点。
