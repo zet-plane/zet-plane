@@ -19,6 +19,8 @@
 | 外键约束 | 不使用 DB 外键，引用完整性由应用层保证 |
 | 删除中间节点 | 参数化策略，由 Orchestrator 或人决定 |
 | 事务 vs. Job 推送 | DB 事务提交后推 BullMQ Job，推失败不回滚，依赖 BullMQ 重试 |
+| checkpoint 历史记录 | 不在 Graph 层扩展历史表，由 Knowledge Engine 的 KnowledgeEntry 承载（见下方说明） |
+| `checkpointResolution` 字段 | 保留在 Node 上作冗余快照，显示最终判决；Knowledge Engine 为内容权威，Graph 不依赖此字段做状态推进 |
 
 ---
 
@@ -299,3 +301,34 @@ type GraphJob =
 - **删除策略的选择**由 Agent Orchestrator（可用 LLM 分析子图语义）或人通过 API 决定
 - **父节点状态是否推进**由 Orchestrator 在收到 `graph.node.status_changed` Job 后决定，Graph Engine 只做校验护栏
 - `isProjectRoot=true` 的根节点不对外暴露（`GET /projects/:id/nodes` 过滤），不可删除
+
+---
+
+## 十、设计备注：checkpoint 历史与 `checkpointResolution` 字段
+
+### 背景
+
+同一个节点可能多次被升级为 checkpoint（例如提案反复被打回重做）。最初曾考虑在 Graph 层增加 `CheckpointEvent` 历史表来记录每轮判决。
+
+### 决策
+
+**不在 Scaffold Graph 层扩展历史表。** checkpoint 的判决理由、审阅意见、多轮历史属于"内容语义"，由 **Knowledge Engine** 承载：
+
+- 每次 checkpoint 被 resolve 后，Orchestrator 在 Knowledge Engine 中针对该 node 创建一条 `category=decision` 的 `KnowledgeEntry`，记录本轮判断背景
+- 多轮打回 = 多条 KnowledgeEntry，`KnowledgeRevision` 天然支持版本追溯
+- Graph 层只负责结构事实（当前是否 blocked、最终判决是什么）
+
+### `checkpointResolution` 字段的定位
+
+该字段**保留在 Node 上**，作为最新轮次判决的冗余快照（`continue` | `loop`）：
+
+- 方便在不查询 Knowledge Engine 的情况下快速读取当前结论
+- Graph Engine 状态机本身**不依赖此字段**做任何决策（状态推进依赖 `status` 和 `isCheckpoint`）
+- Knowledge Engine 是判决内容的权威来源；若两者不一致，以 Knowledge 为准
+
+### 层次分工
+
+| 层 | 存什么 |
+|---|---|
+| Scaffold Graph (`checkpointResolution`) | 结构事实：最新轮次的判决结果（快照） |
+| Knowledge Engine (`KnowledgeEntry`) | 内容语义：为什么打回、审阅意见、每轮决策背景、完整历史 |

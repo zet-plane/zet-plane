@@ -24,6 +24,7 @@ describe('EdgeService', () => {
     mockRepo = {
       findNode: vi.fn(),
       findEdge: vi.fn(),
+      findProjectRoot: vi.fn().mockResolvedValue(makeNode({ id: 'root', isProjectRoot: true })),
       listProjectEdges: vi.fn(),
       createEdge: vi.fn(),
       deleteEdge: vi.fn(),
@@ -73,6 +74,16 @@ describe('EdgeService', () => {
   })
 
   describe('replaceNodeEdges', () => {
+    it('throws 409 PROJECT_NOT_INITIALIZED when project has no root node', async () => {
+      mockRepo.findProjectRoot.mockResolvedValue(null)
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(ConflictException)
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toMatchObject({ message: 'PROJECT_NOT_INITIALIZED' })
+    })
+
     it('throws 404 when node does not exist', async () => {
       mockRepo.findNode.mockResolvedValueOnce(null)
       await expect(
@@ -124,6 +135,16 @@ describe('EdgeService', () => {
   })
 
   describe('createEdge', () => {
+    it('throws 409 PROJECT_NOT_INITIALIZED when project has no root node', async () => {
+      mockRepo.findProjectRoot.mockResolvedValue(null)
+      await expect(
+        service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human })
+      ).rejects.toThrow(ConflictException)
+      await expect(
+        service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human })
+      ).rejects.toMatchObject({ message: 'PROJECT_NOT_INITIALIZED' })
+    })
+
     it('throws 404 when fromNode does not exist', async () => {
       mockRepo.findNode.mockResolvedValue(null)
       await expect(

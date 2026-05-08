@@ -15,6 +15,9 @@ export class EdgeService {
   ) {}
 
   async createEdge(data: EdgeCreateData): Promise<Edge> {
+    const root = await this.repo.findProjectRoot(data.projectId)
+    if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
+
     const [fromNode, toNode] = await Promise.all([
       this.repo.findNode(data.fromId),
       this.repo.findNode(data.toId),
@@ -67,6 +70,9 @@ export class EdgeService {
     projectId: string,
     createdBy: CreatedBy,
   ): Promise<Edge> {
+    const root = await this.repo.findProjectRoot(projectId)
+    if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
+
     const [node, newParent] = await Promise.all([
       this.repo.findNode(nodeId),
       this.repo.findNode(newFromId),
