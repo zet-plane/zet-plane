@@ -41,14 +41,6 @@ describe('CycleDetectorService', () => {
       expect(result).toContain('b')
     })
 
-    it('ignores reference edges — reference edge does not create a cycle', () => {
-      // a→b (reference) exists; adding b→a (composition)
-      // reference edge should not count as flow constraint
-      const edges = [edge('a', 'b', EdgeType.reference), edge('b', 'a')]
-      const result = detector.detect('b', 'a', edges)
-      expect(result).toBeNull()
-    })
-
     it('detects cycle through dependency edges', () => {
       const edges = [edge('a', 'b', EdgeType.dependency), edge('b', 'a', EdgeType.dependency)]
       const result = detector.detect('b', 'a', edges)

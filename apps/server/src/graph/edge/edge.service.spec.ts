@@ -152,23 +152,15 @@ describe('EdgeService', () => {
       ).rejects.toThrow(NotFoundException)
     })
 
-    it('throws 409 when fromNode is completed and type is composition', async () => {
-      mockRepo.findNode
-        .mockResolvedValueOnce(makeNode({ id: 'a', status: NodeStatus.completed }))
-        .mockResolvedValueOnce(makeNode({ id: 'b' }))
-      await expect(
-        service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human })
-      ).rejects.toThrow(ConflictException)
-    })
-
-    it('allows reference edge even when fromNode is completed', async () => {
-      mockRepo.findNode
-        .mockResolvedValueOnce(makeNode({ id: 'a', status: NodeStatus.completed }))
-        .mockResolvedValueOnce(makeNode({ id: 'b' }))
-      const mockEdge = { id: 'e1', projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.reference, createdBy: CreatedBy.human, createdAt: new Date() }
-      mockRepo.createEdge.mockResolvedValue({ edge: mockEdge, cyclePath: null, checkpointNodeId: null })
-      await service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.reference, createdBy: CreatedBy.human })
-      expect(mockRepo.createEdge).toHaveBeenCalled()
+    it('throws 409 when fromNode is completed — all edge types rejected', async () => {
+      for (const type of [EdgeType.composition, EdgeType.dependency]) {
+        mockRepo.findNode
+          .mockResolvedValueOnce(makeNode({ id: 'a', status: NodeStatus.completed }))
+          .mockResolvedValueOnce(makeNode({ id: 'b' }))
+        await expect(
+          service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type, createdBy: CreatedBy.human })
+        ).rejects.toThrow(ConflictException)
+      }
     })
 
     it('publishes graph.edge.created when no cycle', async () => {

@@ -26,7 +26,7 @@ export class EdgeService {
     if (!toNode) throw new NotFoundException(`Node ${data.toId} not found`)
     if (fromNode.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (toNode.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
-    if (data.type !== EdgeType.reference && fromNode.status === NodeStatus.completed) {
+    if (fromNode.status === NodeStatus.completed) {
       throw new ConflictException('COMPLETED_NODE_IMMUTABLE')
     }
 

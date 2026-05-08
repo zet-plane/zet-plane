@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common'
-import { EdgeType } from '@generated/client'
 import type { Edge } from '@generated/client'
 
 @Injectable()
 export class CycleDetectorService {
   detect(fromId: string, toId: string, edges: Edge[]): string[] | null {
     if (fromId === toId) return null
-    const graph = this.buildAdjacency(edges.filter(e => e.type !== EdgeType.reference))
+    const graph = this.buildAdjacency(edges)
     const path: string[] = []
     const visited = new Set<string>()
 

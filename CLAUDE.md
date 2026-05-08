@@ -47,10 +47,9 @@ This is the only domain module currently implemented. Its design intent is in [d
 
 Non-obvious rules enforced in code:
 
-- **Cycle detection ignores `reference` edges** — only `composition` and `dependency` count as flow constraints. See `cycle-detector.service.ts`.
 - **Checkpoint elevation runs inside the same `$transaction` as edge creation**, then the BullMQ job fires *after* the transaction commits. Never publish jobs from inside a `$transaction` callback.
 - **Node status guards live in `NodeService.validateStatusTransition`** (5 rules: NODE_ARCHIVED, USE_RESOLUTION_API, UNRESOLVED_CHECKPOINT, INCOMPLETE_CHILDREN, UNRESOLVED_DEPENDENCY). Adding state transitions means updating both this method and the spec table.
-- **`completed` is intentionally close to immutable.** A completed node cannot move back to `active`/`blocked`; only edge type `reference` may be added to it.
+- **`completed` is fully immutable on outbound edges.** A completed node cannot move back to `active`/`blocked`, and no new outbound edges of any type may originate from it.
 - **Project root node is created lazily** via `initProjectRoot` and is the only node with `isProjectRoot=true`. All user-created nodes get a composition edge from root.
 - **Delete strategies are 4-way** (`block` | `cascade` | `reparent-to-parent` | `reparent-to-root`) and return the list of affected node IDs, which gets attached to the published `graph.node.deleted` job.
 
