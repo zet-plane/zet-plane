@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@generated/client'
-import type { Node, Edge } from '@generated/client'
+import type { Node, Edge, Prisma } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
 export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'
@@ -74,6 +74,23 @@ export class GraphRepository {
       }
       throw err
     }
+  }
+
+  /**
+   * Transactional variant of initProjectRoot. Accepts an in-progress
+   * Prisma transaction client so the root node is created atomically
+   * alongside the Project row (used by ProjectService.create).
+   */
+  async initProjectRootTx(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+    return tx.node.create({
+      data: {
+        projectId,
+        isProjectRoot: true,
+        type: NodeType.scaffold,
+        title: '[Project Root]',
+        createdBy: CreatedBy.human,
+      },
+    })
   }
 
   async createNode(data: NodeCreateData): Promise<Node> {

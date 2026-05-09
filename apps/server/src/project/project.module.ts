@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { ProjectRepository } from './repository/project.repository'
 import { ProjectEventPublisher, PROJECT_EVENTS_QUEUE } from './events/project-event.publisher'
+import { ProjectService } from './project.service'
 import { PrismaService } from '../prisma/prisma.service'
 
 @Module({
@@ -12,7 +13,8 @@ import { PrismaService } from '../prisma/prisma.service'
     PrismaService,
     ProjectRepository,
     ProjectEventPublisher,
+    ProjectService,
   ],
-  exports: [],
+  exports: [ProjectService],
 })
 export class ProjectModule {}
