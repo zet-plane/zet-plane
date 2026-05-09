@@ -5,6 +5,7 @@ import { GraphModule } from './graph/graph.module'
 import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
 import { KnowledgeModule } from './knowledge/knowledge.module'
+import { ProjectModule } from './project/project.module'
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module'
     }),
     GraphModule,
     KnowledgeModule,
+    ProjectModule,
   ],
 })
 export class AppModule {}
