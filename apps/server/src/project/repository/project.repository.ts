@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common'
-import type { Project, Prisma } from '@generated/client'
+import type { Project, Prisma, Node } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
-import type { Node } from '@generated/client'
 
 export type ProjectCreateData = { name: string; description?: string }
 export type ProjectUpdateData = { name?: string; description?: string }
