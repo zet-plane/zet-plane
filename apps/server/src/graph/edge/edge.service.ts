@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { EdgeType, NodeStatus, CreatedBy } from '@generated/client'
 import type { Edge } from '@generated/client'
 import { GraphRepository } from '../repository/graph.repository'
 import type { EdgeCreateData } from '../repository/graph.repository'
 import { CycleDetectorService } from '../cycle/cycle-detector.service'
 import { GraphEventPublisher } from '../events/graph-event.publisher'
+import { ProjectService } from '../../project/project.service'
 
 @Injectable()
 export class EdgeService {
@@ -12,9 +13,11 @@ export class EdgeService {
     private readonly repo: GraphRepository,
     private readonly detector: CycleDetectorService,
     private readonly publisher: GraphEventPublisher,
+    @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
   async createEdge(data: EdgeCreateData): Promise<Edge> {
+    await this.projectService.assertExists(data.projectId)
     const root = await this.repo.findProjectRoot(data.projectId)
     if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
 
@@ -56,6 +59,7 @@ export class EdgeService {
   async deleteEdge(edgeId: string): Promise<void> {
     const edge = await this.repo.findEdge(edgeId)
     if (!edge) throw new NotFoundException(`Edge ${edgeId} not found`)
+    await this.projectService.assertExists(edge.projectId)
     await this.repo.deleteEdge(edgeId)
   }
 
@@ -70,6 +74,7 @@ export class EdgeService {
     projectId: string,
     createdBy: CreatedBy,
   ): Promise<Edge> {
+    await this.projectService.assertExists(projectId)
     const root = await this.repo.findProjectRoot(projectId)
     if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
 

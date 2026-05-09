@@ -35,7 +35,8 @@ describe('EdgeService', () => {
       findHighestInDegreeNode: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    service = new EdgeService(mockRepo, mockDetector, mockPublisher)
+    const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+    service = new EdgeService(mockRepo, mockDetector, mockPublisher, mockProjectService)
   })
 
   describe('deleteEdge', () => {
@@ -131,6 +132,34 @@ describe('EdgeService', () => {
       expect(mockPublisher.publish).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'graph.node.checkpoint_elevated' })
       )
+    })
+  })
+
+  describe('when project does not exist', () => {
+    let mockProjectService: any
+
+    beforeEach(() => {
+      mockProjectService = {
+        assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
+      }
+      service = new EdgeService(mockRepo, mockDetector, mockPublisher, mockProjectService)
+    })
+
+    it('createEdge throws 404', async () => {
+      await expect(
+        service.createEdge({ projectId: 'bad', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human }),
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('deleteEdge throws 404', async () => {
+      mockRepo.findEdge.mockResolvedValue({ id: 'e1', projectId: 'bad' })
+      await expect(service.deleteEdge('e1')).rejects.toThrow(NotFoundException)
+    })
+
+    it('replaceNodeEdges throws 404', async () => {
+      await expect(
+        service.replaceNodeEdges('n1', EdgeType.composition, 'n2', 'bad', CreatedBy.human),
+      ).rejects.toThrow(NotFoundException)
     })
   })
 
