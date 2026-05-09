@@ -188,16 +188,6 @@ describe('NodeService', () => {
     })
   })
 
-  describe('initProjectRoot', () => {
-    it('delegates to repo.initProjectRoot', async () => {
-      const root = makeNode({ id: 'root', isProjectRoot: true })
-      mockRepo.initProjectRoot.mockResolvedValue(root)
-      const result = await service.initProjectRoot('p1')
-      expect(mockRepo.initProjectRoot).toHaveBeenCalledWith('p1')
-      expect(result).toEqual(root)
-    })
-  })
-
   describe('resolveCheckpoint', () => {
     it('throws 409 when node is not blocked', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.active, isCheckpoint: true }))

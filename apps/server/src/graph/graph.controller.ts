@@ -21,16 +21,6 @@ export class GraphController {
     private readonly edgeService: EdgeService,
   ) {}
 
-  // ── Project init ──────────────────────────────────────────────────────
-
-  @Post('projects/:id/init')
-  @ApiOperation({ summary: 'Initialize project root node' })
-  @ApiParam({ name: 'id', description: 'Project ID' })
-  @ApiResponse({ status: 201, type: NodeEntity })
-  initProject(@Param('id') projectId: string) {
-    return this.nodeService.initProjectRoot(projectId)
-  }
-
   // ── Nodes ─────────────────────────────────────────────────────────────
 
   @Post('projects/:id/nodes')

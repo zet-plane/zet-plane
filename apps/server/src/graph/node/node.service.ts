@@ -14,10 +14,6 @@ export class NodeService {
     @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
-  async initProjectRoot(projectId: string): Promise<Node> {
-    return this.repo.initProjectRoot(projectId)
-  }
-
   /**
    * Transactional variant used by ProjectService.createWithRootTx.
    * Receives the in-progress Prisma transaction client so the root node

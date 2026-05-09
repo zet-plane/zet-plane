@@ -9,7 +9,6 @@ describe('GraphController', () => {
 
   beforeEach(() => {
     mockNodeService = {
-      initProjectRoot: vi.fn(),
       createNode: vi.fn(),
       updateNode: vi.fn(),
       updateStatus: vi.fn(),
@@ -25,14 +24,6 @@ describe('GraphController', () => {
       replaceNodeEdges: vi.fn(),
     }
     controller = new GraphController(mockNodeService, mockEdgeService)
-  })
-
-  it('initProject calls nodeService.initProjectRoot', async () => {
-    const node = { id: 'root', projectId: 'p1', isProjectRoot: true }
-    mockNodeService.initProjectRoot.mockResolvedValue(node)
-    const result = await controller.initProject('p1')
-    expect(mockNodeService.initProjectRoot).toHaveBeenCalledWith('p1')
-    expect(result).toEqual(node)
   })
 
   it('createNode calls nodeService.createNode with body', async () => {
