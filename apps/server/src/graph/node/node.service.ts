@@ -1,15 +1,17 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { NodeStatus, CheckpointResolution } from '@generated/client'
 import type { Node, Edge, Prisma } from '@generated/client'
 import { GraphRepository, HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 import type { NodeCreateData, DeleteStrategy } from '../repository/graph.repository'
 import { GraphEventPublisher } from '../events/graph-event.publisher'
+import { ProjectService } from '../../project/project.service'
 
 @Injectable()
 export class NodeService {
   constructor(
     private readonly repo: GraphRepository,
     private readonly publisher: GraphEventPublisher,
+    @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
   async initProjectRoot(projectId: string): Promise<Node> {
@@ -26,6 +28,7 @@ export class NodeService {
   }
 
   async createNode(data: NodeCreateData): Promise<Node> {
+    await this.projectService.assertExists(data.projectId)
     return this.repo.createNode(data)
   }
 
@@ -41,6 +44,7 @@ export class NodeService {
 
   async updateNode(id: string, data: Partial<Pick<Node, 'title' | 'description' | 'isCheckpoint'>>): Promise<Node> {
     const node = await this.requireNode(id)
+    await this.projectService.assertExists(node.projectId)
     if (node.status === NodeStatus.archived) {
       throw new ConflictException('NODE_ARCHIVED')
     }
@@ -49,6 +53,7 @@ export class NodeService {
 
   async updateStatus(nodeId: string, newStatus: NodeStatus): Promise<Node> {
     const node = await this.requireNode(nodeId)
+    await this.projectService.assertExists(node.projectId)
     await this.validateStatusTransition(node, newStatus)
     const updated = await this.repo.updateNode(nodeId, { status: newStatus })
     await this.publisher.publish({
@@ -60,6 +65,7 @@ export class NodeService {
 
   async resolveCheckpoint(nodeId: string, resolution: 'continue' | 'loop'): Promise<Node> {
     const node = await this.requireNode(nodeId)
+    await this.projectService.assertExists(node.projectId)
     if (node.status !== NodeStatus.blocked || !node.isCheckpoint) {
       throw new ConflictException('Node must be blocked and isCheckpoint=true to resolve')
     }
@@ -76,6 +82,7 @@ export class NodeService {
 
   async deleteNode(nodeId: string, strategy: DeleteStrategy = 'block'): Promise<{ affectedNodeIds: string[] }> {
     const node = await this.requireNode(nodeId)
+    await this.projectService.assertExists(node.projectId)
     if (node.isProjectRoot) throw new ConflictException('Cannot delete project root node')
     try {
       const affectedNodeIds = await this.repo.deleteNodeWithStrategy(nodeId, node.projectId, strategy)

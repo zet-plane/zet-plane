@@ -41,7 +41,8 @@ describe('NodeService', () => {
       deleteNodeWithStrategy: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    service = new NodeService(mockRepo, mockPublisher)
+    const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+    service = new NodeService(mockRepo, mockPublisher, mockProjectService)
   })
 
   describe('updateStatus', () => {
@@ -220,6 +221,43 @@ describe('NodeService', () => {
         type: 'graph.checkpoint.resolved',
         payload: { nodeId: 'n1', resolution: 'continue', projectId: 'p1' },
       })
+    })
+  })
+
+  describe('when project does not exist', () => {
+    let mockProjectService: any
+
+    beforeEach(() => {
+      mockProjectService = {
+        assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
+      }
+      service = new NodeService(mockRepo, mockPublisher, mockProjectService)
+    })
+
+    it('createNode throws 404', async () => {
+      await expect(
+        service.createNode({ projectId: 'bad', type: NodeType.scaffold, title: 'T', createdBy: CreatedBy.human }),
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('updateNode throws 404', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode())
+      await expect(service.updateNode('n1', { title: 'X' })).rejects.toThrow(NotFoundException)
+    })
+
+    it('updateStatus throws 404', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.active }))
+      await expect(service.updateStatus('n1', NodeStatus.completed)).rejects.toThrow(NotFoundException)
+    })
+
+    it('resolveCheckpoint throws 404', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.blocked, isCheckpoint: true }))
+      await expect(service.resolveCheckpoint('n1', 'continue')).rejects.toThrow(NotFoundException)
+    })
+
+    it('deleteNode throws 404', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode())
+      await expect(service.deleteNode('n1')).rejects.toThrow(NotFoundException)
     })
   })
 })
