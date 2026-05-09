@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { NodeStatus, CheckpointResolution } from '@generated/client'
-import type { Node, Edge, Prisma } from '@generated/client'
+import type { Node, Edge } from '@generated/client'
+import type { PrismaTx } from '../../prisma/prisma.service'
 import { GraphRepository, HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 import type { NodeCreateData, DeleteStrategy } from '../repository/graph.repository'
 import { GraphEventPublisher } from '../events/graph-event.publisher'
@@ -19,7 +20,7 @@ export class NodeService {
    * Receives the in-progress Prisma transaction client so the root node
    * creation participates in the same atomic operation as the Project row.
    */
-  async initProjectRootInternal(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+  async initProjectRootInternal(projectId: string, tx: PrismaTx): Promise<Node> {
     return this.repo.initProjectRootTx(projectId, tx)
   }
 

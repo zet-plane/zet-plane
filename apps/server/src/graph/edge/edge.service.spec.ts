@@ -35,7 +35,7 @@ describe('EdgeService', () => {
       findHighestInDegreeNode: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+    const mockProjectService: any = { assertExists: vi.fn().mockResolvedValue(undefined) }
     service = new EdgeService(mockRepo, mockDetector, mockPublisher, mockProjectService)
   })
 

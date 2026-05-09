@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common'
-import type { Project, Prisma } from '@generated/client'
+import type { Project } from '@generated/client'
 import { ProjectRepository } from './repository/project.repository'
 import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
 import { ProjectEventPublisher } from './events/project-event.publisher'
@@ -16,7 +16,7 @@ export class ProjectService {
   async create(data: ProjectCreateData): Promise<Project> {
     const { project, rootNode } = await this.repo.createWithRootTx(
       data,
-      (tx: Prisma.TransactionClient, projectId: string) =>
+      (tx, projectId) =>
         this.nodeService.initProjectRootInternal(projectId, tx),
     )
     await this.publisher.publish({

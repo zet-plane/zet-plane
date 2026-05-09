@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@generated/client'
-import type { Node, Edge, Prisma } from '@generated/client'
+import type { Node, Edge } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
+import type { PrismaTx } from '../../prisma/prisma.service'
 
 export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'
 
@@ -81,7 +82,7 @@ export class GraphRepository {
    * Prisma transaction client so the root node is created atomically
    * alongside the Project row (used by ProjectService.create).
    */
-  async initProjectRootTx(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+  async initProjectRootTx(projectId: string, tx: PrismaTx): Promise<Node> {
     return tx.node.create({
       data: {
         projectId,

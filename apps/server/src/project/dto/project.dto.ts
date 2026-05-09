@@ -5,7 +5,7 @@ import type { Project } from '@generated/client'
 export class CreateProjectDto {
   @ApiProperty()
   @IsString()
-  name: string
+  name!: string
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -26,9 +26,9 @@ export class UpdateProjectDto {
 }
 
 export class ProjectEntity implements Project {
-  @ApiProperty() id: string
-  @ApiProperty() name: string
-  @ApiPropertyOptional() description: string | null
-  @ApiProperty() createdAt: Date
-  @ApiProperty() updatedAt: Date
+  @ApiProperty() id!: string
+  @ApiProperty() name!: string
+  @ApiPropertyOptional() description!: string | null
+  @ApiProperty() createdAt!: Date
+  @ApiProperty() updatedAt!: Date
 }
