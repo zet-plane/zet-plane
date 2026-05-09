@@ -25,7 +25,7 @@ export class ProjectController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a project by ID' })
-  @ApiParam({ name: 'id' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({ status: 200, type: ProjectEntity })
   @ApiResponse({ status: 404, description: 'Project not found' })
   findById(@Param('id') id: string) {
@@ -34,7 +34,7 @@ export class ProjectController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update project name or description' })
-  @ApiParam({ name: 'id' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiBody({ type: UpdateProjectDto })
   @ApiResponse({ status: 200, type: ProjectEntity })
   @ApiResponse({ status: 404, description: 'Project not found' })
@@ -45,7 +45,7 @@ export class ProjectController {
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Hard delete a project and all its data' })
-  @ApiParam({ name: 'id' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({ status: 204 })
   @ApiResponse({ status: 404, description: 'Project not found' })
   remove(@Param('id') id: string) {
