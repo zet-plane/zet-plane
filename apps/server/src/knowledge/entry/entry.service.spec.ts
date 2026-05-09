@@ -34,7 +34,8 @@ describe('EntryService', () => {
       updateEntry: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    service = new EntryService(mockRepo, mockPublisher)
+    const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+    service = new EntryService(mockRepo, mockPublisher, mockProjectService)
   })
 
   describe('createEntry', () => {
@@ -140,6 +141,46 @@ describe('EntryService', () => {
     it('throws NotFoundException when entry not found', async () => {
       mockRepo.findEntry.mockResolvedValue(null)
       await expect(service.softDelete('missing')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('when project does not exist', () => {
+    let mockProjectService: any
+
+    beforeEach(() => {
+      mockProjectService = {
+        assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
+      }
+      service = new EntryService(mockRepo, mockPublisher, mockProjectService)
+    })
+
+    it('createEntry throws 404', async () => {
+      await expect(
+        service.createEntry({
+          projectId: 'bad', nodeId: 'n1', category: EntryCategory.decision,
+          title: 'T', body: {}, createdBy: CreatedBy.human,
+        }),
+      ).rejects.toThrow(NotFoundException)
+    })
+
+    it('updateFields throws 404', async () => {
+      mockRepo.findEntry.mockResolvedValue(makeEntry())
+      await expect(service.updateFields('e1', { title: 'X' })).rejects.toThrow(NotFoundException)
+    })
+
+    it('updateStatus throws 404', async () => {
+      mockRepo.findEntry.mockResolvedValue(makeEntry())
+      await expect(service.updateStatus('e1', EntryStatus.published)).rejects.toThrow(NotFoundException)
+    })
+
+    it('reanchor throws 404', async () => {
+      mockRepo.findEntry.mockResolvedValue(makeEntry())
+      await expect(service.reanchor('e1', 'n2')).rejects.toThrow(NotFoundException)
+    })
+
+    it('softDelete throws 404', async () => {
+      mockRepo.findEntry.mockResolvedValue(makeEntry())
+      await expect(service.softDelete('e1')).rejects.toThrow(NotFoundException)
     })
   })
 })
