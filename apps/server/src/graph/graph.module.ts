@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { Module, forwardRef } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphController } from './graph.controller'
 import { NodeService } from './node/node.service'
@@ -8,10 +8,12 @@ import { GraphEventPublisher, GRAPH_EVENTS_QUEUE } from './events/graph-event.pu
 import { GraphEventWorker } from './events/graph-event.worker'
 import { GraphRepository } from './repository/graph.repository'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectModule } from '../project/project.module'
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: GRAPH_EVENTS_QUEUE }),
+    forwardRef(() => ProjectModule),
   ],
   controllers: [GraphController],
   providers: [
@@ -23,5 +25,6 @@ import { PrismaService } from '../prisma/prisma.service'
     NodeService,
     EdgeService,
   ],
+  exports: [NodeService, EdgeService],
 })
 export class GraphModule {}

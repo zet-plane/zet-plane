@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common'
+import { Module, forwardRef } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { KnowledgeController } from './knowledge.controller'
 import { EntryService } from './entry/entry.service'
@@ -7,10 +7,12 @@ import { SearchService } from './search/search.service'
 import { KnowledgeRepository } from './repository/knowledge.repository'
 import { KnowledgeEventPublisher, KNOWLEDGE_EVENTS_QUEUE } from './events/knowledge-event.publisher'
 import { PrismaService } from '../prisma/prisma.service'
+import { ProjectModule } from '../project/project.module'
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: KNOWLEDGE_EVENTS_QUEUE }),
+    forwardRef(() => ProjectModule),
   ],
   controllers: [KnowledgeController],
   providers: [
