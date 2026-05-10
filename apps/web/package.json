@@ -1,22 +1,25 @@
 {
   "name": "@zet-plane/web",
+  "private": true,
   "version": "0.0.1",
+  "type": "module",
   "scripts": {
-    "build": "next build",
-    "dev": "next dev --port 3001",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@zet-plane/types": "workspace:*",
-    "next": "^14.2.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
     "@zet-plane/tsconfig": "workspace:*",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   }
 }
