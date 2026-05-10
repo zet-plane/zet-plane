@@ -1,201 +1,160 @@
 # Scaffold Graph Engine — 设计文档
 
+## 状态
+
+当前已在 `apps/server/src/graph` 落地为 NestJS 模块，包含 GraphService、GraphRepository、CycleDetectorService、GraphEventPublisher 和 GraphEventWorker。持久化使用 Prisma，领域事件通过 BullMQ `graph-events` 队列发布。
+
+Graph Engine 是被动领域服务：只响应 API Layer 或后续 Agent Orchestrator 调用，不主动发起操作，不调用 LLM。
+
 ## 职责
 
-Graph 结构和节点生命周期的领域服务。只响应外部调用（API Layer 或 Agent Orchestrator），不主动发起任何操作，不调用 LLM。
+Graph Engine 管理项目内的节点、边、子图、节点状态流转、Checkpoint 判决和删除策略。它保证图结构的最小一致性，并通过领域事件把关键状态变化通知给系统内其他模块。
 
----
+## 核心概念
 
-**日期**：2026-05-04  
-**状态**：待实现
+### Project Root
 
----
+创建项目时，ProjectService 会在同一个事务里调用 Graph Engine 初始化项目图：
 
-## 一、核心概念
+- Project Root：`role = project_root`、`type = scaffold`、`isProjectRoot = true`、标题为 `[Project Root]`。
+- Staging Area：`role = staging_root`、`type = staging`、标题为 `[Staging Area]`。
+- Root 到 Staging 会自动创建一条 `composition` 边。
 
-### 1.1 节点分类
+普通节点列表 `GET /projects/:id/nodes` 不返回 Project Root，但会返回 Staging Area。
 
-Graph 里有两类节点，区别在于谁创建、谁负责：
+### 节点分类
 
-| | **Scaffold Node（骨架节点）** | **Growth Node（生长节点）** |
+| 类型 | 说明 | 当前约束 |
 |---|---|---|
-| 创建者 | 人（通过 API） | Agent Orchestrator 或人 |
-| 粒度 | 高层：项目阶段、里程碑、功能模块 | 细粒度：具体任务、子问题、调查分支 |
-| 稳定性 | 相对稳定，轻易不删 | 可自由增删，生命周期较短 |
-| 示例 | "后端 API 开发"、"上线前测试" | "修复登录态丢失 bug"、"调研 Redis 方案" |
+| `scaffold` | 人维护的骨架节点，用于阶段、里程碑、模块等稳定结构 | 可由 API 创建 |
+| `growth` | Agent 或人创建的细粒度任务、问题、调查分支 | 可由 API 创建 |
+| `staging` | 系统管理的临时挂载区，用于未定位事件和知识 | 不能通过公开 `createNode` 创建 |
 
-Growth Node 的创建由 Agent Orchestrator 决定，Graph Engine 本身不主动生成节点。所有节点必须通过边连接到 Graph 中，不存在游离节点（Project 根节点除外）。
+`NodeRole` 用于区分节点在系统结构中的角色：
 
-### 1.2 图结构
+- `regular`：普通业务节点。
+- `project_root`：项目虚拟根，受保护。
+- `staging_root`：项目 staging 区，受保护。
 
-整体是**有向图（允许环）**，而非 DAG：
+### 边类型
 
-- 节点可以有多个父节点（一个 Growth Node 可同时挂在两个 Scaffold Node 下）
-- 允许环路存在，但环路会触发 Checkpoint 升级机制（见 1.3）
-- Project 作为虚拟根节点，所有无其他父节点的节点默认挂在 Project 下
-
-### 1.3 Checkpoint 机制
-
-Checkpoint 是节点的属性标记（`isCheckpoint: true`），不是独立节点类型。
-
-**触发路径（两条）：**
-
-1. **人工标记**：用户通过 API 显式将某节点标为 Checkpoint
-2. **环检测自动升级**：写入新边时系统检测到环路，将环中入度最高的节点自动升级为 Checkpoint，状态置为 `blocked`，等待人工判决
-
-**判决结果（`checkpointResolution`）：**
-
-- `continue`：结束本轮循环，节点状态恢复 `active`，流程向前推进
-- `loop`：再循环一次，节点状态恢复 `active`，Agent Orchestrator 重新分析该节点上下文
-
-**双层环检测（防御性设计）：**
-
-- **Graph Engine 层**：写边时硬检测，发现环则**允许写入并同时触发 Checkpoint 升级 + 发出事件**，不拒绝写入
-- **Agent Orchestrator 层**：调用写边 API 前做前置分析，预判是否成环；若会成环，先组织阶段汇总再决定是否落边
-
-两层各负其责：Orchestrator 尽量提前处理，Graph Engine 兜底保证数据层状态一致性。
-
-### 1.4 边的类型
-
-| 类型 | 语义 | 流程约束 |
+| 类型 | 语义 | 当前流程约束 |
 |---|---|---|
-| `composition` | `to` 是 `from` 的子部分，`to` 完成后 `from` 才能推进 | 有 |
-| `dependency` | `from` 依赖 `to` 完成才能开始，但 `to` 不属于 `from` | 有 |
+| `composition` | `to` 是 `from` 的子节点或组成部分 | 完成父节点前，所有未归档 composition 子节点必须 completed |
+| `dependency` | `from` 依赖 `to` 完成 | 节点激活时，dependency 指向的未归档节点必须 completed |
 
----
+节点创建时会原子性创建节点和入边：
 
-## 二、数据模型
+- 传 `parentNodeId` 时，挂到指定父节点。
+- 不传 `parentNodeId` 时，默认挂到 Project Root。
+- `edgeType` 默认 `composition`。
 
-### Node
+## 图结构与环检测
 
-```typescript
-interface Node {
-  id: string                // UUID
-  projectId: string         // UUID
-  type: 'scaffold' | 'growth'
-  title: string
-  description?: string
-  status: 'active' | 'blocked' | 'completed' | 'archived'
-  isCheckpoint: boolean
-  checkpointResolution: 'continue' | 'loop' | null
-  createdBy: 'human' | 'agent'
-  createdAt: Date
-  updatedAt: Date
-}
-```
+Graph 当前允许有向图出现环，但写边时会做兜底检测：
 
-### Edge
+1. 先在事务中写入新边。
+2. 读取项目内所有边，使用 DFS 判断是否从 `toId` 能回到 `fromId`。
+3. 如果成环，选取环路径里入度最高的节点。
+4. 将该节点更新为 `isCheckpoint = true`、`status = blocked`。
+5. 发布 `graph.node.checkpoint_elevated` 事件，payload 包含 `cyclePath`。
 
-```typescript
-interface Edge {
-  id: string                // UUID
-  fromId: string            // 源节点 UUID
-  toId: string              // 目标节点 UUID
-  type: 'composition' | 'dependency'
-  createdBy: 'human' | 'agent'
-  createdAt: Date
-}
-```
+平局时，CycleDetector 使用 DFS 路径里的第一个最高入度节点。
 
----
+Graph Engine 不拒绝成环写入，而是把环显性化为 blocked checkpoint，等待人工或后续 Agent Orchestrator 判决。
 
-## 三、节点生命周期
+## Checkpoint
 
-```
-active ──────────────────────────▶ completed
+Checkpoint 是节点属性，不是独立节点类型。
+
+```text
+active ─────────▶ completed
   │
   ▼
-blocked  ◀──── 环检测自动升级（isCheckpoint = true）
+blocked
   │
-  ▼  （人工提交 checkpointResolution）
-  ├── "continue" ──▶ active（推进，跳出循环）
-  └── "loop"     ──▶ active（再循环，Orchestrator 重新分析）
+  ├── resolution = continue ──▶ active
+  └── resolution = loop     ──▶ active
 
-任意状态 ──▶ archived（软删除，保留数据，不参与流程计算）
+任意非保护节点 ──▶ archived
 ```
 
----
+当前实现：
 
-## 四、API 接口
+- `PATCH /nodes/:id/resolution` 只能用于 `status = blocked` 且 `isCheckpoint = true` 的节点。
+- 判决会写入 `checkpointResolution = continue | loop`，并把状态恢复为 `active`。
+- 直接把 blocked 节点 `PATCH /nodes/:id` 改回 active 会返回 `USE_RESOLUTION_API`。
 
-Graph Engine 只暴露被动 CRUD，不含 LLM 调用或主动逻辑。
+## 状态流转约束
 
-### 节点
+当前实现的主要保护规则：
+
+- Project Root 不能通过普通节点 API 修改、改状态或删除。
+- Staging Root 不能修改普通字段，不能删除，不能 completed 或 archived；显式创建边和替换入边时不能把 staging root 作为结构变更端点。
+- archived 节点不可再更新或参与新边写入。
+- completed 节点不能再回到 active；completed 节点也不能作为新边的 `from`。
+- blocked 节点不能直接 completed，必须先 resolution。
+- 节点 completed 前，所有 composition 子节点必须是 completed 或 archived。
+- 节点 active 前，所有 dependency 目标必须是 completed 或 archived。
+- 自环边被拒绝，返回 `SELF_LOOP_NOT_ALLOWED`。
+
+## 删除策略
+
+`DELETE /nodes/:id` 支持四种策略，返回 `affectedNodeIds`：
+
+| 策略 | 行为 |
+|---|---|
+| `block` | 有 composition 子节点时拒绝删除，返回 `HAS_ACTIVE_CHILDREN` 和受影响子节点 |
+| `cascade` | 归档节点及其 composition 子树，并删除相关边 |
+| `reparent-to-parent` | 要求被删节点只有一个 composition 父节点；将子节点挂到该父节点 |
+| `reparent-to-root` | 将子节点挂到 Project Root |
+
+所有删除都是软删除节点为 `archived`，同时清理或重建相关边。Project 删除是 ProjectService 的硬删除，会级联删除项目下 nodes、edges、knowledge entries 和 revisions。
+
+## API
+
+### Nodes
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `POST` | `/projects/:id/nodes` | 创建节点（type, title, createdBy） |
-| `PATCH` | `/nodes/:id` | 更新节点属性（title, description, status, isCheckpoint） |
-| `PATCH` | `/nodes/:id/resolution` | 提交 Checkpoint 判决（continue \| loop） |
-| `GET` | `/projects/:id/nodes` | 查询项目下全部节点 |
-| `GET` | `/nodes/:id/subgraph` | 查询节点及其下方子图（含所有边） |
-| `DELETE` | `/nodes/:id` | 软删除（→ archived） |
+| `POST` | `/projects/:id/nodes` | 创建节点，并自动创建入边 |
+| `GET` | `/projects/:id/nodes` | 查询项目下非 Project Root 节点 |
+| `GET` | `/nodes/:id/subgraph` | 查询以节点为根的 composition 子图及相关边 |
+| `PATCH` | `/nodes/:id` | 更新字段或状态；字段更新和状态流转互斥 |
+| `PATCH` | `/nodes/:id/resolution` | 判决 blocked checkpoint |
+| `DELETE` | `/nodes/:id` | 按策略软删除节点 |
 
-### 边
+`PATCH /nodes/:id` 的互斥规则：
+
+- 传 `status` 时，不能同时传 `title`、`description`、`isCheckpoint`。
+- 不传 `status` 时，作为普通字段更新。
+
+### Edges
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| `POST` | `/edges` | 创建边（fromId, toId, type）；写入后触发环检测 |
+| `POST` | `/projects/:projectId/edges` | 创建边，并触发环检测 |
+| `GET` | `/projects/:id/edges` | 查询项目全部边 |
 | `DELETE` | `/edges/:id` | 删除边 |
-| `GET` | `/projects/:id/edges` | 查询项目下全部边 |
-| `PATCH` | `/nodes/:id/edges` | 原子性替换节点指定类型的边（移动节点用）；同样触发环检测 |
+| `PATCH` | `/nodes/:id/edges` | 替换节点指定类型的入边，用于移动节点 |
 
-### 内部领域事件（Domain Event，供 Agent Orchestrator 订阅）
+`replaceNodeEdges` 会先删除目标节点同类型入边，再创建新入边，并执行同样的环检测和 checkpoint 升级逻辑。
 
-Graph Engine 状态变更后向外发出的通知，属于系统内部信号，与 Event Pipeline 处理的外部触发事件（Trigger Event）性质不同。
+## 领域事件
+
+Graph Engine 写入成功后通过 BullMQ 发布内部领域事件。当前 worker 记录日志，后续可接 Agent Orchestrator 或通知系统。
 
 | 事件 | 触发时机 |
 |---|---|
-| `graph.node.checkpoint_elevated` | 环检测触发 Checkpoint 自动升级 |
-| `graph.node.status_changed` | 节点状态变更 |
-| `graph.checkpoint.resolved` | 人工判决完成 |
+| `graph.edge.created` | 无环边创建成功，或换边成功且无环 |
+| `graph.node.checkpoint_elevated` | 新边或换边形成环，并自动升级 checkpoint |
+| `graph.node.status_changed` | 节点状态变更成功 |
+| `graph.checkpoint.resolved` | Checkpoint 判决完成 |
+| `graph.node.deleted` | 节点按删除策略归档成功 |
 
----
+## 边界
 
-## 五、数据流转
-
-```
-GitHub Webhook
-      │
-      ▼
- GitHub Adapter
-  （归一化为 NormalizedEvent）
-      │
-      ▼
- Event Pipeline
-  （去重 → Enrich → Route）
-      │
-      ▼
- Agent Orchestrator
-  （所有事件统一经由 LLM 分析）
-      │                          Graph Engine 发出领域事件（pub/sub）
-      │                          如 checkpoint_elevated → 触发 AI 后续处理
-      │                          ◀──────────────────────────────────┐
-      │                                                             │
-      ├──────────────────────────▶ Graph Engine ───────────────────┘
-      │                        （创建/更新节点、边）
-      │
-      └──────────────────────────▶ Knowledge Engine
-                               （创建/更新知识条目）
-                                        │
-                               REST API / WebSocket
-                                        │
-                                  Web Dashboard
-```
-
-> 外部事件和Node的存储关系是多对一的关系
-> 可能会出现孤立event难以直接载入Node下的情况，需要agent orchestrator详细设计
-
-**术语区分：**
-
-- **外部触发事件（Trigger Event）**：来自 GitHub 的原始信号，由 Event Pipeline 归一化后全部路由到 Agent Orchestrator
-- **内部领域事件（Domain Event）**：Graph Engine 状态变更后发出的 pub/sub 通知；特定事件（如 `checkpoint_elevated`）会反向触发 Orchestrator 做 AI 后续处理
-
----
-
-## 六、边界说明
-
-- Graph Engine **不调用 LLM**，不主动发起操作，不决定何时创建子节点
-- 子节点（Growth Node）的创建时机和内容由 **Agent Orchestrator** 决定
-- Checkpoint 升级后的 AI 汇总分析由 **Agent Orchestrator** 负责，Graph Engine 只负责状态变更和事件发出
-- 知识条目与节点的关联关系由 **Knowledge Sedimentation Engine** 管理，Graph Engine 不直接操作知识条目
+- 不调用 LLM，不判断业务语义，不决定何时创建 growth 节点。
+- 不直接管理 KnowledgeEntry，只提供节点和图结构锚点。
+- 不主动订阅外部事件；事件流入和 AI 分析由 Event Pipeline / Agent Orchestrator 负责。
+- 对系统节点采用强保护，普通业务图通过状态约束、环检测和删除策略维护一致性。
