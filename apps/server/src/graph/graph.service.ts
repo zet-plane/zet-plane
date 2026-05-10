@@ -25,18 +25,21 @@ export class GraphService {
 
   // ── Nodes ────────────────────────────────────────────────────────────────
 
-  /** Creates a node and atomically attaches it to a parent via a composition edge.
-   *  Pass `parentNodeId` + `edgeType` to specify the attachment point and edge type;
-   *  omit both to fall back to project root with a composition edge. */
+  /** Creates a node and atomically attaches it to a structural parent via a composition edge.
+   *  Pass `parentNodeId` to specify the attachment point; omit it to fall back
+   *  to project root. Non-structural dependency edges must be created separately. */
   async createNode(data: NodeCreateData): Promise<Node> {
     await this.projectService.assertExists(data.projectId)
     if (data.type === NodeType.staging) throw new ConflictException('STAGING_NODE_SYSTEM_MANAGED')
+    if (data.edgeType !== undefined && data.edgeType !== EdgeType.composition) {
+      throw new BadRequestException('NODE_PARENT_EDGE_MUST_BE_COMPOSITION')
+    }
     if (data.parentNodeId) {
       const parent = await this.repo.findNode(data.parentNodeId)
       if (!parent || parent.projectId !== data.projectId) {
         throw new NotFoundException(`Parent node ${data.parentNodeId} not found`)
       }
-      this.assertNotProjectRoot(parent)
+      this.assertNotStagingRoot(parent)
       if (parent.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
       if (parent.status === NodeStatus.completed) throw new ConflictException('COMPLETED_NODE_IMMUTABLE')
     }
@@ -136,8 +139,8 @@ export class GraphService {
       this.repo.findNode(data.fromId),
       this.repo.findNode(data.toId),
     ])
-    if (!fromNode) throw new NotFoundException(`Node ${data.fromId} not found`)
-    if (!toNode) throw new NotFoundException(`Node ${data.toId} not found`)
+    if (!fromNode || fromNode.projectId !== data.projectId) throw new NotFoundException(`Node ${data.fromId} not found`)
+    if (!toNode || toNode.projectId !== data.projectId) throw new NotFoundException(`Node ${data.toId} not found`)
     if (fromNode.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (toNode.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (fromNode.status === NodeStatus.completed) throw new ConflictException('COMPLETED_NODE_IMMUTABLE')
@@ -193,8 +196,8 @@ export class GraphService {
       this.repo.findNode(nodeId),
       this.repo.findNode(newFromId),
     ])
-    if (!node) throw new NotFoundException(`Node ${nodeId} not found`)
-    if (!newParent) throw new NotFoundException(`Node ${newFromId} not found`)
+    if (!node || node.projectId !== projectId) throw new NotFoundException(`Node ${nodeId} not found`)
+    if (!newParent || newParent.projectId !== projectId) throw new NotFoundException(`Node ${newFromId} not found`)
     if (node.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     if (newParent.status === NodeStatus.archived) throw new ConflictException('NODE_ARCHIVED')
     this.assertStagingAreaStructureUnchanged(node)

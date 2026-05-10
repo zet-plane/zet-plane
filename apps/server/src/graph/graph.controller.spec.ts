@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { HttpStatus } from '@nestjs/common'
+import { HTTP_CODE_METADATA } from '@nestjs/common/constants'
 import { GraphController } from './graph.controller'
 import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@generated/client'
 
@@ -99,6 +101,12 @@ describe('GraphController', () => {
     mockGraphService.deleteEdge.mockResolvedValue(undefined)
     await controller.deleteEdge('e1')
     expect(mockGraphService.deleteEdge).toHaveBeenCalledWith('e1')
+  })
+
+  it('deleteEdge returns 204 to match its API contract', () => {
+    const status = Reflect.getMetadata(HTTP_CODE_METADATA, GraphController.prototype.deleteEdge)
+
+    expect(status).toBe(HttpStatus.NO_CONTENT)
   })
 
   it('replaceEdges delegates with all body fields', async () => {

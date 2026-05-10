@@ -18,7 +18,7 @@ export class CreateNodeDto {
   @ApiPropertyOptional({ description: 'Parent node ID; defaults to project root if omitted' })
   parentNodeId?: string
 
-  @ApiPropertyOptional({ enum: EdgeType, enumName: 'EdgeType', description: 'Edge type to parent; defaults to composition' })
+  @ApiPropertyOptional({ enum: EdgeType, enumName: 'EdgeType', description: 'Structural parent edge type; only composition is accepted and it defaults to composition' })
   edgeType?: EdgeType
 }
 

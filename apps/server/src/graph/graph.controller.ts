@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException } from '@nestjs/common'
+import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
 import { GraphService } from './graph.service'
 import {
@@ -127,6 +127,7 @@ export class GraphController {
   @ApiParam({ name: 'id', description: 'Edge ID' })
   @ApiResponse({ status: 204, description: 'Edge deleted' })
   @ApiResponse({ status: 404, description: 'Edge not found' })
+  @HttpCode(HttpStatus.NO_CONTENT)
   deleteEdge(@Param('id') edgeId: string) {
     return this.graphService.deleteEdge(edgeId)
   }

@@ -47,7 +47,9 @@ Graph Engine 管理项目内的节点、边、子图、节点状态流转、Chec
 
 - 传 `parentNodeId` 时，挂到指定父节点。
 - 不传 `parentNodeId` 时，默认挂到 Project Root。
-- `edgeType` 默认 `composition`。
+- 显式传 Project Root 作为 `parentNodeId` 与默认挂载行为一致。
+- Staging Root 不能作为新节点父节点。
+- 父子挂载边只能是 `composition`；`dependency` 必须通过边 API 单独创建。
 
 ## 图结构与环检测
 
@@ -90,7 +92,7 @@ blocked
 当前实现的主要保护规则：
 
 - Project Root 不能通过普通节点 API 修改、改状态或删除。
-- Staging Root 不能修改普通字段，不能删除，不能 completed 或 archived；显式创建边和替换入边时不能把 staging root 作为结构变更端点。
+- Staging Root 不能修改普通字段，不能删除，不能 completed 或 archived；节点创建、显式创建边和替换入边时不能把 staging root 作为结构变更端点。
 - archived 节点不可再更新或参与新边写入。
 - completed 节点不能再回到 active；completed 节点也不能作为新边的 `from`。
 - blocked 节点不能直接 completed，必须先 resolution。

@@ -79,6 +79,14 @@ describe('GraphService', () => {
       expect(result).toEqual(created)
     })
 
+    it('throws 400 when parent attachment edgeType is dependency', async () => {
+      await expect(
+        service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, edgeType: EdgeType.dependency })
+      ).rejects.toThrow(BadRequestException)
+
+      expect(mockRepo.createNode).not.toHaveBeenCalled()
+    })
+
     it('throws 404 when parentNodeId does not exist', async () => {
       mockRepo.findNode.mockResolvedValue(null)
       await expect(
@@ -93,10 +101,21 @@ describe('GraphService', () => {
       ).rejects.toThrow(NotFoundException)
     })
 
-    it('throws 409 when parent is project root', async () => {
-      mockRepo.findNode.mockResolvedValue(makeNode({ isProjectRoot: true, projectId: 'p1' }))
+    it('allows parentNodeId to explicitly target the project root', async () => {
+      const data = { projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'root' }
+      const created = makeNode({ id: 'n2', title: 'x' })
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'root', isProjectRoot: true, role: NodeRole.project_root, projectId: 'p1' }))
+      mockRepo.createNode.mockResolvedValue(created)
+
+      await expect(service.createNode(data)).resolves.toEqual(created)
+
+      expect(mockRepo.createNode).toHaveBeenCalledWith(data)
+    })
+
+    it('throws 409 when parent is staging root', async () => {
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging, projectId: 'p1' }))
       await expect(
-        service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'root' })
+        service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'staging' })
       ).rejects.toThrow(ConflictException)
     })
 
@@ -336,6 +355,30 @@ describe('GraphService', () => {
       ).rejects.toThrow(NotFoundException)
     })
 
+    it('throws 404 when fromNode belongs to a different project', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'a', projectId: 'p2' }))
+        .mockResolvedValueOnce(makeNode({ id: 'b', projectId: 'p1' }))
+
+      await expect(
+        service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human })
+      ).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.createEdge).not.toHaveBeenCalled()
+    })
+
+    it('throws 404 when toNode belongs to a different project', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'a', projectId: 'p1' }))
+        .mockResolvedValueOnce(makeNode({ id: 'b', projectId: 'p2' }))
+
+      await expect(
+        service.createEdge({ projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human })
+      ).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.createEdge).not.toHaveBeenCalled()
+    })
+
     it('throws 409 when fromNode is completed', async () => {
       mockRepo.findNode
         .mockResolvedValueOnce(makeNode({ id: 'a', status: NodeStatus.completed }))
@@ -427,6 +470,30 @@ describe('GraphService', () => {
       await expect(
         service.replaceNodeEdges('child', EdgeType.composition, 'missingParent', 'p1', CreatedBy.human)
       ).rejects.toThrow(NotFoundException)
+    })
+
+    it('throws 404 when node belongs to a different project', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child', projectId: 'p2' }))
+        .mockResolvedValueOnce(makeNode({ id: 'newParent', projectId: 'p1' }))
+
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.replaceNodeEdges).not.toHaveBeenCalled()
+    })
+
+    it('throws 404 when newParent belongs to a different project', async () => {
+      mockRepo.findNode
+        .mockResolvedValueOnce(makeNode({ id: 'child', projectId: 'p1' }))
+        .mockResolvedValueOnce(makeNode({ id: 'newParent', projectId: 'p2' }))
+
+      await expect(
+        service.replaceNodeEdges('child', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
+      ).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.replaceNodeEdges).not.toHaveBeenCalled()
     })
 
     it('throws 409 when newParent is archived', async () => {
