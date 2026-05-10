@@ -17,8 +17,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 describe('ProjectService', () => {
   let service: ProjectService
   let mockRepo: any
-  let mockPublisher: any
-  let mockNodeService: any
+  let mockGraphService: any
 
   beforeEach(() => {
     mockRepo = {
@@ -28,20 +27,19 @@ describe('ProjectService', () => {
       update: vi.fn(),
       removeWithCascade: vi.fn(),
     }
-    mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    mockNodeService = { initProjectRootInternal: vi.fn() }
-    service = new ProjectService(mockRepo, mockPublisher, mockNodeService)
+    mockGraphService = { initProjectGraphInternal: vi.fn() }
+    service = new ProjectService(mockRepo, mockGraphService as any)
   })
 
   describe('create', () => {
-    it('inserts project and root node in the same transaction', async () => {
+    it('inserts project, root node, and staging area in the same transaction', async () => {
       const project = makeProject()
-      const rootNode = { id: 'root-1' }
+      const projectGraph = { rootNode: { id: 'root-1' }, stagingNode: { id: 'staging-1' } }
       mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
-        const node = await nodeInit({}, project.id)
-        return { project, rootNode: node }
+        const graph = await nodeInit({}, project.id)
+        return { project, rootNode: graph.rootNode }
       })
-      mockNodeService.initProjectRootInternal.mockResolvedValue(rootNode)
+      mockGraphService.initProjectGraphInternal.mockResolvedValue(projectGraph)
 
       const result = await service.create({ name: 'Test Project' })
 
@@ -49,35 +47,17 @@ describe('ProjectService', () => {
         { name: 'Test Project' },
         expect.any(Function),
       )
-      expect(mockNodeService.initProjectRootInternal).toHaveBeenCalledWith(project.id, {})
+      expect(mockGraphService.initProjectGraphInternal).toHaveBeenCalledWith(project.id, {})
       expect(result).toEqual(project)
     })
 
-    it('publishes project.created with rootNodeId after commit', async () => {
-      const project = makeProject()
-      const rootNode = { id: 'root-1' }
-      mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
-        const node = await nodeInit({}, project.id)
-        return { project, rootNode: node }
-      })
-      mockNodeService.initProjectRootInternal.mockResolvedValue(rootNode)
-
-      await service.create({ name: 'Test Project' })
-
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.created',
-        payload: { projectId: project.id, rootNodeId: 'root-1' },
-      })
-    })
-
-    it('rolls back if initProjectRootInternal throws', async () => {
+    it('rolls back if initProjectGraphInternal throws', async () => {
       mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
         await nodeInit({}, 'proj-1')
       })
-      mockNodeService.initProjectRootInternal.mockRejectedValue(new Error('DB error'))
+      mockGraphService.initProjectGraphInternal.mockRejectedValue(new Error('DB error'))
 
       await expect(service.create({ name: 'Test Project' })).rejects.toThrow('DB error')
-      expect(mockPublisher.publish).not.toHaveBeenCalled()
     })
   })
 
@@ -123,25 +103,13 @@ describe('ProjectService', () => {
   })
 
   describe('remove', () => {
-    it('calls repo.removeWithCascade, not child service methods', async () => {
+    it('calls repo.removeWithCascade', async () => {
       mockRepo.findById.mockResolvedValue(makeProject())
       mockRepo.removeWithCascade.mockResolvedValue({ counts: { nodes: 3, edges: 2, entries: 1 } })
 
       await service.remove('proj-1')
 
       expect(mockRepo.removeWithCascade).toHaveBeenCalledWith('proj-1')
-    })
-
-    it('publishes project.deleted with cascaded counts', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject())
-      mockRepo.removeWithCascade.mockResolvedValue({ counts: { nodes: 3, edges: 2, entries: 1 } })
-
-      await service.remove('proj-1')
-
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.deleted',
-        payload: { projectId: 'proj-1', cascadedCounts: { nodes: 3, edges: 2, entries: 1 } },
-      })
     })
 
     it('throws 404 if project does not exist', async () => {

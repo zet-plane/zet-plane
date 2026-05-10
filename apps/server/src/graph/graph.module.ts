@@ -1,8 +1,7 @@
 import { Module, forwardRef } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphController } from './graph.controller'
-import { NodeService } from './node/node.service'
-import { EdgeService } from './edge/edge.service'
+import { GraphService } from './graph.service'
 import { CycleDetectorService } from './cycle/cycle-detector.service'
 import { GraphEventPublisher, GRAPH_EVENTS_QUEUE } from './events/graph-event.publisher'
 import { GraphEventWorker } from './events/graph-event.worker'
@@ -22,9 +21,8 @@ import { ProjectModule } from '../project/project.module'
     CycleDetectorService,
     GraphEventPublisher,
     GraphEventWorker,
-    NodeService,
-    EdgeService,
+    GraphService,
   ],
-  exports: [NodeService, EdgeService],
+  exports: [GraphService],
 })
 export class GraphModule {}

@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { BadRequestException, ValidationPipe } from '@nestjs/common'
 import { KnowledgeController } from './knowledge.controller'
 import { EntryCategory, EntryStatus, EmbeddingStatus, CreatedBy } from '@generated/client'
 import type { KnowledgeEntry } from '@generated/client'
+import { UpdateEntryDto } from './dto/entry.dto'
 
 function makeEntry(overrides: Partial<KnowledgeEntry> = {}): KnowledgeEntry {
   return {
@@ -50,6 +52,26 @@ describe('KnowledgeController', () => {
     expect(result).toEqual(entry)
   })
 
+  it('createEntry allows omitted nodeId and delegates to entryService', async () => {
+    const entry = makeEntry({ nodeId: 'staging' })
+    mockEntryService.createEntry.mockResolvedValue(entry)
+
+    await controller.createEntry('p1', {
+      category: EntryCategory.context,
+      title: 'Loose note',
+      body: {},
+      createdBy: CreatedBy.human,
+    })
+
+    expect(mockEntryService.createEntry).toHaveBeenCalledWith({
+      projectId: 'p1',
+      category: EntryCategory.context,
+      title: 'Loose note',
+      body: {},
+      createdBy: CreatedBy.human,
+    })
+  })
+
   it('listEntries passes projectId and filters', async () => {
     mockEntryService.listEntries.mockResolvedValue([])
     await controller.listEntries('p1', EntryCategory.decision, 'n1', EntryStatus.published)
@@ -70,6 +92,17 @@ describe('KnowledgeController', () => {
     mockEntryService.updateFields.mockResolvedValue(makeEntry({ title: 'New' }))
     await controller.updateEntry('e1', { title: 'New' })
     expect(mockEntryService.updateFields).toHaveBeenCalledWith('e1', { title: 'New' })
+  })
+
+  it('rejects invalid category with BadRequestException through validation pipe', async () => {
+    const pipe = new ValidationPipe({ transform: true })
+
+    await expect(
+      pipe.transform(
+        { category: 'wrong_category' },
+        { type: 'body', metatype: UpdateEntryDto, data: '' },
+      ),
+    ).rejects.toThrow(BadRequestException)
   })
 
   it('updateEntry calls updateStatus when status is provided', async () => {

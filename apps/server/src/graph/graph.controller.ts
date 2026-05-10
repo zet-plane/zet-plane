@@ -1,7 +1,6 @@
 import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
-import { NodeService } from './node/node.service'
-import { EdgeService } from './edge/edge.service'
+import { GraphService } from './graph.service'
 import {
   CreateNodeDto,
   UpdateNodeDto,
@@ -16,10 +15,7 @@ import { CreateEdgeDto, ReplaceEdgesDto, EdgeEntity } from './dto/edge.dto'
 @ApiTags('graph')
 @Controller()
 export class GraphController {
-  constructor(
-    private readonly nodeService: NodeService,
-    private readonly edgeService: EdgeService,
-  ) {}
+  constructor(private readonly graphService: GraphService) {}
 
   // ── Nodes ─────────────────────────────────────────────────────────────
 
@@ -32,7 +28,7 @@ export class GraphController {
     @Param('id') projectId: string,
     @Body() body: CreateNodeDto,
   ) {
-    return this.nodeService.createNode({ projectId, ...body })
+    return this.graphService.createNode({ projectId, ...body })
   }
 
   @Get('projects/:id/nodes')
@@ -40,7 +36,7 @@ export class GraphController {
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({ status: 200, type: [NodeEntity] })
   listNodes(@Param('id') projectId: string) {
-    return this.nodeService.listProjectNodes(projectId)
+    return this.graphService.listProjectNodes(projectId)
   }
 
   @Get('nodes/:id/subgraph')
@@ -49,7 +45,7 @@ export class GraphController {
   @ApiResponse({ status: 200, type: SubgraphEntity })
   @ApiResponse({ status: 404, description: 'Node not found' })
   getSubgraph(@Param('id') nodeId: string) {
-    return this.nodeService.getSubgraph(nodeId)
+    return this.graphService.getSubgraph(nodeId)
   }
 
   @Patch('nodes/:id')
@@ -69,9 +65,9 @@ export class GraphController {
       if (Object.keys(rest).some(k => rest[k as keyof typeof rest] !== undefined)) {
         throw new BadRequestException('Cannot mix status update with field updates in a single request')
       }
-      return this.nodeService.updateStatus(nodeId, status)
+      return this.graphService.updateStatus(nodeId, status)
     }
-    return this.nodeService.updateNode(nodeId, rest)
+    return this.graphService.updateNode(nodeId, rest)
   }
 
   @Patch('nodes/:id/resolution')
@@ -85,7 +81,7 @@ export class GraphController {
     @Param('id') nodeId: string,
     @Body() body: ResolveCheckpointDto,
   ) {
-    return this.nodeService.resolveCheckpoint(nodeId, body.resolution)
+    return this.graphService.resolveCheckpoint(nodeId, body.resolution)
   }
 
   @Delete('nodes/:id')
@@ -99,7 +95,7 @@ export class GraphController {
     @Param('id') nodeId: string,
     @Body() body?: DeleteNodeDto,
   ) {
-    return this.nodeService.deleteNode(nodeId, body?.strategy)
+    return this.graphService.deleteNode(nodeId, body?.strategy)
   }
 
   // ── Edges ─────────────────────────────────────────────────────────────
@@ -115,7 +111,7 @@ export class GraphController {
     @Param('projectId') projectId: string,
     @Body() body: CreateEdgeDto,
   ) {
-    return this.edgeService.createEdge({ projectId, ...body })
+    return this.graphService.createEdge({ projectId, ...body })
   }
 
   @Get('projects/:id/edges')
@@ -123,7 +119,7 @@ export class GraphController {
   @ApiParam({ name: 'id', description: 'Project ID' })
   @ApiResponse({ status: 200, type: [EdgeEntity] })
   listEdges(@Param('id') projectId: string) {
-    return this.edgeService.listProjectEdges(projectId)
+    return this.graphService.listProjectEdges(projectId)
   }
 
   @Delete('edges/:id')
@@ -132,7 +128,7 @@ export class GraphController {
   @ApiResponse({ status: 204, description: 'Edge deleted' })
   @ApiResponse({ status: 404, description: 'Edge not found' })
   deleteEdge(@Param('id') edgeId: string) {
-    return this.edgeService.deleteEdge(edgeId)
+    return this.graphService.deleteEdge(edgeId)
   }
 
   @Patch('nodes/:id/edges')
@@ -146,6 +142,6 @@ export class GraphController {
     @Param('id') nodeId: string,
     @Body() body: ReplaceEdgesDto,
   ) {
-    return this.edgeService.replaceNodeEdges(nodeId, body.type, body.newFromId, body.projectId, body.createdBy)
+    return this.graphService.replaceNodeEdges(nodeId, body.type, body.newFromId, body.projectId, body.createdBy)
   }
 }

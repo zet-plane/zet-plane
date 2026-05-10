@@ -12,11 +12,11 @@ export class ProjectRepository {
 
   async createWithRootTx(
     data: ProjectCreateData,
-    nodeInit: (tx: PrismaTx, projectId: string) => Promise<Node>,
+    nodeInit: (tx: PrismaTx, projectId: string) => Promise<{ rootNode: Node; stagingNode: Node }>,
   ): Promise<{ project: Project; rootNode: Node }> {
     return this.prisma.$transaction(async (tx) => {
       const project = await tx.project.create({ data })
-      const rootNode = await nodeInit(tx, project.id)
+      const { rootNode } = await nodeInit(tx, project.id)
       return { project, rootNode }
     })
   }

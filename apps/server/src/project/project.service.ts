@@ -2,27 +2,21 @@ import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/commo
 import type { Project } from '@generated/client'
 import { ProjectRepository } from './repository/project.repository'
 import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
-import { ProjectEventPublisher } from './events/project-event.publisher'
-import { NodeService } from '../graph/node/node.service'
+import { GraphService } from '../graph/graph.service'
 
 @Injectable()
 export class ProjectService {
   constructor(
     private readonly repo: ProjectRepository,
-    private readonly publisher: ProjectEventPublisher,
-    @Inject(forwardRef(() => NodeService)) private readonly nodeService: NodeService,
+    @Inject(forwardRef(() => GraphService)) private readonly graphService: GraphService,
   ) {}
 
   async create(data: ProjectCreateData): Promise<Project> {
-    const { project, rootNode } = await this.repo.createWithRootTx(
+    const { project } = await this.repo.createWithRootTx(
       data,
       (tx, projectId) =>
-        this.nodeService.initProjectRootInternal(projectId, tx),
+        this.graphService.initProjectGraphInternal(projectId, tx),
     )
-    await this.publisher.publish({
-      type: 'project.created',
-      payload: { projectId: project.id, rootNodeId: rootNode.id },
-    })
     return project
   }
 
@@ -43,11 +37,7 @@ export class ProjectService {
 
   async remove(id: string): Promise<void> {
     await this.assertExists(id)
-    const { counts } = await this.repo.removeWithCascade(id)
-    await this.publisher.publish({
-      type: 'project.deleted',
-      payload: { projectId: id, cascadedCounts: counts },
-    })
+    await this.repo.removeWithCascade(id)
   }
 
   async assertExists(id: string): Promise<void> {

@@ -25,23 +25,28 @@ describe('EntryService', () => {
   let service: EntryService
   let mockRepo: any
   let mockPublisher: any
+  let mockProjectService: any
+  let mockGraphService: any
 
   beforeEach(() => {
     mockRepo = {
       createEntryWithRevision: vi.fn(),
       findEntry: vi.fn(),
+      findNode: vi.fn(),
       listEntries: vi.fn(),
       updateEntry: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    const mockProjectService: any = { assertExists: vi.fn().mockResolvedValue(undefined) }
-    service = new EntryService(mockRepo, mockPublisher, mockProjectService)
+    mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+    mockGraphService = { findStagingNode: vi.fn() }
+    service = new EntryService(mockRepo, mockPublisher, mockProjectService, mockGraphService as any)
   })
 
   describe('createEntry', () => {
     it('creates entry and publishes created event', async () => {
       const entry = makeEntry()
       const revision = { id: 'r1', entryId: 'e1', version: 1, body: {}, changeNote: null, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'p1' })
       mockRepo.createEntryWithRevision.mockResolvedValue({ entry, revision })
 
       await service.createEntry({
@@ -53,6 +58,68 @@ describe('EntryService', () => {
         type: 'knowledge.entry.created',
         payload: { entryId: 'e1', projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision },
       })
+    })
+
+    it('throws NotFoundException when node is not in the project', async () => {
+      mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'other-project' })
+
+      await expect(
+        service.createEntry({
+          projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision,
+          title: 'Test', body: {}, createdBy: CreatedBy.human,
+        }),
+      ).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.createEntryWithRevision).not.toHaveBeenCalled()
+    })
+
+    it('creates entry on staging node when nodeId is omitted', async () => {
+      const entry = makeEntry({ nodeId: 'staging' })
+      const revision = { id: 'r1', entryId: 'e1', version: 1, body: {}, changeNote: null, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockGraphService.findStagingNode.mockResolvedValue({ id: 'staging', projectId: 'p1' })
+      mockRepo.createEntryWithRevision.mockResolvedValue({ entry, revision })
+
+      await service.createEntry({
+        projectId: 'p1', category: EntryCategory.context,
+        title: 'Loose note', body: {}, createdBy: CreatedBy.human,
+      })
+
+      expect(mockGraphService.findStagingNode).toHaveBeenCalledWith('p1')
+      expect(mockRepo.createEntryWithRevision).toHaveBeenCalledWith({
+        projectId: 'p1',
+        nodeId: 'staging',
+        category: EntryCategory.context,
+        title: 'Loose note',
+        body: {},
+        createdBy: CreatedBy.human,
+      })
+    })
+
+    it('does not use staging node when nodeId is provided', async () => {
+      const entry = makeEntry({ nodeId: 'n1' })
+      const revision = { id: 'r1', entryId: 'e1', version: 1, body: {}, changeNote: null, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'p1' })
+      mockRepo.createEntryWithRevision.mockResolvedValue({ entry, revision })
+
+      await service.createEntry({
+        projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision,
+        title: 'Test', body: {}, createdBy: CreatedBy.human,
+      })
+
+      expect(mockGraphService.findStagingNode).not.toHaveBeenCalled()
+    })
+
+    it('throws ConflictException when project staging area is missing', async () => {
+      mockGraphService.findStagingNode.mockResolvedValue(null)
+
+      await expect(
+        service.createEntry({
+          projectId: 'p1', category: EntryCategory.context,
+          title: 'Loose note', body: {}, createdBy: CreatedBy.human,
+        }),
+      ).rejects.toThrow(ConflictException)
+
+      expect(mockRepo.createEntryWithRevision).not.toHaveBeenCalled()
     })
   })
 
@@ -120,6 +187,7 @@ describe('EntryService', () => {
 
     it('updates nodeId and publishes reanchored event', async () => {
       mockRepo.findEntry.mockResolvedValue(makeEntry({ nodeId: 'n1' }))
+      mockRepo.findNode.mockResolvedValue({ id: 'n2', projectId: 'p1' })
       mockRepo.updateEntry.mockResolvedValue(makeEntry({ nodeId: 'n2' }))
       await service.reanchor('e1', 'n2')
       expect(mockRepo.updateEntry).toHaveBeenCalledWith('e1', { nodeId: 'n2' })
@@ -127,6 +195,16 @@ describe('EntryService', () => {
         type: 'knowledge.entry.reanchored',
         payload: { entryId: 'e1', projectId: 'p1', previousNodeId: 'n1', newNodeId: 'n2' },
       })
+    })
+
+    it('throws NotFoundException when new node is not in the entry project', async () => {
+      mockRepo.findEntry.mockResolvedValue(makeEntry({ nodeId: 'n1', projectId: 'p1' }))
+      mockRepo.findNode.mockResolvedValue({ id: 'n2', projectId: 'other-project' })
+
+      await expect(service.reanchor('e1', 'n2')).rejects.toThrow(NotFoundException)
+
+      expect(mockRepo.updateEntry).not.toHaveBeenCalled()
+      expect(mockPublisher.publish).not.toHaveBeenCalled()
     })
   })
 
@@ -151,7 +229,7 @@ describe('EntryService', () => {
       mockProjectService = {
         assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
       }
-      service = new EntryService(mockRepo, mockPublisher, mockProjectService)
+      service = new EntryService(mockRepo, mockPublisher, mockProjectService, mockGraphService as any)
     })
 
     it('createEntry throws 404', async () => {
