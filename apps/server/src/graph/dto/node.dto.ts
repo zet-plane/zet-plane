@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { NodeType, NodeStatus, CreatedBy } from '@generated/client'
+import { NodeType, NodeStatus, EdgeType, CreatedBy, NodeRole } from '@generated/client'
 import { EdgeEntity } from './edge.dto'
 
 export class CreateNodeDto {
@@ -14,6 +14,12 @@ export class CreateNodeDto {
 
   @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
   createdBy!: CreatedBy
+
+  @ApiPropertyOptional({ description: 'Parent node ID; defaults to project root if omitted' })
+  parentNodeId?: string
+
+  @ApiPropertyOptional({ enum: EdgeType, enumName: 'EdgeType', description: 'Structural parent edge type; only composition is accepted and it defaults to composition' })
+  edgeType?: EdgeType
 }
 
 export class UpdateNodeDto {
@@ -48,6 +54,7 @@ export class NodeEntity {
   @ApiProperty() id!: string
   @ApiProperty() projectId!: string
   @ApiProperty() isProjectRoot!: boolean
+  @ApiProperty({ enum: NodeRole, enumName: 'NodeRole' }) role!: NodeRole
   @ApiProperty({ enum: NodeType, enumName: 'NodeType' }) type!: NodeType
   @ApiProperty() title!: string
   @ApiPropertyOptional() description?: string

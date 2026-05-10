@@ -111,6 +111,8 @@ draft ──────────────────▶ published
 - `published` 状态下 body 仍可修订（渐进式沉淀），修订会触发 `knowledge.entry.body_revised` 事件
 - `deprecated` 条目不允许 reanchor，不允许修订 body
 
+> `EntryStatus` 表达内容成熟度，不表达挂载位置是否确定。零散事件的暂存与后续挂载迁移见 [Knowledge Staging Node](./2026-05-10-knowledge-staging-node-design.md)。
+
 ### Reanchor 规则
 
 - `nodeId` 可通过 `PATCH /entries/:id` 更新（`draft` / `published` 状态均可）

@@ -9,41 +9,66 @@ datasource db {
   extensions = [vector]
 }
 
+model Project {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("projects")
+}
+
 model Node {
   id                   String                @id @default(uuid())
-  projectId            String
-  isProjectRoot        Boolean               @default(false)
+  projectId            String                @map("project_id")
+  isProjectRoot        Boolean               @default(false) @map("is_project_root")
+  role                 NodeRole              @default(regular)
   type                 NodeType
   title                String
   description          String?
   status               NodeStatus            @default(active)
-  isCheckpoint         Boolean               @default(false)
-  checkpointResolution CheckpointResolution?
-  createdBy            CreatedBy
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
+  isCheckpoint         Boolean               @default(false) @map("is_checkpoint")
+  checkpointResolution CheckpointResolution? @map("checkpoint_resolution")
+  createdBy            CreatedBy             @map("created_by")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
 
-  @@index([projectId])
+  @@index([projectId], map: "nodes_project_id_idx")
+  @@index([projectId, role], map: "nodes_project_id_role_idx")
+  @@map("nodes")
 }
 
 model Edge {
   id        String    @id @default(uuid())
-  projectId String
-  fromId    String
-  toId      String
+  projectId String    @map("project_id")
+  fromId    String    @map("from_id")
+  toId      String    @map("to_id")
   type      EdgeType
-  createdBy CreatedBy
-  createdAt DateTime  @default(now())
+  createdBy CreatedBy  @map("created_by")
+  createdAt DateTime   @default(now()) @map("created_at")
 
-  @@unique([fromId, toId, type])
-  @@index([projectId])
-  @@index([fromId])
-  @@index([toId])
+  @@unique([fromId, toId, type], map: "edges_from_id_to_id_type_key")
+  @@index([projectId], map: "edges_project_id_idx")
+  @@index([fromId], map: "edges_from_id_idx")
+  @@index([toId], map: "edges_to_id_idx")
+  @@map("edges")
 }
 
 enum NodeType {
   scaffold
   growth
+  staging
+
+  @@map("node_type")
+}
+
+enum NodeRole {
+  regular
+  project_root
+  staging_root
+
+  @@map("node_role")
 }
 
 enum NodeStatus {
@@ -51,52 +76,62 @@ enum NodeStatus {
   blocked
   completed
   archived
+
+  @@map("node_status")
 }
 
 enum CheckpointResolution {
   continue
   loop
+
+  @@map("checkpoint_resolution")
 }
 
 enum EdgeType {
   composition
   dependency
+
+  @@map("edge_type")
 }
 
 enum CreatedBy {
   human
   agent
+
+  @@map("created_by")
 }
 
 model KnowledgeEntry {
   id              String          @id @default(uuid())
-  projectId       String
-  nodeId          String
+  projectId       String          @map("project_id")
+  nodeId          String          @map("node_id")
   category        EntryCategory
   title           String
   body            Json
   status          EntryStatus     @default(draft)
-  embeddingStatus EmbeddingStatus @default(unindexed)
+  embeddingStatus EmbeddingStatus @default(unindexed) @map("embedding_status")
   embedding       Unsupported("vector(1536)")?
-  createdBy       CreatedBy
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdBy       CreatedBy       @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  @@index([projectId])
-  @@index([nodeId])
+  @@index([projectId], map: "knowledge_entries_project_id_idx")
+  @@index([nodeId], map: "knowledge_entries_node_id_idx")
+  @@map("knowledge_entries")
 }
 
 model KnowledgeRevision {
   id         String    @id @default(uuid())
-  entryId    String
+  entryId    String    @map("entry_id")
   version    Int
   body       Json
-  changeNote String?
-  createdBy  CreatedBy
-  createdAt  DateTime  @default(now())
+  changeNote String?   @map("change_note")
+  createdBy  CreatedBy @map("created_by")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
-  @@unique([entryId, version])
-  @@index([entryId])
+  @@unique([entryId, version], map: "knowledge_revisions_entry_id_version_key")
+  @@index([entryId], map: "knowledge_revisions_entry_id_idx")
+  @@map("knowledge_revisions")
 }
 
 enum EntryCategory {
@@ -104,15 +139,21 @@ enum EntryCategory {
   pitfall
   finding
   context
+
+  @@map("entry_category")
 }
 
 enum EntryStatus {
   draft
   published
   deprecated
+
+  @@map("entry_status")
 }
 
 enum EmbeddingStatus {
   unindexed
   indexed
+
+  @@map("embedding_status")
 }

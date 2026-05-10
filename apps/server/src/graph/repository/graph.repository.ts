@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@generated/client'
+import { NodeType, NodeStatus, EdgeType, CreatedBy, NodeRole } from '@generated/client'
 import type { Node, Edge } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
+import type { PrismaTx } from '../../prisma/prisma.service'
 
 export type DeleteStrategy = 'block' | 'cascade' | 'reparent-to-parent' | 'reparent-to-root'
 
@@ -23,6 +24,8 @@ export type NodeCreateData = {
   title: string
   description?: string
   createdBy: CreatedBy
+  parentNodeId?: string
+  edgeType?: EdgeType
 }
 
 export type EdgeCreateData = {
@@ -61,6 +64,7 @@ export class GraphRepository {
         data: {
           projectId,
           isProjectRoot: true,
+          role: NodeRole.project_root,
           type: NodeType.scaffold,
           title: '[Project Root]',
           createdBy: CreatedBy.human,
@@ -76,13 +80,54 @@ export class GraphRepository {
     }
   }
 
+  async initProjectGraphTx(projectId: string, tx: PrismaTx): Promise<{ rootNode: Node; stagingNode: Node }> {
+    const rootNode = await tx.node.create({
+      data: {
+        projectId,
+        isProjectRoot: true,
+        role: NodeRole.project_root,
+        type: NodeType.scaffold,
+        title: '[Project Root]',
+        createdBy: CreatedBy.human,
+      },
+    })
+
+    const stagingNode = await tx.node.create({
+      data: {
+        projectId,
+        role: NodeRole.staging_root,
+        type: NodeType.staging,
+        title: '[Staging Area]',
+        createdBy: CreatedBy.human,
+      },
+    })
+    await tx.edge.create({
+      data: {
+        projectId,
+        fromId: rootNode.id,
+        toId: stagingNode.id,
+        type: EdgeType.composition,
+        createdBy: CreatedBy.human,
+      },
+    })
+
+    return { rootNode, stagingNode }
+  }
+
+  async findStagingNode(projectId: string): Promise<Node | null> {
+    return this.prisma.node.findFirst({
+      where: { projectId, role: NodeRole.staging_root },
+    })
+  }
+
   async createNode(data: NodeCreateData): Promise<Node> {
-    const root = await this.findProjectRoot(data.projectId)
-    if (!root) throw new NotFoundException(`Project root not found for projectId=${data.projectId}`)
+    const { parentNodeId, edgeType, ...nodeData } = data
+    const parentId = parentNodeId ?? (await this.findProjectRoot(data.projectId))?.id
+    if (!parentId) throw new NotFoundException(`Project root not found for projectId=${data.projectId}`)
     return this.prisma.$transaction(async (tx) => {
-      const node = await tx.node.create({ data })
+      const node = await tx.node.create({ data: nodeData })
       await tx.edge.create({
-        data: { projectId: data.projectId, fromId: root.id, toId: node.id, type: EdgeType.composition, createdBy: data.createdBy },
+        data: { projectId: data.projectId, fromId: parentId, toId: node.id, type: edgeType ?? EdgeType.composition, createdBy: data.createdBy },
       })
       return node
     })

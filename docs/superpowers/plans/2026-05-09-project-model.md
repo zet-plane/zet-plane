@@ -2,275 +2,164 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce a `Project` aggregate root with FK constraints over `Node` / `Edge` / `KnowledgeEntry`, an `active` ↔ `archived` lifecycle, and a service-layer `assertActive` guard on every write path.
+**Goal:** Add a `Project` aggregate root so that all nodes, edges, and knowledge entries belong to a verified domain entity, replacing the free-string `projectId` with a validated record.
 
-**Architecture:** New `ProjectModule` lives at `apps/server/src/project/`. `ProjectRepository` directly bootstraps the project + root node in one Prisma transaction (no cross-module call to `NodeService` — see [Deviation from spec §6.2](#deviation-from-spec-62) below). `GraphModule` and `KnowledgeModule` import `ProjectModule` to inject `ProjectService` for `assertActive`. A new `project-events` BullMQ queue receives lifecycle events, post-commit only.
+**Architecture:** `ProjectModule` sits above `GraphModule` and `KnowledgeModule`. `ProjectService.assertExists` guards every write path in child modules via a circular dependency resolved with NestJS `forwardRef`. `ProjectRepository` owns cascade deletion (hard delete, bypassing child service layers) in a single Prisma transaction. `ProjectService.create` and `NodeService.initProjectRootInternal` share a transaction via a callback passed through `ProjectRepository.createWithRootTx`.
 
-**Tech Stack:** NestJS 11, Prisma 7 (custom output at `@generated/client`), Vitest, BullMQ. PostgreSQL with `ON DELETE CASCADE` for the FK chain.
-
-### Deviation from spec §6.2
-
-The spec proposed renaming `NodeService.initProjectRoot` to `initProjectRootInternal` and having `ProjectService.create` call it. That requires a circular module import (`ProjectModule ⇄ GraphModule`) resolved with `forwardRef`. This plan instead has `ProjectRepository.createWithRoot` issue both `INSERT`s directly in a single transaction. This:
-
-- Removes the circular module dependency entirely (`ProjectModule` does not need `GraphModule`).
-- Duplicates ~5 lines of root-node insertion logic, which is acceptable.
-- Keeps `GraphRepository.findProjectRoot` (still used by `deleteReparentToRoot`) but **deletes** `GraphRepository.initProjectRoot` (sole caller was the now-removed `POST /projects/:id/init` route).
-
-This is an implementation-level refinement; the spec's user-facing semantics (one transaction, atomic project + root) are preserved.
+**Tech Stack:** NestJS, Prisma (PostgreSQL), BullMQ, Vitest
 
 ---
 
 ## File Map
 
-**New files:**
+**Created:**
+- `apps/server/src/project/dto/project.dto.ts`
+- `apps/server/src/project/repository/project.repository.ts`
+- `apps/server/src/project/events/project-event.publisher.ts`
+- `apps/server/src/project/project.service.ts`
+- `apps/server/src/project/project.service.spec.ts`
+- `apps/server/src/project/project.controller.ts`
+- `apps/server/src/project/project.controller.spec.ts`
+- `apps/server/src/project/project.module.ts`
 
-```
-apps/server/src/project/
-├── dto/project.dto.ts
-├── repository/project.repository.ts
-├── events/project-event.publisher.ts
-├── project.service.ts
-├── project.service.spec.ts
-├── project.controller.ts
-├── project.controller.spec.ts
-└── project.module.ts
-
-apps/server/prisma/migrations/<timestamp>_add_project_table/
-└── migration.sql
-```
-
-**Modified files:**
-
-```
-apps/server/prisma/schema.prisma              # add Project, FKs, KnowledgeRevision cascade
-apps/server/src/app.module.ts                 # register ProjectModule
-apps/server/src/graph/graph.module.ts         # imports: [ProjectModule]
-apps/server/src/graph/graph.controller.ts     # delete POST /projects/:id/init
-apps/server/src/graph/graph.controller.spec.ts# delete initProject test
-apps/server/src/graph/node/node.service.ts    # remove initProjectRoot, inject ProjectService, add assertActive
-apps/server/src/graph/node/node.service.spec.ts# update mocks, add archived-project tests
-apps/server/src/graph/edge/edge.service.ts    # inject ProjectService, add assertActive
-apps/server/src/graph/edge/edge.service.spec.ts# update mocks, add archived-project tests
-apps/server/src/graph/repository/graph.repository.ts # delete initProjectRoot method
-apps/server/src/knowledge/knowledge.module.ts # imports: [ProjectModule]
-apps/server/src/knowledge/entry/entry.service.ts # inject ProjectService, add assertActive
-apps/server/src/knowledge/entry/entry.service.spec.ts # update mocks, add archived-project tests
-```
+**Modified:**
+- `apps/server/prisma/schema.prisma` — add `model Project`
+- `apps/server/src/app.module.ts` — register `ProjectModule`
+- `apps/server/src/graph/graph.module.ts` — `forwardRef` import of `ProjectModule`, export `NodeService`/`EdgeService`
+- `apps/server/src/graph/graph.controller.ts` — remove `POST /projects/:id/init`
+- `apps/server/src/graph/graph.controller.spec.ts` — remove init route test
+- `apps/server/src/graph/repository/graph.repository.ts` — add `initProjectRootInTransaction`
+- `apps/server/src/graph/node/node.service.ts` — inject `ProjectService`, add `assertExists`, rename `initProjectRoot` → `initProjectRootInternal`
+- `apps/server/src/graph/node/node.service.spec.ts` — add "when project does not exist" blocks, update constructor call
+- `apps/server/src/graph/edge/edge.service.ts` — inject `ProjectService`, add `assertExists`
+- `apps/server/src/graph/edge/edge.service.spec.ts` — add "when project does not exist" blocks, update constructor call
+- `apps/server/src/knowledge/knowledge.module.ts` — `forwardRef` import of `ProjectModule`
+- `apps/server/src/knowledge/entry/entry.service.ts` — inject `ProjectService`, add `assertExists`
+- `apps/server/src/knowledge/entry/entry.service.spec.ts` — add "when project does not exist" blocks, update constructor call
 
 ---
 
-## Task 1: Schema migration
+## Task 1: Add Project table to schema and migrate
 
 **Files:**
 - Modify: `apps/server/prisma/schema.prisma`
-- Create: `apps/server/prisma/migrations/<timestamp>_add_project_table/migration.sql` (auto-generated)
 
-- [ ] **Step 1: Edit schema.prisma — add Project model and enum**
+- [ ] **Step 1: Add Project model to schema**
 
-Insert after the `datasource db { ... }` block (around line 10):
+Open `apps/server/prisma/schema.prisma` and append at the top of the model section (before `model Node`):
 
 ```prisma
 model Project {
-  id          String        @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
-  status      ProjectStatus @default(active)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  nodes            Node[]
-  edges            Edge[]
-  knowledgeEntries KnowledgeEntry[]
-
-  @@index([status])
-}
-
-enum ProjectStatus {
-  active
-  archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 ```
 
-- [ ] **Step 2: Edit schema.prisma — add FK relation on Node**
+No relations, no status, no index beyond the implicit PK.
 
-Inside the existing `model Node { ... }` block, after the `updatedAt` line, before the `@@index([projectId])` line:
-
-```prisma
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-```
-
-- [ ] **Step 3: Edit schema.prisma — add FK relation on Edge**
-
-Inside the existing `model Edge { ... }` block, after the `createdAt` line, before the `@@unique([fromId, toId, type])` line:
-
-```prisma
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-```
-
-- [ ] **Step 4: Edit schema.prisma — add FK relation on KnowledgeEntry**
-
-Inside the existing `model KnowledgeEntry { ... }` block, after `updatedAt`, before `@@index([projectId])`:
-
-```prisma
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-```
-
-- [ ] **Step 5: Edit schema.prisma — add cascade to KnowledgeRevision**
-
-Inside `model KnowledgeRevision { ... }`, add a relation block (after `createdAt`, before `@@unique`):
-
-```prisma
-  entry KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-```
-
-- [ ] **Step 6: Generate migration and Prisma client**
-
-Run from `apps/server/`:
+- [ ] **Step 2: Run migration**
 
 ```bash
+cd apps/server
 pnpm prisma migrate dev --name add_project_table
 ```
 
-Expected: a new directory under `prisma/migrations/` with a `migration.sql`. The SQL must contain:
-- `CREATE TYPE "ProjectStatus" AS ENUM ('active', 'archived')`
-- `CREATE TABLE "Project"` with columns matching the model
-- `CREATE INDEX` on `status`
-- `ALTER TABLE "Node" ADD CONSTRAINT "Node_projectId_fkey" ... ON DELETE CASCADE`
-- Same for `Edge`, `KnowledgeEntry`
-- For `KnowledgeRevision`: `DROP CONSTRAINT` then `ADD CONSTRAINT ... ON DELETE CASCADE` (Prisma usually splits these)
+Expected: migration file created under `prisma/migrations/`, Prisma client regenerated automatically.
 
-If the migrate command fails with FK violation, the dev DB has stale rows. Resolve by:
+- [ ] **Step 3: Verify existing tests still pass**
 
 ```bash
-pnpm prisma migrate reset --force
+cd apps/server
+pnpm test
 ```
 
-Then re-run step 6.
+Expected: all pre-existing tests pass (schema change only adds a table, no existing code references it).
 
-- [ ] **Step 7: Verify Prisma client regenerated**
-
-Run:
-
-```bash
-ls -la src/prisma/gen/client/index.d.ts
-grep -c "model Project" src/prisma/gen/client/index.d.ts || true
-```
-
-Expected: file exists and contains a `Project` type.
-
-- [ ] **Step 8: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add apps/server/prisma/schema.prisma apps/server/prisma/migrations/
-git commit -m "feat(db): add Project table with cascade FKs to Node/Edge/KnowledgeEntry"
+git commit -m "feat(db): add Project table"
 ```
 
 ---
 
-## Task 2: Project DTOs
+## Task 2: Create ProjectModule scaffold (DTOs, Repository, EventPublisher, Module wiring)
 
 **Files:**
 - Create: `apps/server/src/project/dto/project.dto.ts`
+- Create: `apps/server/src/project/repository/project.repository.ts`
+- Create: `apps/server/src/project/events/project-event.publisher.ts`
+- Create: `apps/server/src/project/project.module.ts`
+- Modify: `apps/server/src/app.module.ts`
 
-- [ ] **Step 1: Write the DTO file**
+- [ ] **Step 1: Create DTO file**
 
-```typescript
+```ts
+// apps/server/src/project/dto/project.dto.ts
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { ProjectStatus } from '@generated/client'
+import { IsString, IsOptional } from 'class-validator'
+import type { Project } from '@generated/client'
 
 export class CreateProjectDto {
   @ApiProperty()
-  name!: string
+  @IsString()
+  name: string
 
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   description?: string
 }
 
 export class UpdateProjectDto {
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   name?: string
 
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   description?: string
 }
 
-export class ProjectEntity {
-  @ApiProperty() id!: string
-  @ApiProperty() name!: string
-  @ApiPropertyOptional() description?: string
-  @ApiProperty({ enum: ProjectStatus, enumName: 'ProjectStatus' }) status!: ProjectStatus
-  @ApiProperty() createdAt!: Date
-  @ApiProperty() updatedAt!: Date
+export class ProjectEntity implements Project {
+  @ApiProperty() id: string
+  @ApiProperty() name: string
+  @ApiPropertyOptional() description: string | null
+  @ApiProperty() createdAt: Date
+  @ApiProperty() updatedAt: Date
 }
 ```
 
-- [ ] **Step 2: Verify it compiles**
+- [ ] **Step 2: Create ProjectRepository**
 
-Run from `apps/server/`:
-
-```bash
-pnpm exec tsc --noEmit
-```
-
-Expected: no errors.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add apps/server/src/project/dto/
-git commit -m "feat(project): add Project DTOs"
-```
-
----
-
-## Task 3: ProjectRepository
-
-**Files:**
-- Create: `apps/server/src/project/repository/project.repository.ts`
-
-- [ ] **Step 1: Write the repository**
-
-```typescript
+```ts
+// apps/server/src/project/repository/project.repository.ts
 import { Injectable } from '@nestjs/common'
-import { ProjectStatus, NodeType, CreatedBy } from '@generated/client'
-import type { Project, Node } from '@generated/client'
+import type { Project, Prisma } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
+import type { Node } from '@generated/client'
 
-export type ProjectCreateData = {
-  name: string
-  description?: string
-}
-
-export type ProjectUpdateData = {
-  name?: string
-  description?: string
-}
-
-export type CascadedCounts = {
-  nodes: number
-  edges: number
-  entries: number
-}
+export type ProjectCreateData = { name: string; description?: string }
+export type ProjectUpdateData = { name?: string; description?: string }
 
 @Injectable()
 export class ProjectRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createWithRoot(data: ProjectCreateData): Promise<{ project: Project; root: Node }> {
+  async createWithRootTx(
+    data: ProjectCreateData,
+    nodeInit: (tx: Prisma.TransactionClient, projectId: string) => Promise<Node>,
+  ): Promise<{ project: Project; rootNode: Node }> {
     return this.prisma.$transaction(async (tx) => {
-      const project = await tx.project.create({
-        data: { name: data.name, description: data.description ?? null },
-      })
-      const root = await tx.node.create({
-        data: {
-          projectId: project.id,
-          isProjectRoot: true,
-          type: NodeType.scaffold,
-          title: '[Project Root]',
-          createdBy: CreatedBy.human,
-        },
-      })
-      return { project, root }
+      const project = await tx.project.create({ data })
+      const rootNode = await nodeInit(tx, project.id)
+      return { project, rootNode }
     })
   }
 
@@ -278,77 +167,44 @@ export class ProjectRepository {
     return this.prisma.project.findUnique({ where: { id } })
   }
 
-  async list(filter: { status?: ProjectStatus } = {}): Promise<Project[]> {
-    return this.prisma.project.findMany({
-      where: filter.status ? { status: filter.status } : undefined,
-      orderBy: { createdAt: 'desc' },
-    })
+  async list(): Promise<Project[]> {
+    return this.prisma.project.findMany()
   }
 
   async update(id: string, data: ProjectUpdateData): Promise<Project> {
     return this.prisma.project.update({ where: { id }, data })
   }
 
-  async setStatus(id: string, status: ProjectStatus): Promise<Project> {
-    return this.prisma.project.update({ where: { id }, data: { status } })
-  }
-
-  async removeWithCounts(id: string): Promise<CascadedCounts> {
+  async removeWithCascade(id: string): Promise<{ counts: { nodes: number; edges: number; entries: number } }> {
     return this.prisma.$transaction(async (tx) => {
-      const [nodes, edges, entries] = await Promise.all([
+      const [nodeCount, edgeCount, entryCount] = await Promise.all([
         tx.node.count({ where: { projectId: id } }),
         tx.edge.count({ where: { projectId: id } }),
         tx.knowledgeEntry.count({ where: { projectId: id } }),
       ])
+
+      const entryIds = (
+        await tx.knowledgeEntry.findMany({ where: { projectId: id }, select: { id: true } })
+      ).map(e => e.id)
+
+      if (entryIds.length > 0) {
+        await tx.knowledgeRevision.deleteMany({ where: { entryId: { in: entryIds } } })
+      }
+      await tx.knowledgeEntry.deleteMany({ where: { projectId: id } })
+      await tx.edge.deleteMany({ where: { projectId: id } })
+      await tx.node.deleteMany({ where: { projectId: id } })
       await tx.project.delete({ where: { id } })
-      return { nodes, edges, entries }
+
+      return { counts: { nodes: nodeCount, edges: edgeCount, entries: entryCount } }
     })
   }
 }
 ```
 
-- [ ] **Step 2: Add `project` getter to PrismaService**
+- [ ] **Step 3: Create ProjectEventPublisher**
 
-Edit `apps/server/src/prisma/prisma.service.ts`. Find the existing getter block:
-
-```typescript
-  get node() { return this.client.node }
-  get edge() { return this.client.edge }
-  get knowledgeEntry() { return this.client.knowledgeEntry }
-  get knowledgeRevision() { return this.client.knowledgeRevision }
-```
-
-Add after it:
-
-```typescript
-  get project() { return this.client.project }
-```
-
-- [ ] **Step 3: Verify it compiles**
-
-```bash
-pnpm exec tsc --noEmit
-```
-
-Expected: no errors.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add apps/server/src/project/repository/ apps/server/src/prisma/prisma.service.ts
-git commit -m "feat(project): add ProjectRepository with createWithRoot bootstrap"
-```
-
----
-
-## Task 4: ProjectEventPublisher
-
-**Files:**
-- Create: `apps/server/src/project/events/project-event.publisher.ts`
-
-- [ ] **Step 1: Write the publisher**
-
-```typescript
+```ts
+// apps/server/src/project/events/project-event.publisher.ts
 import { Injectable } from '@nestjs/common'
 import { InjectQueue } from '@nestjs/bullmq'
 import { Queue } from 'bullmq'
@@ -357,15 +213,7 @@ export const PROJECT_EVENTS_QUEUE = 'project-events'
 
 export type ProjectJob =
   | { type: 'project.created'; payload: { projectId: string; rootNodeId: string } }
-  | { type: 'project.archived'; payload: { projectId: string } }
-  | { type: 'project.unarchived'; payload: { projectId: string } }
-  | {
-      type: 'project.deleted'
-      payload: {
-        projectId: string
-        cascadedCounts: { nodes: number; edges: number; entries: number }
-      }
-    }
+  | { type: 'project.deleted'; payload: { projectId: string; cascadedCounts: { nodes: number; edges: number; entries: number } } }
 
 @Injectable()
 export class ProjectEventPublisher {
@@ -377,38 +225,104 @@ export class ProjectEventPublisher {
 }
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 4: Create ProjectModule (stub — service and controller added later)**
+
+```ts
+// apps/server/src/project/project.module.ts
+import { Module, forwardRef } from '@nestjs/common'
+import { BullModule } from '@nestjs/bullmq'
+import { GraphModule } from '../graph/graph.module'
+import { ProjectRepository } from './repository/project.repository'
+import { ProjectEventPublisher, PROJECT_EVENTS_QUEUE } from './events/project-event.publisher'
+import { PrismaService } from '../prisma/prisma.service'
+
+@Module({
+  imports: [
+    BullModule.registerQueue({ name: PROJECT_EVENTS_QUEUE }),
+    forwardRef(() => GraphModule),
+  ],
+  providers: [
+    PrismaService,
+    ProjectRepository,
+    ProjectEventPublisher,
+  ],
+  exports: [],
+})
+export class ProjectModule {}
+```
+
+- [ ] **Step 5: Register ProjectModule in AppModule**
+
+Edit `apps/server/src/app.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common'
+import { ConfigModule } from '@nestjs/config'
+import { BullModule } from '@nestjs/bullmq'
+import { GraphModule } from './graph/graph.module'
+import { AppConfigModule } from './config/app-config.module'
+import { AppConfig } from './config/app-config'
+import { KnowledgeModule } from './knowledge/knowledge.module'
+import { ProjectModule } from './project/project.module'
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    AppConfigModule,
+    BullModule.forRootAsync({
+      inject: [AppConfig],
+      useFactory: (cfg: AppConfig) => {
+        const { hostname, port } = new URL(cfg.redis.url)
+        return { connection: { host: hostname, port: Number(port) || 6379 } }
+      },
+    }),
+    GraphModule,
+    KnowledgeModule,
+    ProjectModule,
+  ],
+})
+export class AppModule {}
+```
+
+- [ ] **Step 6: Run tests to verify scaffold compiles**
 
 ```bash
-git add apps/server/src/project/events/
-git commit -m "feat(project): add ProjectEventPublisher for lifecycle events"
+cd apps/server
+pnpm test
+```
+
+Expected: all tests pass (no logic added yet, just new files and module registration).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/server/src/project/ apps/server/src/app.module.ts
+git commit -m "feat(project): scaffold ProjectModule with repository and event publisher"
 ```
 
 ---
 
-## Task 5: ProjectService — assertActive (TDD)
+## Task 3: Implement ProjectService (create, assertExists, findById, list, update, remove) with TDD
 
 **Files:**
 - Create: `apps/server/src/project/project.service.spec.ts`
 - Create: `apps/server/src/project/project.service.ts`
+- Modify: `apps/server/src/project/project.module.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Write failing tests**
 
-Create `apps/server/src/project/project.service.spec.ts`:
-
-```typescript
+```ts
+// apps/server/src/project/project.service.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ConflictException, NotFoundException } from '@nestjs/common'
-import { ProjectStatus } from '@generated/client'
-import type { Project } from '@generated/client'
+import { NotFoundException } from '@nestjs/common'
 import { ProjectService } from './project.service'
+import type { Project } from '@generated/client'
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
-    id: 'p1',
+    id: 'proj-1',
     name: 'Test Project',
     description: null,
-    status: ProjectStatus.active,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -419,420 +333,297 @@ describe('ProjectService', () => {
   let service: ProjectService
   let mockRepo: any
   let mockPublisher: any
+  let mockNodeService: any
 
   beforeEach(() => {
     mockRepo = {
-      createWithRoot: vi.fn(),
+      createWithRootTx: vi.fn(),
       findById: vi.fn(),
       list: vi.fn(),
       update: vi.fn(),
-      setStatus: vi.fn(),
-      removeWithCounts: vi.fn(),
+      removeWithCascade: vi.fn(),
     }
     mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    service = new ProjectService(mockRepo, mockPublisher)
+    mockNodeService = { initProjectRootInternal: vi.fn() }
+    service = new ProjectService(mockRepo, mockPublisher, mockNodeService)
   })
 
-  describe('assertActive', () => {
-    it('throws NotFoundException when project does not exist', async () => {
+  describe('create', () => {
+    it('inserts project and root node in the same transaction', async () => {
+      const project = makeProject()
+      const rootNode = { id: 'root-1' }
+      mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
+        const node = await nodeInit({}, project.id)
+        return { project, rootNode: node }
+      })
+      mockNodeService.initProjectRootInternal.mockResolvedValue(rootNode)
+
+      const result = await service.create({ name: 'Test Project' })
+
+      expect(mockRepo.createWithRootTx).toHaveBeenCalledWith(
+        { name: 'Test Project' },
+        expect.any(Function),
+      )
+      expect(mockNodeService.initProjectRootInternal).toHaveBeenCalledWith(project.id, {})
+      expect(result).toEqual(project)
+    })
+
+    it('publishes project.created with rootNodeId after commit', async () => {
+      const project = makeProject()
+      const rootNode = { id: 'root-1' }
+      mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
+        const node = await nodeInit({}, project.id)
+        return { project, rootNode: node }
+      })
+      mockNodeService.initProjectRootInternal.mockResolvedValue(rootNode)
+
+      await service.create({ name: 'Test Project' })
+
+      expect(mockPublisher.publish).toHaveBeenCalledWith({
+        type: 'project.created',
+        payload: { projectId: project.id, rootNodeId: 'root-1' },
+      })
+    })
+
+    it('rolls back if initProjectRootInternal throws', async () => {
+      mockRepo.createWithRootTx.mockImplementation(async (_data: any, nodeInit: Function) => {
+        await nodeInit({}, 'proj-1')
+      })
+      mockNodeService.initProjectRootInternal.mockRejectedValue(new Error('DB error'))
+
+      await expect(service.create({ name: 'Test Project' })).rejects.toThrow('DB error')
+      expect(mockPublisher.publish).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('assertExists', () => {
+    it('resolves silently when project exists', async () => {
+      mockRepo.findById.mockResolvedValue(makeProject())
+      await expect(service.assertExists('proj-1')).resolves.toBeUndefined()
+    })
+
+    it('throws 404 when project does not exist', async () => {
       mockRepo.findById.mockResolvedValue(null)
-      await expect(service.assertActive('missing')).rejects.toThrow(NotFoundException)
+      await expect(service.assertExists('missing')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('findById', () => {
+    it('returns project when found', async () => {
+      const project = makeProject()
+      mockRepo.findById.mockResolvedValue(project)
+      await expect(service.findById('proj-1')).resolves.toEqual(project)
     })
 
-    it('throws ConflictException when project is archived', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.archived }))
-      await expect(service.assertActive('p1')).rejects.toThrow(ConflictException)
+    it('throws 404 when not found', async () => {
+      mockRepo.findById.mockResolvedValue(null)
+      await expect(service.findById('missing')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('update', () => {
+    it('updates project after asserting existence', async () => {
+      const project = makeProject()
+      mockRepo.findById.mockResolvedValue(project)
+      mockRepo.update.mockResolvedValue({ ...project, name: 'Renamed' })
+
+      const result = await service.update('proj-1', { name: 'Renamed' })
+      expect(result.name).toBe('Renamed')
     })
 
-    it('resolves silently when project is active', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.active }))
-      await expect(service.assertActive('p1')).resolves.toBeUndefined()
+    it('throws 404 when project does not exist', async () => {
+      mockRepo.findById.mockResolvedValue(null)
+      await expect(service.update('missing', { name: 'X' })).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('remove', () => {
+    it('calls repo.removeWithCascade, not child service methods', async () => {
+      mockRepo.findById.mockResolvedValue(makeProject())
+      mockRepo.removeWithCascade.mockResolvedValue({ counts: { nodes: 3, edges: 2, entries: 1 } })
+
+      await service.remove('proj-1')
+
+      expect(mockRepo.removeWithCascade).toHaveBeenCalledWith('proj-1')
+    })
+
+    it('publishes project.deleted with cascaded counts', async () => {
+      mockRepo.findById.mockResolvedValue(makeProject())
+      mockRepo.removeWithCascade.mockResolvedValue({ counts: { nodes: 3, edges: 2, entries: 1 } })
+
+      await service.remove('proj-1')
+
+      expect(mockPublisher.publish).toHaveBeenCalledWith({
+        type: 'project.deleted',
+        payload: { projectId: 'proj-1', cascadedCounts: { nodes: 3, edges: 2, entries: 1 } },
+      })
+    })
+
+    it('throws 404 if project does not exist', async () => {
+      mockRepo.findById.mockResolvedValue(null)
+      await expect(service.remove('missing')).rejects.toThrow(NotFoundException)
+    })
+  })
+
+  describe('list', () => {
+    it('returns array from repo', async () => {
+      mockRepo.list.mockResolvedValue([makeProject()])
+      await expect(service.list()).resolves.toHaveLength(1)
     })
   })
 })
 ```
 
-- [ ] **Step 2: Run tests, expect failure**
+- [ ] **Step 2: Run tests — expect failures**
 
 ```bash
-cd apps/server && pnpm vitest run src/project/project.service.spec.ts
+cd apps/server
+pnpm vitest run src/project/project.service.spec.ts
 ```
 
-Expected: FAIL — `Cannot find module './project.service'`.
+Expected: FAIL — `ProjectService` does not exist yet.
 
-- [ ] **Step 3: Write minimal ProjectService**
+- [ ] **Step 3: Implement ProjectService**
 
-Create `apps/server/src/project/project.service.ts`:
-
-```typescript
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
-import { ProjectStatus } from '@generated/client'
-import type { Project } from '@generated/client'
+```ts
+// apps/server/src/project/project.service.ts
+import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common'
+import type { Project, Prisma } from '@generated/client'
 import { ProjectRepository } from './repository/project.repository'
 import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
 import { ProjectEventPublisher } from './events/project-event.publisher'
+import { NodeService } from '../graph/node/node.service'
 
 @Injectable()
 export class ProjectService {
   constructor(
     private readonly repo: ProjectRepository,
     private readonly publisher: ProjectEventPublisher,
+    @Inject(forwardRef(() => NodeService)) private readonly nodeService: NodeService,
   ) {}
 
-  async assertActive(id: string): Promise<void> {
-    const project = await this.repo.findById(id)
-    if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
-    if (project.status === ProjectStatus.archived) {
-      throw new ConflictException('PROJECT_ARCHIVED')
-    }
-  }
-}
-```
-
-- [ ] **Step 4: Run tests, expect pass**
-
-```bash
-pnpm vitest run src/project/project.service.spec.ts
-```
-
-Expected: 3 tests pass.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/server/src/project/project.service.ts apps/server/src/project/project.service.spec.ts
-git commit -m "feat(project): add ProjectService.assertActive guard"
-```
-
----
-
-## Task 6: ProjectService — create (TDD)
-
-**Files:**
-- Modify: `apps/server/src/project/project.service.spec.ts`
-- Modify: `apps/server/src/project/project.service.ts`
-
-- [ ] **Step 1: Add failing tests for create**
-
-Append to the `describe('ProjectService', () => { ... })` block in `project.service.spec.ts`, **before** the closing `})`:
-
-```typescript
-  describe('create', () => {
-    it('creates project with root node and emits project.created', async () => {
-      const project = makeProject()
-      const root = { id: 'root1', projectId: 'p1' }
-      mockRepo.createWithRoot.mockResolvedValue({ project, root })
-
-      const result = await service.create({ name: 'Test Project' })
-
-      expect(mockRepo.createWithRoot).toHaveBeenCalledWith({
-        name: 'Test Project',
-        description: undefined,
-      })
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.created',
-        payload: { projectId: 'p1', rootNodeId: 'root1' },
-      })
-      expect(result).toBe(project)
-    })
-
-    it('does not emit event when repo throws', async () => {
-      mockRepo.createWithRoot.mockRejectedValue(new Error('db down'))
-      await expect(service.create({ name: 'X' })).rejects.toThrow('db down')
-      expect(mockPublisher.publish).not.toHaveBeenCalled()
-    })
-  })
-```
-
-- [ ] **Step 2: Run tests, expect failure**
-
-```bash
-pnpm vitest run src/project/project.service.spec.ts
-```
-
-Expected: FAIL — `service.create is not a function`.
-
-- [ ] **Step 3: Implement create**
-
-Edit `project.service.ts`. Add this method inside the `ProjectService` class after `assertActive`:
-
-```typescript
   async create(data: ProjectCreateData): Promise<Project> {
-    const { project, root } = await this.repo.createWithRoot(data)
+    const { project, rootNode } = await this.repo.createWithRootTx(
+      data,
+      (tx: Prisma.TransactionClient, projectId: string) =>
+        this.nodeService.initProjectRootInternal(projectId, tx),
+    )
     await this.publisher.publish({
       type: 'project.created',
-      payload: { projectId: project.id, rootNodeId: root.id },
-    })
-    return project
-  }
-```
-
-- [ ] **Step 4: Run tests, expect pass**
-
-```bash
-pnpm vitest run src/project/project.service.spec.ts
-```
-
-Expected: 5 tests pass (3 from Task 5 + 2 new).
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add apps/server/src/project/project.service.ts apps/server/src/project/project.service.spec.ts
-git commit -m "feat(project): add ProjectService.create"
-```
-
----
-
-## Task 7: ProjectService — read, update, archive, unarchive, remove (TDD)
-
-**Files:**
-- Modify: `apps/server/src/project/project.service.spec.ts`
-- Modify: `apps/server/src/project/project.service.ts`
-
-- [ ] **Step 1: Add failing tests for findById / list**
-
-Append inside the `describe('ProjectService')` block:
-
-```typescript
-  describe('findById', () => {
-    it('throws NotFoundException when missing', async () => {
-      mockRepo.findById.mockResolvedValue(null)
-      await expect(service.findById('x')).rejects.toThrow(NotFoundException)
-    })
-
-    it('returns the project when present', async () => {
-      const p = makeProject()
-      mockRepo.findById.mockResolvedValue(p)
-      await expect(service.findById('p1')).resolves.toBe(p)
-    })
-  })
-
-  describe('list', () => {
-    it('passes filter to repo', async () => {
-      mockRepo.list.mockResolvedValue([])
-      await service.list({ status: ProjectStatus.archived })
-      expect(mockRepo.list).toHaveBeenCalledWith({ status: ProjectStatus.archived })
-    })
-  })
-```
-
-- [ ] **Step 2: Add failing tests for update**
-
-```typescript
-  describe('update', () => {
-    it('throws ConflictException when project is archived', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.archived }))
-      await expect(service.update('p1', { name: 'New' })).rejects.toThrow(ConflictException)
-    })
-
-    it('updates and returns the project when active', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject())
-      const updated = makeProject({ name: 'New' })
-      mockRepo.update.mockResolvedValue(updated)
-      await expect(service.update('p1', { name: 'New' })).resolves.toBe(updated)
-      expect(mockRepo.update).toHaveBeenCalledWith('p1', { name: 'New' })
-    })
-  })
-```
-
-- [ ] **Step 3: Add failing tests for archive / unarchive**
-
-```typescript
-  describe('archive', () => {
-    it('throws ConflictException if already archived', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.archived }))
-      await expect(service.archive('p1')).rejects.toThrow(ConflictException)
-    })
-
-    it('sets status to archived and emits project.archived', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject())
-      const archived = makeProject({ status: ProjectStatus.archived })
-      mockRepo.setStatus.mockResolvedValue(archived)
-      await expect(service.archive('p1')).resolves.toBe(archived)
-      expect(mockRepo.setStatus).toHaveBeenCalledWith('p1', ProjectStatus.archived)
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.archived',
-        payload: { projectId: 'p1' },
-      })
-    })
-  })
-
-  describe('unarchive', () => {
-    it('throws ConflictException if already active', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.active }))
-      await expect(service.unarchive('p1')).rejects.toThrow(ConflictException)
-    })
-
-    it('sets status to active and emits project.unarchived', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject({ status: ProjectStatus.archived }))
-      const active = makeProject({ status: ProjectStatus.active })
-      mockRepo.setStatus.mockResolvedValue(active)
-      await expect(service.unarchive('p1')).resolves.toBe(active)
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.unarchived',
-        payload: { projectId: 'p1' },
-      })
-    })
-  })
-```
-
-- [ ] **Step 4: Add failing tests for remove**
-
-```typescript
-  describe('remove', () => {
-    it('deletes and emits project.deleted with cascaded counts', async () => {
-      mockRepo.findById.mockResolvedValue(makeProject())
-      mockRepo.removeWithCounts.mockResolvedValue({ nodes: 4, edges: 5, entries: 2 })
-      await service.remove('p1')
-      expect(mockPublisher.publish).toHaveBeenCalledWith({
-        type: 'project.deleted',
-        payload: {
-          projectId: 'p1',
-          cascadedCounts: { nodes: 4, edges: 5, entries: 2 },
-        },
-      })
-    })
-
-    it('throws NotFoundException when missing', async () => {
-      mockRepo.findById.mockResolvedValue(null)
-      await expect(service.remove('x')).rejects.toThrow(NotFoundException)
-    })
-  })
-```
-
-- [ ] **Step 5: Run tests, expect failure**
-
-```bash
-pnpm vitest run src/project/project.service.spec.ts
-```
-
-Expected: multiple failures — methods do not exist yet.
-
-- [ ] **Step 6: Implement the remaining methods**
-
-Replace `project.service.ts` with the full version:
-
-```typescript
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
-import { ProjectStatus } from '@generated/client'
-import type { Project } from '@generated/client'
-import { ProjectRepository } from './repository/project.repository'
-import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
-import { ProjectEventPublisher } from './events/project-event.publisher'
-
-@Injectable()
-export class ProjectService {
-  constructor(
-    private readonly repo: ProjectRepository,
-    private readonly publisher: ProjectEventPublisher,
-  ) {}
-
-  async assertActive(id: string): Promise<void> {
-    const project = await this.repo.findById(id)
-    if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
-    if (project.status === ProjectStatus.archived) {
-      throw new ConflictException('PROJECT_ARCHIVED')
-    }
-  }
-
-  async create(data: ProjectCreateData): Promise<Project> {
-    const { project, root } = await this.repo.createWithRoot(data)
-    await this.publisher.publish({
-      type: 'project.created',
-      payload: { projectId: project.id, rootNodeId: root.id },
+      payload: { projectId: project.id, rootNodeId: rootNode.id },
     })
     return project
   }
 
   async findById(id: string): Promise<Project> {
-    return this.requireProject(id)
+    const project = await this.repo.findById(id)
+    if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
+    return project
   }
 
-  async list(filter: { status?: ProjectStatus } = {}): Promise<Project[]> {
-    return this.repo.list(filter)
+  async list(): Promise<Project[]> {
+    return this.repo.list()
   }
 
   async update(id: string, data: ProjectUpdateData): Promise<Project> {
-    const project = await this.requireProject(id)
-    if (project.status === ProjectStatus.archived) {
-      throw new ConflictException('PROJECT_ARCHIVED')
-    }
+    await this.assertExists(id)
     return this.repo.update(id, data)
   }
 
-  async archive(id: string): Promise<Project> {
-    const project = await this.requireProject(id)
-    if (project.status === ProjectStatus.archived) {
-      throw new ConflictException('PROJECT_ALREADY_ARCHIVED')
-    }
-    const updated = await this.repo.setStatus(id, ProjectStatus.archived)
-    await this.publisher.publish({
-      type: 'project.archived',
-      payload: { projectId: id },
-    })
-    return updated
-  }
-
-  async unarchive(id: string): Promise<Project> {
-    const project = await this.requireProject(id)
-    if (project.status === ProjectStatus.active) {
-      throw new ConflictException('PROJECT_ALREADY_ACTIVE')
-    }
-    const updated = await this.repo.setStatus(id, ProjectStatus.active)
-    await this.publisher.publish({
-      type: 'project.unarchived',
-      payload: { projectId: id },
-    })
-    return updated
-  }
-
   async remove(id: string): Promise<void> {
-    await this.requireProject(id)
-    const counts = await this.repo.removeWithCounts(id)
+    await this.assertExists(id)
+    const { counts } = await this.repo.removeWithCascade(id)
     await this.publisher.publish({
       type: 'project.deleted',
       payload: { projectId: id, cascadedCounts: counts },
     })
   }
 
-  private async requireProject(id: string): Promise<Project> {
+  async assertExists(id: string): Promise<void> {
     const project = await this.repo.findById(id)
     if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
-    return project
   }
 }
 ```
 
-- [ ] **Step 7: Run tests, expect pass**
+- [ ] **Step 4: Run tests — expect all pass**
 
 ```bash
+cd apps/server
 pnpm vitest run src/project/project.service.spec.ts
 ```
 
-Expected: all tests pass.
+Expected: all tests PASS.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 5: Register ProjectService in ProjectModule and export it**
+
+Edit `apps/server/src/project/project.module.ts` — add `ProjectService` to providers and exports:
+
+```ts
+import { Module, forwardRef } from '@nestjs/common'
+import { BullModule } from '@nestjs/bullmq'
+import { GraphModule } from '../graph/graph.module'
+import { ProjectRepository } from './repository/project.repository'
+import { ProjectEventPublisher, PROJECT_EVENTS_QUEUE } from './events/project-event.publisher'
+import { ProjectService } from './project.service'
+import { PrismaService } from '../prisma/prisma.service'
+
+@Module({
+  imports: [
+    BullModule.registerQueue({ name: PROJECT_EVENTS_QUEUE }),
+    forwardRef(() => GraphModule),
+  ],
+  providers: [
+    PrismaService,
+    ProjectRepository,
+    ProjectEventPublisher,
+    ProjectService,
+  ],
+  exports: [ProjectService],
+})
+export class ProjectModule {}
+```
+
+- [ ] **Step 6: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass.
+
+- [ ] **Step 7: Commit**
 
 ```bash
 git add apps/server/src/project/
-git commit -m "feat(project): complete ProjectService lifecycle methods"
+git commit -m "feat(project): implement ProjectService with create, assertExists, update, remove"
 ```
 
 ---
 
-## Task 8: ProjectController + spec
+## Task 4: Add ProjectController (TDD)
 
 **Files:**
 - Create: `apps/server/src/project/project.controller.spec.ts`
 - Create: `apps/server/src/project/project.controller.ts`
+- Modify: `apps/server/src/project/project.module.ts`
 
-- [ ] **Step 1: Write the failing controller spec**
+- [ ] **Step 1: Write failing controller tests**
 
-```typescript
+```ts
+// apps/server/src/project/project.controller.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ProjectStatus } from '@generated/client'
 import { ProjectController } from './project.controller'
+import type { Project } from '@generated/client'
+
+function makeProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: 'proj-1', name: 'P', description: null,
+    createdAt: new Date(), updatedAt: new Date(),
+    ...overrides,
+  }
+}
 
 describe('ProjectController', () => {
   let controller: ProjectController
@@ -844,81 +635,58 @@ describe('ProjectController', () => {
       findById: vi.fn(),
       list: vi.fn(),
       update: vi.fn(),
-      archive: vi.fn(),
-      unarchive: vi.fn(),
       remove: vi.fn(),
     }
     controller = new ProjectController(mockService)
   })
 
-  it('POST /projects calls service.create', async () => {
-    mockService.create.mockResolvedValue({ id: 'p1' })
-    await controller.create({ name: 'A' })
-    expect(mockService.create).toHaveBeenCalledWith({ name: 'A' })
+  it('POST / calls service.create', async () => {
+    mockService.create.mockResolvedValue(makeProject())
+    await controller.create({ name: 'P' })
+    expect(mockService.create).toHaveBeenCalledWith({ name: 'P' })
   })
 
-  it('GET /projects calls service.list with status filter', async () => {
+  it('GET / calls service.list', async () => {
     mockService.list.mockResolvedValue([])
-    await controller.list(ProjectStatus.archived)
-    expect(mockService.list).toHaveBeenCalledWith({ status: ProjectStatus.archived })
+    await controller.list()
+    expect(mockService.list).toHaveBeenCalled()
   })
 
-  it('GET /projects without status passes empty filter', async () => {
-    mockService.list.mockResolvedValue([])
-    await controller.list(undefined)
-    expect(mockService.list).toHaveBeenCalledWith({})
+  it('GET /:id calls service.findById', async () => {
+    mockService.findById.mockResolvedValue(makeProject())
+    await controller.findById('proj-1')
+    expect(mockService.findById).toHaveBeenCalledWith('proj-1')
   })
 
-  it('GET /projects/:id calls service.findById', async () => {
-    mockService.findById.mockResolvedValue({ id: 'p1' })
-    await controller.findOne('p1')
-    expect(mockService.findById).toHaveBeenCalledWith('p1')
+  it('PATCH /:id calls service.update', async () => {
+    mockService.update.mockResolvedValue(makeProject())
+    await controller.update('proj-1', { name: 'New' })
+    expect(mockService.update).toHaveBeenCalledWith('proj-1', { name: 'New' })
   })
 
-  it('PATCH /projects/:id calls service.update', async () => {
-    mockService.update.mockResolvedValue({ id: 'p1' })
-    await controller.update('p1', { name: 'New' })
-    expect(mockService.update).toHaveBeenCalledWith('p1', { name: 'New' })
-  })
-
-  it('POST /projects/:id/archive calls service.archive', async () => {
-    mockService.archive.mockResolvedValue({ id: 'p1' })
-    await controller.archive('p1')
-    expect(mockService.archive).toHaveBeenCalledWith('p1')
-  })
-
-  it('POST /projects/:id/unarchive calls service.unarchive', async () => {
-    mockService.unarchive.mockResolvedValue({ id: 'p1' })
-    await controller.unarchive('p1')
-    expect(mockService.unarchive).toHaveBeenCalledWith('p1')
-  })
-
-  it('DELETE /projects/:id calls service.remove', async () => {
+  it('DELETE /:id calls service.remove', async () => {
     mockService.remove.mockResolvedValue(undefined)
-    await controller.remove('p1')
-    expect(mockService.remove).toHaveBeenCalledWith('p1')
+    await controller.remove('proj-1')
+    expect(mockService.remove).toHaveBeenCalledWith('proj-1')
   })
 })
 ```
 
-- [ ] **Step 2: Run, expect failure**
+- [ ] **Step 2: Run tests — expect failures**
 
 ```bash
+cd apps/server
 pnpm vitest run src/project/project.controller.spec.ts
 ```
 
-Expected: FAIL — module not found.
+Expected: FAIL — `ProjectController` does not exist.
 
-- [ ] **Step 3: Write the controller**
+- [ ] **Step 3: Implement ProjectController**
 
-Create `apps/server/src/project/project.controller.ts`:
-
-```typescript
-import {
-  Controller, Post, Get, Patch, Delete, Param, Body, Query, HttpCode,
-} from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger'
-import { ProjectStatus } from '@generated/client'
+```ts
+// apps/server/src/project/project.controller.ts
+import { Controller, Post, Get, Patch, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
 import { CreateProjectDto, UpdateProjectDto, ProjectEntity } from './dto/project.dto'
 
@@ -928,7 +696,7 @@ export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create a project (also creates root node)' })
+  @ApiOperation({ summary: 'Create a project and its root node' })
   @ApiBody({ type: CreateProjectDto })
   @ApiResponse({ status: 201, type: ProjectEntity })
   create(@Body() body: CreateProjectDto) {
@@ -936,55 +704,36 @@ export class ProjectController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List projects' })
-  @ApiQuery({ name: 'status', required: false, enum: ProjectStatus })
+  @ApiOperation({ summary: 'List all projects' })
   @ApiResponse({ status: 200, type: [ProjectEntity] })
-  list(@Query('status') status?: ProjectStatus) {
-    return this.projectService.list(status ? { status } : {})
+  list() {
+    return this.projectService.list()
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get a project by id' })
+  @ApiOperation({ summary: 'Get a project by ID' })
   @ApiParam({ name: 'id' })
   @ApiResponse({ status: 200, type: ProjectEntity })
   @ApiResponse({ status: 404, description: 'Project not found' })
-  findOne(@Param('id') id: string) {
+  findById(@Param('id') id: string) {
     return this.projectService.findById(id)
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Update project name/description' })
+  @ApiOperation({ summary: 'Update project name or description' })
   @ApiParam({ name: 'id' })
   @ApiBody({ type: UpdateProjectDto })
   @ApiResponse({ status: 200, type: ProjectEntity })
-  @ApiResponse({ status: 409, description: 'Project archived' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
   update(@Param('id') id: string, @Body() body: UpdateProjectDto) {
     return this.projectService.update(id, body)
   }
 
-  @Post(':id/archive')
-  @ApiOperation({ summary: 'Archive a project (read-only)' })
-  @ApiParam({ name: 'id' })
-  @ApiResponse({ status: 200, type: ProjectEntity })
-  @ApiResponse({ status: 409, description: 'Project already archived' })
-  archive(@Param('id') id: string) {
-    return this.projectService.archive(id)
-  }
-
-  @Post(':id/unarchive')
-  @ApiOperation({ summary: 'Unarchive a project' })
-  @ApiParam({ name: 'id' })
-  @ApiResponse({ status: 200, type: ProjectEntity })
-  @ApiResponse({ status: 409, description: 'Project already active' })
-  unarchive(@Param('id') id: string) {
-    return this.projectService.unarchive(id)
-  }
-
   @Delete(':id')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Hard-delete a project (cascades to nodes/edges/entries)' })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Hard delete a project and all its data' })
   @ApiParam({ name: 'id' })
-  @ApiResponse({ status: 204, description: 'Deleted' })
+  @ApiResponse({ status: 204 })
   @ApiResponse({ status: 404, description: 'Project not found' })
   remove(@Param('id') id: string) {
     return this.projectService.remove(id)
@@ -992,43 +741,33 @@ export class ProjectController {
 }
 ```
 
-- [ ] **Step 4: Run, expect pass**
+- [ ] **Step 4: Run tests — expect all pass**
 
 ```bash
+cd apps/server
 pnpm vitest run src/project/project.controller.spec.ts
 ```
 
-Expected: 8 tests pass.
+Expected: all PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Register ProjectController in ProjectModule**
 
-```bash
-git add apps/server/src/project/project.controller.ts apps/server/src/project/project.controller.spec.ts
-git commit -m "feat(project): add ProjectController with full REST surface"
-```
+Edit `apps/server/src/project/project.module.ts` — add to controllers and imports:
 
----
-
-## Task 9: ProjectModule wiring
-
-**Files:**
-- Create: `apps/server/src/project/project.module.ts`
-- Modify: `apps/server/src/app.module.ts`
-
-- [ ] **Step 1: Write the module**
-
-```typescript
-import { Module } from '@nestjs/common'
+```ts
+import { Module, forwardRef } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
-import { ProjectController } from './project.controller'
-import { ProjectService } from './project.service'
+import { GraphModule } from '../graph/graph.module'
 import { ProjectRepository } from './repository/project.repository'
 import { ProjectEventPublisher, PROJECT_EVENTS_QUEUE } from './events/project-event.publisher'
+import { ProjectService } from './project.service'
+import { ProjectController } from './project.controller'
 import { PrismaService } from '../prisma/prisma.service'
 
 @Module({
   imports: [
     BullModule.registerQueue({ name: PROJECT_EVENTS_QUEUE }),
+    forwardRef(() => GraphModule),
   ],
   controllers: [ProjectController],
   providers: [
@@ -1042,84 +781,38 @@ import { PrismaService } from '../prisma/prisma.service'
 export class ProjectModule {}
 ```
 
-- [ ] **Step 2: Register in AppModule**
-
-Edit `apps/server/src/app.module.ts`. Add import:
-
-```typescript
-import { ProjectModule } from './project/project.module'
-```
-
-Add `ProjectModule` to the `imports` array, before `GraphModule`:
-
-```typescript
-imports: [
-  ConfigModule.forRoot({ isGlobal: true }),
-  AppConfigModule,
-  BullModule.forRootAsync({ ... }),
-  ProjectModule,
-  GraphModule,
-  KnowledgeModule,
-],
-```
-
-- [ ] **Step 3: Verify the app boots**
+- [ ] **Step 6: Run all tests**
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm vitest run
+cd apps/server
+pnpm test
 ```
 
-Expected: typecheck clean, all existing tests still pass (no integration yet).
+Expected: all pass.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add apps/server/src/project/project.module.ts apps/server/src/app.module.ts
-git commit -m "feat(project): wire ProjectModule into AppModule"
+git add apps/server/src/project/
+git commit -m "feat(project): add ProjectController with 5 CRUD endpoints"
 ```
 
 ---
 
-## Task 10: GraphModule imports ProjectModule + NodeService.assertActive (TDD)
+## Task 5: Wire ProjectModule ↔ GraphModule (forwardRef) and add initProjectRootInternal
+
+This task wires the circular dependency and adds the transaction-aware root-init method. No new tests yet — existing tests will update in Tasks 6 and 7.
 
 **Files:**
 - Modify: `apps/server/src/graph/graph.module.ts`
-- Modify: `apps/server/src/graph/graph.controller.ts`
-- Modify: `apps/server/src/graph/graph.controller.spec.ts`
-- Modify: `apps/server/src/graph/node/node.service.ts`
-- Modify: `apps/server/src/graph/node/node.service.spec.ts`
 - Modify: `apps/server/src/graph/repository/graph.repository.ts`
+- Modify: `apps/server/src/graph/node/node.service.ts`
 
-This task removes `initProjectRoot` from all three layers (controller → service → repository) and adds the `assertActive` guard to `NodeService` write methods. All deletions happen in this single task so each commit compiles.
+- [ ] **Step 1: Update GraphModule to import ProjectModule (forwardRef) and export NodeService**
 
-- [ ] **Step 1: Delete the GraphController.initProject route**
-
-Edit `apps/server/src/graph/graph.controller.ts`. Delete the entire `// ── Project init ──` block plus the `initProject` method (`@Post('projects/:id/init')` decorator, the `@ApiOperation` / `@ApiParam` / `@ApiResponse` lines, and the method body).
-
-- [ ] **Step 2: Delete the matching controller test**
-
-Find this test in `apps/server/src/graph/graph.controller.spec.ts`:
-
-```typescript
-  it('initProject calls nodeService.initProjectRoot', async () => {
-    const node = { id: 'root', projectId: 'p1', isProjectRoot: true }
-    ...
-  })
-```
-
-Delete the entire `it(...)` block. Also remove `initProjectRoot: vi.fn()` from `mockNodeService` in the same file's `beforeEach` if present.
-
-- [ ] **Step 3: Delete GraphRepository.initProjectRoot**
-
-Edit `apps/server/src/graph/repository/graph.repository.ts`. Delete the `initProjectRoot(projectId: string)` method entirely (currently lines 50-77). Keep `findProjectRoot` — it is still used by `deleteReparentToRoot`.
-
-- [ ] **Step 4: Update GraphModule imports**
-
-Edit `apps/server/src/graph/graph.module.ts`:
-
-```typescript
-import { Module } from '@nestjs/common'
+```ts
+// apps/server/src/graph/graph.module.ts
+import { Module, forwardRef } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
 import { GraphController } from './graph.controller'
 import { NodeService } from './node/node.service'
@@ -1134,7 +827,7 @@ import { ProjectModule } from '../project/project.module'
 @Module({
   imports: [
     BullModule.registerQueue({ name: GRAPH_EVENTS_QUEUE }),
-    ProjectModule,
+    forwardRef(() => ProjectModule),
   ],
   controllers: [GraphController],
   providers: [
@@ -1146,92 +839,188 @@ import { ProjectModule } from '../project/project.module'
     NodeService,
     EdgeService,
   ],
+  exports: [NodeService, EdgeService],
 })
 export class GraphModule {}
 ```
 
-- [ ] **Step 5: Update node.service.spec.ts mock setup**
+- [ ] **Step 2: Add initProjectRootInTransaction to GraphRepository**
 
-Edit `apps/server/src/graph/node/node.service.spec.ts`. Replace the `beforeEach` block:
+Open `apps/server/src/graph/repository/graph.repository.ts`. Add this method after `initProjectRoot`:
 
-```typescript
-  let service: NodeService
-  let mockRepo: any
-  let mockPublisher: any
+```ts
+async initProjectRootInTransaction(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+  return tx.node.create({
+    data: {
+      projectId,
+      isProjectRoot: true,
+      type: NodeType.scaffold,
+      title: '[Project Root]',
+      createdBy: CreatedBy.human,
+    },
+  })
+}
+```
+
+Also add `Prisma` to the imports at the top of the file:
+
+```ts
+import type { Node, Edge, Prisma } from '@generated/client'
+```
+
+- [ ] **Step 3: Add initProjectRootInternal to NodeService**
+
+Open `apps/server/src/graph/node/node.service.ts`. Add this method right after `initProjectRoot`:
+
+```ts
+async initProjectRootInternal(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+  return this.repo.initProjectRootInTransaction(projectId, tx)
+}
+```
+
+Also add `Prisma` to the imports:
+
+```ts
+import type { Node, Edge, Prisma } from '@generated/client'
+```
+
+- [ ] **Step 4: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass. `initProjectRootInternal` is additive — no existing code breaks.
+
+- [ ] **Step 5: Wire KnowledgeModule to import ProjectModule**
+
+Edit `apps/server/src/knowledge/knowledge.module.ts`:
+
+```ts
+import { Module, forwardRef } from '@nestjs/common'
+import { BullModule } from '@nestjs/bullmq'
+import { KnowledgeController } from './knowledge.controller'
+import { EntryService } from './entry/entry.service'
+import { RevisionService } from './revision/revision.service'
+import { SearchService } from './search/search.service'
+import { KnowledgeRepository } from './repository/knowledge.repository'
+import { KnowledgeEventPublisher, KNOWLEDGE_EVENTS_QUEUE } from './events/knowledge-event.publisher'
+import { PrismaService } from '../prisma/prisma.service'
+import { ProjectModule } from '../project/project.module'
+
+@Module({
+  imports: [
+    BullModule.registerQueue({ name: KNOWLEDGE_EVENTS_QUEUE }),
+    forwardRef(() => ProjectModule),
+  ],
+  controllers: [KnowledgeController],
+  providers: [
+    PrismaService,
+    KnowledgeRepository,
+    KnowledgeEventPublisher,
+    EntryService,
+    RevisionService,
+    SearchService,
+  ],
+})
+export class KnowledgeModule {}
+```
+
+- [ ] **Step 6: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add apps/server/src/graph/ apps/server/src/knowledge/knowledge.module.ts
+git commit -m "feat(project): wire ProjectModule↔GraphModule forwardRef, add initProjectRootInternal"
+```
+
+---
+
+## Task 6: Add assertExists to NodeService write paths (TDD)
+
+**Files:**
+- Modify: `apps/server/src/graph/node/node.service.spec.ts`
+- Modify: `apps/server/src/graph/node/node.service.ts`
+
+- [ ] **Step 1: Add failing tests**
+
+Open `apps/server/src/graph/node/node.service.spec.ts`. Add `mockProjectService` to the `beforeEach` block and add a new top-level `describe` block:
+
+In `beforeEach`, change the service instantiation:
+```ts
+// add to existing beforeEach:
+mockRepo.initProjectRootInTransaction = vi.fn()
+const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+// update the constructor call:
+service = new NodeService(mockRepo, mockPublisher, mockProjectService)
+```
+
+Add this describe block **after** the existing `describe('updateStatus', ...)` block:
+
+```ts
+describe('when project does not exist', () => {
   let mockProjectService: any
 
   beforeEach(() => {
-    mockRepo = {
-      findNode: vi.fn(),
-      createNode: vi.fn(),
-      updateNode: vi.fn(),
-      listProjectNodes: vi.fn(),
-      getSubgraph: vi.fn(),
-      findCompositionChildren: vi.fn(),
-      findDependencyTargets: vi.fn(),
-      deleteNodeWithStrategy: vi.fn(),
+    mockProjectService = {
+      assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
     }
-    mockPublisher = { publish: vi.fn().mockResolvedValue(undefined) }
-    mockProjectService = { assertActive: vi.fn().mockResolvedValue(undefined) }
     service = new NodeService(mockRepo, mockPublisher, mockProjectService)
   })
-```
 
-Note: removed `initProjectRoot: vi.fn()` from the repo mock — that method is being deleted in Task 13.
-
-- [ ] **Step 6: Add new failing tests for archived-project guard**
-
-Append inside the existing `describe('NodeService', ...)` block:
-
-```typescript
-  describe('project guard', () => {
-    it('createNode throws when project is archived', async () => {
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.createNode({
-        projectId: 'p1', type: NodeType.scaffold, title: 'X', createdBy: CreatedBy.human,
-      })).rejects.toThrow(ConflictException)
-      expect(mockRepo.createNode).not.toHaveBeenCalled()
-    })
-
-    it('updateStatus throws when project is archived', async () => {
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.updateStatus('n1', NodeStatus.completed)).rejects.toThrow(ConflictException)
-      expect(mockRepo.findNode).not.toHaveBeenCalled()
-    })
-
-    it('deleteNode throws when project is archived', async () => {
-      mockRepo.findNode.mockResolvedValue({
-        id: 'n1', projectId: 'p1', isProjectRoot: false, status: NodeStatus.active,
-      })
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.deleteNode('n1')).rejects.toThrow(ConflictException)
-      expect(mockRepo.deleteNodeWithStrategy).not.toHaveBeenCalled()
-    })
+  it('createNode throws 404', async () => {
+    await expect(
+      service.createNode({ projectId: 'bad', type: NodeType.scaffold, title: 'T', createdBy: CreatedBy.human }),
+    ).rejects.toThrow(NotFoundException)
   })
+
+  it('updateNode throws 404', async () => {
+    mockRepo.findNode.mockResolvedValue(makeNode())
+    await expect(service.updateNode('n1', { title: 'X' })).rejects.toThrow(NotFoundException)
+  })
+
+  it('updateStatus throws 404', async () => {
+    mockRepo.findNode.mockResolvedValue(makeNode())
+    await expect(service.updateStatus('n1', NodeStatus.completed)).rejects.toThrow(NotFoundException)
+  })
+
+  it('resolveCheckpoint throws 404', async () => {
+    mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.blocked, isCheckpoint: true }))
+    await expect(service.resolveCheckpoint('n1', 'continue')).rejects.toThrow(NotFoundException)
+  })
+
+  it('deleteNode throws 404', async () => {
+    mockRepo.findNode.mockResolvedValue(makeNode())
+    await expect(service.deleteNode('n1')).rejects.toThrow(NotFoundException)
+  })
+})
 ```
 
-Note: existing tests already pass `mockProjectService.assertActive.mockResolvedValue(undefined)` in `beforeEach` so they will continue to pass.
-
-- [ ] **Step 7: Remove obsolete initProjectRoot references from node.service.spec.ts**
-
-Search `node.service.spec.ts` for any test that exercises `service.initProjectRoot` or references `mockRepo.initProjectRoot`. If present, delete those `it(...)` blocks. (As of writing, none exist — the only `initProjectRoot` test was in `graph.controller.spec.ts`, deleted in Step 2.)
-
-- [ ] **Step 8: Run, expect failure**
+- [ ] **Step 2: Run tests — expect failures**
 
 ```bash
+cd apps/server
 pnpm vitest run src/graph/node/node.service.spec.ts
 ```
 
-Expected: FAIL — `NodeService` constructor has 2 args, test passes 3; also failures from controller test removal if it referenced `initProjectRoot`.
+Expected: the new "when project does not exist" tests FAIL, existing tests may also fail because `NodeService` constructor signature changed.
 
-- [ ] **Step 9: Update NodeService**
+- [ ] **Step 3: Update NodeService to inject ProjectService and call assertExists**
 
-Edit `apps/server/src/graph/node/node.service.ts`. Replace the file:
-
-```typescript
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+```ts
+// apps/server/src/graph/node/node.service.ts
+import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { NodeStatus, CheckpointResolution } from '@generated/client'
-import type { Node, Edge } from '@generated/client'
+import type { Node, Edge, Prisma } from '@generated/client'
 import { GraphRepository, HasCompositionChildrenError, AmbiguousParentError } from '../repository/graph.repository'
 import type { NodeCreateData, DeleteStrategy } from '../repository/graph.repository'
 import { GraphEventPublisher } from '../events/graph-event.publisher'
@@ -1242,11 +1031,19 @@ export class NodeService {
   constructor(
     private readonly repo: GraphRepository,
     private readonly publisher: GraphEventPublisher,
-    private readonly projectService: ProjectService,
+    @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
+  async initProjectRoot(projectId: string): Promise<Node> {
+    return this.repo.initProjectRoot(projectId)
+  }
+
+  async initProjectRootInternal(projectId: string, tx: Prisma.TransactionClient): Promise<Node> {
+    return this.repo.initProjectRootInTransaction(projectId, tx)
+  }
+
   async createNode(data: NodeCreateData): Promise<Node> {
-    await this.projectService.assertActive(data.projectId)
+    await this.projectService.assertExists(data.projectId)
     return this.repo.createNode(data)
   }
 
@@ -1262,7 +1059,7 @@ export class NodeService {
 
   async updateNode(id: string, data: Partial<Pick<Node, 'title' | 'description' | 'isCheckpoint'>>): Promise<Node> {
     const node = await this.requireNode(id)
-    await this.projectService.assertActive(node.projectId)
+    await this.projectService.assertExists(node.projectId)
     if (node.status === NodeStatus.archived) {
       throw new ConflictException('NODE_ARCHIVED')
     }
@@ -1271,7 +1068,7 @@ export class NodeService {
 
   async updateStatus(nodeId: string, newStatus: NodeStatus): Promise<Node> {
     const node = await this.requireNode(nodeId)
-    await this.projectService.assertActive(node.projectId)
+    await this.projectService.assertExists(node.projectId)
     await this.validateStatusTransition(node, newStatus)
     const updated = await this.repo.updateNode(nodeId, { status: newStatus })
     await this.publisher.publish({
@@ -1283,7 +1080,7 @@ export class NodeService {
 
   async resolveCheckpoint(nodeId: string, resolution: 'continue' | 'loop'): Promise<Node> {
     const node = await this.requireNode(nodeId)
-    await this.projectService.assertActive(node.projectId)
+    await this.projectService.assertExists(node.projectId)
     if (node.status !== NodeStatus.blocked || !node.isCheckpoint) {
       throw new ConflictException('Node must be blocked and isCheckpoint=true to resolve')
     }
@@ -1300,7 +1097,7 @@ export class NodeService {
 
   async deleteNode(nodeId: string, strategy: DeleteStrategy = 'block'): Promise<{ affectedNodeIds: string[] }> {
     const node = await this.requireNode(nodeId)
-    await this.projectService.assertActive(node.projectId)
+    await this.projectService.assertExists(node.projectId)
     if (node.isProjectRoot) throw new ConflictException('Cannot delete project root node')
     try {
       const affectedNodeIds = await this.repo.deleteNodeWithStrategy(nodeId, node.projectId, strategy)
@@ -1357,91 +1154,103 @@ export class NodeService {
 }
 ```
 
-Note: `initProjectRoot` method is **removed** entirely per the deviation in this plan's header.
+Also update the `beforeEach` in `node.service.spec.ts` to pass `mockProjectService` to the constructor for the main describe block (the one not in "when project does not exist"):
 
-- [ ] **Step 10: Run, expect pass**
-
-```bash
-pnpm vitest run src/graph/
-pnpm exec tsc --noEmit
+```ts
+// At the top of the outer describe, change:
+const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+service = new NodeService(mockRepo, mockPublisher, mockProjectService)
 ```
 
-Expected: all graph tests pass (including 3 new project-guard tests in `node.service.spec.ts` and the controller spec without the deleted `initProject` test); typecheck clean.
-
-- [ ] **Step 11: Commit**
+- [ ] **Step 4: Run tests — expect all pass**
 
 ```bash
-git add apps/server/src/graph/
-git commit -m "feat(graph)!: remove POST /projects/:id/init; NodeService consults ProjectService.assertActive on writes"
+cd apps/server
+pnpm vitest run src/graph/node/node.service.spec.ts
 ```
 
-Single commit covers: GraphController route removal, GraphRepository.initProjectRoot removal, NodeService rewrite with assertActive, GraphModule import of ProjectModule. All compile together.
+Expected: all PASS.
+
+- [ ] **Step 5: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add apps/server/src/graph/node/
+git commit -m "feat(project): add assertExists guard to NodeService write paths"
+```
 
 ---
 
-## Task 11: EdgeService.assertActive (TDD)
+## Task 7: Add assertExists to EdgeService write paths (TDD)
 
 **Files:**
-- Modify: `apps/server/src/graph/edge/edge.service.ts`
 - Modify: `apps/server/src/graph/edge/edge.service.spec.ts`
+- Modify: `apps/server/src/graph/edge/edge.service.ts`
 
-- [ ] **Step 1: Update edge.service.spec.ts mock setup**
+- [ ] **Step 1: Add failing tests**
 
-Find the `beforeEach` block in `apps/server/src/graph/edge/edge.service.spec.ts`. Add `mockProjectService` setup. The pattern should mirror what was done in Task 10:
+Open `apps/server/src/graph/edge/edge.service.spec.ts`. Add `mockProjectService` to the outer `beforeEach`:
 
-```typescript
-    mockProjectService = { assertActive: vi.fn().mockResolvedValue(undefined) }
+```ts
+// change the service instantiation in outer beforeEach:
+const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+service = new EdgeService(mockRepo, mockDetector, mockPublisher, mockProjectService)
+```
+
+Add this describe block after the existing tests:
+
+```ts
+describe('when project does not exist', () => {
+  let mockProjectService: any
+
+  beforeEach(() => {
+    mockProjectService = {
+      assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
+    }
     service = new EdgeService(mockRepo, mockDetector, mockPublisher, mockProjectService)
-```
-
-Add `let mockProjectService: any` to the declarations.
-
-- [ ] **Step 2: Add new failing tests for archived-project guard**
-
-Append inside the existing `describe('EdgeService', ...)` block:
-
-```typescript
-  describe('project guard', () => {
-    it('createEdge throws when project is archived', async () => {
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.createEdge({
-        projectId: 'p1', fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human,
-      })).rejects.toThrow(ConflictException)
-      expect(mockRepo.findNode).not.toHaveBeenCalled()
-    })
-
-    it('replaceNodeEdges throws when project is archived', async () => {
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.replaceNodeEdges(
-        'n1', EdgeType.composition, 'newParent', 'p1', CreatedBy.human,
-      )).rejects.toThrow(ConflictException)
-    })
-
-    it('deleteEdge throws when project is archived', async () => {
-      mockRepo.findEdge.mockResolvedValue({ id: 'e1', projectId: 'p1' })
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.deleteEdge('e1')).rejects.toThrow(ConflictException)
-      expect(mockRepo.deleteEdge).not.toHaveBeenCalled()
-    })
   })
+
+  it('createEdge throws 404', async () => {
+    await expect(
+      service.createEdge({ projectId: 'bad', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human }),
+    ).rejects.toThrow(NotFoundException)
+  })
+
+  it('deleteEdge throws 404', async () => {
+    mockRepo.findEdge.mockResolvedValue({ id: 'e1', projectId: 'bad' })
+    await expect(service.deleteEdge('e1')).rejects.toThrow(NotFoundException)
+  })
+
+  it('replaceNodeEdges throws 404', async () => {
+    await expect(
+      service.replaceNodeEdges('n1', EdgeType.composition, 'n2', 'bad', CreatedBy.human),
+    ).rejects.toThrow(NotFoundException)
+  })
+})
 ```
 
-Make sure `EdgeType`, `CreatedBy`, and `ConflictException` are imported at the top of the spec file if not already.
-
-- [ ] **Step 3: Run, expect failure**
+- [ ] **Step 2: Run tests — expect failures**
 
 ```bash
+cd apps/server
 pnpm vitest run src/graph/edge/edge.service.spec.ts
 ```
 
-Expected: FAIL — constructor signature mismatch.
+Expected: new tests FAIL and existing tests fail due to constructor mismatch.
 
-- [ ] **Step 4: Update EdgeService**
+- [ ] **Step 3: Update EdgeService**
 
-Replace `apps/server/src/graph/edge/edge.service.ts`:
-
-```typescript
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+```ts
+// apps/server/src/graph/edge/edge.service.ts
+import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { EdgeType, NodeStatus, CreatedBy } from '@generated/client'
 import type { Edge } from '@generated/client'
 import { GraphRepository } from '../repository/graph.repository'
@@ -1456,11 +1265,15 @@ export class EdgeService {
     private readonly repo: GraphRepository,
     private readonly detector: CycleDetectorService,
     private readonly publisher: GraphEventPublisher,
-    private readonly projectService: ProjectService,
+    @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
   async createEdge(data: EdgeCreateData): Promise<Edge> {
-    await this.projectService.assertActive(data.projectId)
+    await this.projectService.assertExists(data.projectId)
+
+    const root = await this.repo.findProjectRoot(data.projectId)
+    if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
+
     const [fromNode, toNode] = await Promise.all([
       this.repo.findNode(data.fromId),
       this.repo.findNode(data.toId),
@@ -1499,7 +1312,7 @@ export class EdgeService {
   async deleteEdge(edgeId: string): Promise<void> {
     const edge = await this.repo.findEdge(edgeId)
     if (!edge) throw new NotFoundException(`Edge ${edgeId} not found`)
-    await this.projectService.assertActive(edge.projectId)
+    await this.projectService.assertExists(edge.projectId)
     await this.repo.deleteEdge(edgeId)
   }
 
@@ -1514,7 +1327,11 @@ export class EdgeService {
     projectId: string,
     createdBy: CreatedBy,
   ): Promise<Edge> {
-    await this.projectService.assertActive(projectId)
+    await this.projectService.assertExists(projectId)
+
+    const root = await this.repo.findProjectRoot(projectId)
+    if (!root) throw new ConflictException('PROJECT_NOT_INITIALIZED')
+
     const [node, newParent] = await Promise.all([
       this.repo.findNode(nodeId),
       this.repo.findNode(newFromId),
@@ -1552,117 +1369,107 @@ export class EdgeService {
 }
 ```
 
-- [ ] **Step 5: Run, expect pass**
+- [ ] **Step 4: Run tests — expect all pass**
 
 ```bash
+cd apps/server
 pnpm vitest run src/graph/edge/edge.service.spec.ts
 ```
 
-Expected: all tests pass, including the 3 new guards.
+Expected: all PASS.
+
+- [ ] **Step 5: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add apps/server/src/graph/edge/
-git commit -m "feat(graph): EdgeService consults ProjectService.assertActive on writes"
+git commit -m "feat(project): add assertExists guard to EdgeService write paths"
 ```
 
 ---
 
-## Task 12: KnowledgeModule + EntryService.assertActive (TDD)
+## Task 8: Add assertExists to EntryService write paths (TDD)
 
 **Files:**
-- Modify: `apps/server/src/knowledge/knowledge.module.ts`
-- Modify: `apps/server/src/knowledge/entry/entry.service.ts`
 - Modify: `apps/server/src/knowledge/entry/entry.service.spec.ts`
+- Modify: `apps/server/src/knowledge/entry/entry.service.ts`
 
-- [ ] **Step 1: Update KnowledgeModule imports**
+- [ ] **Step 1: Add failing tests**
 
-Edit `apps/server/src/knowledge/knowledge.module.ts`. Add the ProjectModule import:
+Open `apps/server/src/knowledge/entry/entry.service.spec.ts`. Update outer `beforeEach`:
 
-```typescript
-import { Module } from '@nestjs/common'
-import { BullModule } from '@nestjs/bullmq'
-import { KnowledgeController } from './knowledge.controller'
-import { EntryService } from './entry/entry.service'
-import { RevisionService } from './revision/revision.service'
-import { SearchService } from './search/search.service'
-import { KnowledgeRepository } from './repository/knowledge.repository'
-import { KnowledgeEventPublisher, KNOWLEDGE_EVENTS_QUEUE } from './events/knowledge-event.publisher'
-import { PrismaService } from '../prisma/prisma.service'
-import { ProjectModule } from '../project/project.module'
-
-@Module({
-  imports: [
-    BullModule.registerQueue({ name: KNOWLEDGE_EVENTS_QUEUE }),
-    ProjectModule,
-  ],
-  controllers: [KnowledgeController],
-  providers: [
-    PrismaService,
-    KnowledgeRepository,
-    KnowledgeEventPublisher,
-    EntryService,
-    RevisionService,
-    SearchService,
-  ],
-})
-export class KnowledgeModule {}
+```ts
+// add to outer beforeEach:
+const mockProjectService = { assertExists: vi.fn().mockResolvedValue(undefined) }
+service = new EntryService(mockRepo, mockPublisher, mockProjectService)
 ```
 
-- [ ] **Step 2: Update entry.service.spec.ts mock setup**
+Add this describe block:
 
-Find the `beforeEach` in `apps/server/src/knowledge/entry/entry.service.spec.ts`. Add the project service mock and pass it to the constructor:
+```ts
+describe('when project does not exist', () => {
+  let mockProjectService: any
 
-```typescript
-    mockProjectService = { assertActive: vi.fn().mockResolvedValue(undefined) }
+  beforeEach(() => {
+    mockProjectService = {
+      assertExists: vi.fn().mockRejectedValue(new NotFoundException('PROJECT_NOT_FOUND')),
+    }
     service = new EntryService(mockRepo, mockPublisher, mockProjectService)
-```
-
-Add `let mockProjectService: any` to the declarations.
-
-- [ ] **Step 3: Add failing tests**
-
-Append inside the existing `describe('EntryService', ...)` block:
-
-```typescript
-  describe('project guard', () => {
-    it('createEntry throws when project is archived', async () => {
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.createEntry({
-        projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision,
-        title: 'X', body: {}, createdBy: CreatedBy.human,
-      })).rejects.toThrow(ConflictException)
-      expect(mockRepo.createEntryWithRevision).not.toHaveBeenCalled()
-    })
-
-    it('updateStatus throws when project is archived', async () => {
-      mockRepo.findEntry.mockResolvedValue({
-        id: 'e1', projectId: 'p1', status: EntryStatus.draft,
-      })
-      mockProjectService.assertActive.mockRejectedValueOnce(new ConflictException('PROJECT_ARCHIVED'))
-      await expect(service.updateStatus('e1', EntryStatus.published)).rejects.toThrow(ConflictException)
-      expect(mockRepo.updateEntry).not.toHaveBeenCalled()
-    })
   })
+
+  it('createEntry throws 404', async () => {
+    await expect(
+      service.createEntry({
+        projectId: 'bad', nodeId: 'n1', category: EntryCategory.decision,
+        title: 'T', body: {}, createdBy: CreatedBy.human,
+      }),
+    ).rejects.toThrow(NotFoundException)
+  })
+
+  it('updateFields throws 404', async () => {
+    mockRepo.findEntry.mockResolvedValue(makeEntry())
+    await expect(service.updateFields('e1', { title: 'X' })).rejects.toThrow(NotFoundException)
+  })
+
+  it('updateStatus throws 404', async () => {
+    mockRepo.findEntry.mockResolvedValue(makeEntry())
+    await expect(service.updateStatus('e1', EntryStatus.published)).rejects.toThrow(NotFoundException)
+  })
+
+  it('reanchor throws 404', async () => {
+    mockRepo.findEntry.mockResolvedValue(makeEntry())
+    await expect(service.reanchor('e1', 'n2')).rejects.toThrow(NotFoundException)
+  })
+
+  it('softDelete throws 404', async () => {
+    mockRepo.findEntry.mockResolvedValue(makeEntry())
+    await expect(service.softDelete('e1')).rejects.toThrow(NotFoundException)
+  })
+})
 ```
 
-Ensure `EntryCategory`, `EntryStatus`, `CreatedBy`, and `ConflictException` are imported.
-
-- [ ] **Step 4: Run, expect failure**
+- [ ] **Step 2: Run tests — expect failures**
 
 ```bash
+cd apps/server
 pnpm vitest run src/knowledge/entry/entry.service.spec.ts
 ```
 
-Expected: FAIL — constructor signature mismatch.
+Expected: new tests FAIL, existing tests fail due to constructor mismatch.
 
-- [ ] **Step 5: Update EntryService**
+- [ ] **Step 3: Update EntryService**
 
-Replace `apps/server/src/knowledge/entry/entry.service.ts`:
-
-```typescript
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common'
+```ts
+// apps/server/src/knowledge/entry/entry.service.ts
+import { Injectable, NotFoundException, ConflictException, forwardRef, Inject } from '@nestjs/common'
 import { EntryStatus } from '@generated/client'
 import type { KnowledgeEntry } from '@generated/client'
 import { KnowledgeRepository } from '../repository/knowledge.repository'
@@ -1675,11 +1482,11 @@ export class EntryService {
   constructor(
     private readonly repo: KnowledgeRepository,
     private readonly publisher: KnowledgeEventPublisher,
-    private readonly projectService: ProjectService,
+    @Inject(forwardRef(() => ProjectService)) private readonly projectService: ProjectService,
   ) {}
 
   async createEntry(data: EntryCreateData): Promise<KnowledgeEntry> {
-    await this.projectService.assertActive(data.projectId)
+    await this.projectService.assertExists(data.projectId)
     const { entry } = await this.repo.createEntryWithRevision(data)
     await this.publisher.publish({
       type: 'knowledge.entry.created',
@@ -1701,7 +1508,7 @@ export class EntryService {
     data: Partial<Pick<KnowledgeEntry, 'title' | 'category'>>,
   ): Promise<KnowledgeEntry> {
     const entry = await this.requireEntry(id)
-    await this.projectService.assertActive(entry.projectId)
+    await this.projectService.assertExists(entry.projectId)
     if (entry.status === EntryStatus.deprecated) {
       throw new ConflictException('ENTRY_DEPRECATED')
     }
@@ -1710,7 +1517,7 @@ export class EntryService {
 
   async updateStatus(id: string, newStatus: EntryStatus): Promise<KnowledgeEntry> {
     const entry = await this.requireEntry(id)
-    await this.projectService.assertActive(entry.projectId)
+    await this.projectService.assertExists(entry.projectId)
     this.validateStatusTransition(entry.status, newStatus)
     const updated = await this.repo.updateEntry(id, { status: newStatus })
     await this.publisher.publish({
@@ -1722,7 +1529,7 @@ export class EntryService {
 
   async reanchor(id: string, newNodeId: string): Promise<KnowledgeEntry> {
     const entry = await this.requireEntry(id)
-    await this.projectService.assertActive(entry.projectId)
+    await this.projectService.assertExists(entry.projectId)
     if (entry.status === EntryStatus.deprecated) {
       throw new ConflictException('ENTRY_DEPRECATED')
     }
@@ -1736,7 +1543,7 @@ export class EntryService {
 
   async softDelete(id: string): Promise<KnowledgeEntry> {
     const entry = await this.requireEntry(id)
-    await this.projectService.assertActive(entry.projectId)
+    await this.projectService.assertExists(entry.projectId)
     return this.repo.updateEntry(id, { status: EntryStatus.deprecated })
   }
 
@@ -1757,140 +1564,158 @@ export class EntryService {
 }
 ```
 
-- [ ] **Step 6: Run, expect pass**
+Also register `ProjectService` in `KnowledgeModule` providers (it's provided via `forwardRef(() => ProjectModule)` import, but NestJS resolves it automatically through the module import — no additional provider registration needed).
+
+- [ ] **Step 4: Run tests — expect all pass**
 
 ```bash
+cd apps/server
 pnpm vitest run src/knowledge/entry/entry.service.spec.ts
 ```
 
-Expected: all tests pass.
+Expected: all PASS.
 
-- [ ] **Step 7: Check RevisionService for write paths**
-
-Run:
+- [ ] **Step 5: Run all tests**
 
 ```bash
-grep -n "publish\|update\|create\|delete" src/knowledge/revision/revision.service.ts
-```
-
-If `RevisionService` has any write method (e.g., `appendRevision`), it also needs `assertActive`. Apply the same pattern: inject `ProjectService`, mock it in the spec, add a guard test, call `assertActive(entry.projectId)` before the write. If only reads exist, skip.
-
-- [ ] **Step 8: Commit**
-
-```bash
-git add apps/server/src/knowledge/
-git commit -m "feat(knowledge): EntryService consults ProjectService.assertActive on writes"
-```
-
----
-
-## Task 13: End-to-end smoke test
-
-**Files:**
-- None modified; this task verifies the wiring.
-
-- [ ] **Step 1: Boot the server**
-
-In one terminal from `apps/server/`:
-
-```bash
-pnpm dev
-```
-
-Expected: server starts on port 3000, no DI errors.
-
-- [ ] **Step 2: Create a project via curl**
-
-In another terminal:
-
-```bash
-curl -sX POST http://localhost:3000/projects \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Smoke Test","description":"verify wiring"}'
-```
-
-Expected: HTTP 201, JSON body with `id`, `name=Smoke Test`, `status=active`.
-
-Save the `id` — call it `$PID`.
-
-- [ ] **Step 3: Verify the root node was created**
-
-```bash
-curl -s http://localhost:3000/projects/$PID/nodes
-```
-
-Expected: empty array `[]`. (`listProjectNodes` filters out `isProjectRoot=true`.)
-
-```bash
-curl -s "http://localhost:3000/projects/$PID/nodes" -X POST \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"scaffold","title":"First node","createdBy":"human"}'
-```
-
-Expected: HTTP 201 with a new node. The fact that this succeeds proves the root node exists (`createNode` requires `findProjectRoot` to find it).
-
-- [ ] **Step 4: Archive the project, verify writes are blocked**
-
-```bash
-curl -sX POST http://localhost:3000/projects/$PID/archive
-curl -sX POST http://localhost:3000/projects/$PID/nodes \
-  -H 'Content-Type: application/json' \
-  -d '{"type":"scaffold","title":"Should fail","createdBy":"human"}'
-```
-
-Expected: second call returns HTTP 409 with `PROJECT_ARCHIVED` in the body.
-
-- [ ] **Step 5: Unarchive and delete**
-
-```bash
-curl -sX POST http://localhost:3000/projects/$PID/unarchive
-curl -sX DELETE http://localhost:3000/projects/$PID -w '%{http_code}\n'
-```
-
-Expected: 204. Then:
-
-```bash
-curl -s http://localhost:3000/projects/$PID -w '%{http_code}\n'
-```
-
-Expected: 404. Database rows for that project's nodes/edges are gone (FK cascade).
-
-- [ ] **Step 6: Run the full test suite once more**
-
-```bash
+cd apps/server
 pnpm test
 ```
 
-Expected: green.
+Expected: all pass.
 
-- [ ] **Step 7: Update README punch list**
-
-Open `apps/server/README.md` (or root `README.md` if that is where the punch list lives — check both). Find the "后续任务" / "TODO" / "punch list" section that mentions missing event consumers. Add a line:
-
-```
-- 实现 project-events 队列消费者（project.created / archived / unarchived / deleted）
-```
-
-If the README file does not exist or has no such section, skip this step.
-
-- [ ] **Step 8: Final commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add apps/server/README.md README.md 2>/dev/null || true
-git commit -m "docs: note project-events consumer on the punch list" --allow-empty
+git add apps/server/src/knowledge/entry/
+git commit -m "feat(project): add assertExists guard to EntryService write paths"
 ```
-
-(Use `--allow-empty` so the task does not fail when there is nothing to update.)
 
 ---
 
-## Validation Checklist
+## Task 9: Remove old initProjectRoot route and rename method
 
-Run all of these from `apps/server/`:
+**Files:**
+- Modify: `apps/server/src/graph/graph.controller.ts`
+- Modify: `apps/server/src/graph/graph.controller.spec.ts`
+- Modify: `apps/server/src/graph/node/node.service.ts`
 
-- [ ] `pnpm exec tsc --noEmit` — clean
-- [ ] `pnpm test` — green
-- [ ] `pnpm prisma migrate status` — no pending migrations
-- [ ] `git log --oneline -20` — shows the bite-sized commits in order
+- [ ] **Step 1: Remove initProject from GraphController**
 
-If any of these fails, the task that produced the failure is incomplete — return to it.
+Open `apps/server/src/graph/graph.controller.ts`. Delete the entire `// ── Project init ──` section (lines 24–32):
+
+```ts
+// DELETE these lines:
+// ── Project init ──────────────────────────────────────────────────────
+
+@Post('projects/:id/init')
+@ApiOperation({ summary: 'Initialize project root node' })
+@ApiParam({ name: 'id', description: 'Project ID' })
+@ApiResponse({ status: 201, type: NodeEntity })
+initProject(@Param('id') projectId: string) {
+  return this.nodeService.initProjectRoot(projectId)
+}
+```
+
+- [ ] **Step 2: Remove the init test from graph.controller.spec.ts**
+
+Open `apps/server/src/graph/graph.controller.spec.ts`. Delete the test block:
+
+```ts
+// DELETE this test:
+it('initProject calls nodeService.initProjectRoot', async () => {
+  ...
+})
+```
+
+Also remove `initProjectRoot: vi.fn()` from `mockNodeService` in the spec's `beforeEach`.
+
+- [ ] **Step 3: Remove the public initProjectRoot from NodeService**
+
+Open `apps/server/src/graph/node/node.service.ts`. Delete the `initProjectRoot` method (the public one that just delegates to `repo.initProjectRoot`):
+
+```ts
+// DELETE this method:
+async initProjectRoot(projectId: string): Promise<Node> {
+  return this.repo.initProjectRoot(projectId)
+}
+```
+
+`initProjectRootInternal` stays — it's used by `ProjectService.create`.
+
+- [ ] **Step 4: Run all tests**
+
+```bash
+cd apps/server
+pnpm test
+```
+
+Expected: all pass. The deleted method has no other callers in tested code.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/server/src/graph/
+git commit -m "feat(project): remove POST /projects/:id/init, project creation now via POST /projects"
+```
+
+---
+
+## Task 10: Smoke test
+
+- [ ] **Step 1: Start infra and server**
+
+```bash
+# In a separate terminal:
+cd apps/server
+pnpm dev
+```
+
+- [ ] **Step 2: Create a project**
+
+```bash
+curl -s -X POST http://localhost:3000/projects \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"smoke-test"}' | jq .
+```
+
+Expected: `201` with `{ id, name, createdAt, updatedAt }`.
+
+- [ ] **Step 3: Verify root node was created**
+
+```bash
+PROJECT_ID=<id from above>
+curl -s http://localhost:3000/projects/$PROJECT_ID/nodes | jq .
+```
+
+Expected: empty array (root node is excluded from `listProjectNodes`).
+
+- [ ] **Step 4: Create a node with valid projectId**
+
+```bash
+curl -s -X POST http://localhost:3000/projects/$PROJECT_ID/nodes \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"scaffold","title":"First node","createdBy":"human"}' | jq .
+```
+
+Expected: `201` with node object.
+
+- [ ] **Step 5: Attempt node creation with invalid projectId**
+
+```bash
+curl -s -X POST http://localhost:3000/projects/nonexistent-id/nodes \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"scaffold","title":"Ghost node","createdBy":"human"}' | jq .
+```
+
+Expected: `404` with `PROJECT_NOT_FOUND`.
+
+- [ ] **Step 6: Delete the project and verify cascade**
+
+```bash
+curl -s -X DELETE http://localhost:3000/projects/$PROJECT_ID
+# then check nodes:
+curl -s http://localhost:3000/projects/$PROJECT_ID/nodes | jq .
+```
+
+Expected: `DELETE` returns `204`. Subsequent GET returns `404`.

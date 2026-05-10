@@ -1,107 +1,74 @@
-# Project Model — Design
+# 项目模型 — 设计
 
-**Date**: 2026-05-09
-**Status**: Pending implementation
-**Supersedes**: implicit "projectId is a free-form string" assumption in [Scaffold Graph Engine design](./2026-05-04-scaffold-graph-engine-design.md) and [Knowledge Engine design](./2026-05-05-knowledge-engine-design.md).
+**日期**: 2026-05-09
+**状态**: 待实现
+**替代**: 在 [Scaffold Graph Engine 设计](./2026-05-04-scaffold-graph-engine-design.md) 和 [Knowledge Engine 设计](./2026-05-05-knowledge-engine-design.md) 中默认的"projectId 为自由字符串"的假设。
 
 ---
 
-## 1. Problem
+## 1. 问题
 
-`projectId` is currently a free-form `String` column on `Node`, `Edge`, and `KnowledgeEntry`. There is no `Project` table, no FK, no lifecycle, and no service that owns project-level invariants. Three concrete consequences:
+`projectId` 目前是 `Node`、`Edge`、`KnowledgeEntry` 上的自由 `String` 列。系统没有 `Project` 表、没有生命周期，也没有负责项目级不变式的服务。直接后果有两点：
 
-1. **`initProjectRoot(projectId)` accepts any string.** A typo creates a brand-new "project" with its own root node, silently. There is no canonical list of projects to validate against.
-2. **Knowledge anchors to nodes that anchor to nothing.** The architectural invariant "no knowledge outside graph" is enforced, but the outer hull — "no graph outside a known project" — has no enforcement point.
-3. **No archival semantics.** A project that is no longer worked on cannot be marked read-only without ad-hoc node-level archival, which interacts poorly with cascade rules.
+1. **`initProjectRoot(projectId)` 接受任意字符串。** 一次拼写错误就会静默创建一个全新的"项目"，并生成它自己的根节点。没有任何权威的项目列表可用于校验。
+2. **知识锚定到了"没有锚点"的节点。** "知识必须在图内"这一架构不变式被满足，但外层壳"图必须属于已知项目"没有约束入口。
 
-The `Project` model fills the missing top of the aggregate hierarchy:
+`Project` 模型用于补齐聚合层级顶部的缺口：
 
 ```
-Project (new)
-  └── Node           (FK → Project, cascade)
-  └── Edge           (FK → Project, cascade)
-  └── KnowledgeEntry (FK → Project, cascade)
-       └── KnowledgeRevision (cascade via entry)
+Project（新增）
+  └── Node           （projectId 列，业务代码校验）
+  └── Edge           （projectId 列，业务代码校验）
+  └── KnowledgeEntry （projectId 列，业务代码校验）
+       └── KnowledgeRevision
 ```
 
-## 2. Scope
+## 2. 范围
 
-**In scope:**
+**包含内容：**
 
-- A `Project` aggregate root with metadata (`name`, `description`, `status`).
-- FK from `Node` / `Edge` / `KnowledgeEntry` to `Project`, with `ON DELETE CASCADE`.
-- Two-state lifecycle: `active` ↔ `archived`. Archived projects are read-only at the service boundary.
-- A `ProjectService.assertActive` guard called by every write path in `Graph` and `Knowledge` modules.
-- `POST /projects` creates the project **and** the project root node in one transaction.
-- A `ProjectEventPublisher` BullMQ exit for `project.created` / `archived` / `unarchived` / `deleted`.
+- 一个带元数据（`name`、`description`）的 `Project` 聚合根。
+- 业务代码（`ProjectService.assertExists`）在 `Graph` 与 `Knowledge` 模块的所有写入路径前校验项目存在性，不使用数据库 FK 约束。
+- `POST /projects` 在同一事务里创建项目 **以及** 项目根节点。
+- 新增 `ProjectEventPublisher` 作为 BullMQ 出口，负责 `project.created` / `project.deleted`。
 
-**Out of scope (explicit YAGNI):**
+**不包含（明确 YAGNI）：**
 
-- Members, roles, JWT scoping.
-- Per-project configuration (LLM keys, adapter credentials, orchestrator policies).
-- Soft delete / restore.
-- A `Graph` entity between Project and Node. The "multi-graph per project" notion in the Knowledge Engine spec stays implicit (encoded by edge reachability) and is deferred to its own future spec.
-- DB-level prevention of cross-project edges (`(projectId, fromId)` composite FK). The current single-FK + service-layer validation stays.
+- 数据库外键约束（`ON DELETE CASCADE`）—— 由业务代码保证引用完整性。
+- 项目生命周期状态（active / archived）—— 留待未来规范。
+- 成员、角色、JWT 作用域。
+- 按项目配置（LLM key、适配器凭据、编排器策略）。
+- 软删除 / 恢复。
+- 介于 Project 与 Node 之间的 `Graph` 实体。Knowledge Engine 规范里的"单项目多图"概念仍保持隐式（由边的可达性编码），留待未来规范。
+- 数据库层面阻止跨项目边。继续沿用当前的服务层校验。
 
-**References for the chosen pattern:**
+**该模式的参考：**
 
-- **Vendure** (NestJS, OSS) — `ChannelService` is the multi-tenant root; `ChannelModule` directly DI-imports sub-feature services to bootstrap defaults synchronously.
-- **GitLab** — `Projects::CreateService` orchestrates default branch / protected-branches / repository creation in one ActiveRecord transaction.
-- **Sentry** — `Organization` creation synchronously creates a default project + team; uses post-commit signals for non-invariant reactions.
+- **Vendure**（NestJS，开源）— `ChannelService` 作为多租户根；`ChannelModule` 直接 DI 引入子功能服务以同步引导默认值。
+- **GitLab** — `Projects::CreateService` 在一次 ActiveRecord 事务中编排默认分支 / 受保护分支 / 仓库创建。
+- **Sentry** — `Organization` 创建时同步创建默认项目 + 团队；用提交后信号处理非不变式反应。
 
-The common thread: **bootstrapping invariants belongs in a synchronous transaction owned by the aggregate root, not in an event-driven reaction.** Events are reserved for non-invariant downstream consumers.
+共同点：**引导不变式必须放在聚合根拥有的同步事务里，而不是放在事件驱动的反应中。** 事件仅用于非不变式的下游消费者。
 
-## 3. Data Model
+## 3. 数据模型
 
-### 3.1 New table
+### 3.1 新表
 
 ```prisma
 model Project {
-  id          String        @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   description String?
-  status      ProjectStatus @default(active)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  nodes            Node[]
-  edges            Edge[]
-  knowledgeEntries KnowledgeEntry[]
-
-  @@index([status])
-}
-
-enum ProjectStatus {
-  active
-  archived
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 ```
 
-### 3.2 FK additions to existing tables
+`Node`、`Edge`、`KnowledgeEntry` 上现有的 `projectId String` 列保持不变，不添加 FK 约束。引用完整性由 `ProjectService.assertExists` 在各写入路径的业务层保证。
 
-`Node`, `Edge`, `KnowledgeEntry` each gain:
+## 4. 模块结构
 
-```prisma
-project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-```
-
-The existing `projectId String` column stays — it is now FK-backed, no rename.
-
-### 3.3 Cascade chain fix
-
-`KnowledgeRevision.entryId` does not currently declare an explicit `onDelete`. To make `DELETE /projects/:id` cascade cleanly to revisions, this migration also adds:
-
-```prisma
-model KnowledgeRevision {
-  entry KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-}
-```
-
-This is a small correctness fix bundled with the new FKs since the cascade chain only matters once `Project` is deletable.
-
-## 4. Module Structure
-
-New `apps/server/src/project/`:
+新增 `apps/server/src/project/`：
 
 ```
 project/
@@ -115,7 +82,7 @@ project/
 └── project.module.ts
 ```
 
-Layering matches `GraphModule`:
+分层与 `GraphModule` 一致：
 
 ```
 ProjectController → ProjectService → ProjectRepository → PrismaService
@@ -124,40 +91,36 @@ ProjectController → ProjectService → ProjectRepository → PrismaService
                           └──→ NodeService.initProjectRootInternal (during create)
 ```
 
-### 4.1 Dependency direction
+### 4.1 依赖方向
 
-- `ProjectModule` exports `ProjectService`.
-- `ProjectModule` `imports: [GraphModule]` so `ProjectService.create` can call `NodeService.initProjectRootInternal`.
-- `GraphModule` and `KnowledgeModule` `imports: [ProjectModule]` so their services can call `ProjectService.assertActive`.
+- `ProjectModule` 导出 `ProjectService`。
+- `ProjectModule` `imports: [GraphModule]`，以便 `ProjectService.create` 调用 `NodeService.initProjectRootInternal`。
+- `GraphModule` 与 `KnowledgeModule` `imports: [ProjectModule]`，以便各自服务调用 `ProjectService.assertExists`。
 
-This is a **one-way module dependency**: `Project ⇄ Graph` looks circular at first glance but at the service-call level it is asymmetric — Project orchestrates Graph during bootstrap, Graph consults Project during writes. Vendure / GitLab use the same shape; the orchestration responsibility belongs to the aggregate root by design.
+这是一个**单向模块依赖**：`Project ⇄ Graph` 表面看有环，但在服务调用层是非对称的——Project 负责启动时编排 Graph，Graph 在写入时向 Project 询问。NestJS 仅在需要时通过 `forwardRef` 解决导入环；实践中只要双方都导出服务即可。如果 DI 图报错，就在后加载的一侧使用 `forwardRef` 兜底。
 
-NestJS resolves the import cycle via `forwardRef` only if needed; in practice declaring `GraphModule` in `ProjectModule.imports` and `ProjectModule` in `GraphModule.imports` works because both export their services. If the DI graph complains, fall back to `forwardRef` on whichever side is loaded second. This is documented at module level so the next reader does not "fix" it by collapsing the dependency.
+### 4.2 **不**迁移的内容
 
-### 4.2 What does **not** move
+- `GraphRepository.initProjectRoot` 保持现有语义，但其**唯一公开调用方**改为 `ProjectService.create`。Graph controller 旧的"init project"入口将被移除。
+- `NodeService.initProjectRoot` 重命名为 `initProjectRootInternal`，表明它不是面向 controller 的操作。行为不变；它跳过 `assertExists`，因为它运行在 `Project` 创建事务内，此时项目行还未提交。
 
-- `GraphRepository.initProjectRoot` keeps existing semantics, but its **only public caller** is now `ProjectService.create`. The graph controller's old "init project" entry point is removed.
-- `NodeService.initProjectRoot` is renamed `initProjectRootInternal` to signal it is not a controller-facing operation. Its behavior is unchanged; it skips `assertActive` because it runs inside the `Project` create transaction where the project row is not yet committed.
+## 5. API 面
 
-## 5. API Surface
-
-| Method | Path | Body | Returns | Notes |
+| 方法 | 路径 | 请求体 | 返回 | 说明 |
 |---|---|---|---|---|
-| POST | `/projects` | `{ name, description? }` | 201 `ProjectDto` | Creates project + root node in one tx |
-| GET | `/projects` | — (query: `status?=active\|archived`) | `ProjectDto[]` | Defaults to all statuses |
-| GET | `/projects/:id` | — | `ProjectDto` | 404 if not found |
-| PATCH | `/projects/:id` | `{ name?, description? }` | `ProjectDto` | 409 if archived |
-| POST | `/projects/:id/archive` | — | `ProjectDto` | 409 if already archived |
-| POST | `/projects/:id/unarchive` | — | `ProjectDto` | 409 if already active |
-| DELETE | `/projects/:id` | — | 204 | Hard delete; FK cascade |
+| POST | `/projects` | `{ name, description? }` | 201 `ProjectDto` | 单个事务中创建项目 + 根节点 |
+| GET | `/projects` | — | `ProjectDto[]` | 返回所有项目 |
+| GET | `/projects/:id` | — | `ProjectDto` | 未找到则 404 |
+| PATCH | `/projects/:id` | `{ name?, description? }` | `ProjectDto` | 未找到则 404 |
+| DELETE | `/projects/:id` | — | 204 | 硬删除；由 `ProjectRepository` 在单一事务中按顺序批量清理子表 |
 
-**`ProjectDto`**: `{ id, name, description, status, createdAt, updatedAt }`.
+**`ProjectDto`**：`{ id, name, description, createdAt, updatedAt }`。
 
-**Removed routes (breaking change)**:
+**移除的路由（破坏性变更）**：
 
-- Any pre-existing `POST /graph/projects/:id/init` or equivalent. The CLI / web client must `POST /projects` first to obtain a `projectId`. This is acceptable per project decision (no production callers yet).
+- 任何既有的 `POST /graph/projects/:id/init` 或等价接口。CLI / Web 客户端必须先 `POST /projects` 获取 `projectId`。这是项目层面的可接受变更（目前没有生产调用方）。
 
-## 6. Service Methods
+## 6. 服务方法
 
 ### 6.1 `ProjectService`
 
@@ -171,95 +134,105 @@ class ProjectService {
   //   4. eventPublisher.emit('project.created', { projectId, rootNodeId })
 
   update(id: string, dto: UpdateProjectDto): Promise<Project>
-  // assertActive then update; throws ConflictException if archived
+  // assertExists 后更新
 
-  archive(id: string): Promise<Project>
-  unarchive(id: string): Promise<Project>
   remove(id: string): Promise<void>
-  // tx: count children → DELETE → commit → emit 'project.deleted' with counts
+  // 删除路径完全在 ProjectRepository 层执行，不经过
+  // NodeService / EdgeService / KnowledgeEntryService，以避免：
+  //   1. 触发它们各自的 assertExists / 级联逻辑（语义冲突）
+  //   2. N+1 的逐条删除
+  //
+  // Node 在此处走 hard delete（deleteMany），与图引擎单节点删除策略
+  // （归档 status: archived）不同。Project 销毁是领域级别的清除，
+  // 不存在孤儿数据问题，hard delete 是正确语义。
+  //
+  // tx（单一事务，顺序不可颠倒）:
+  //   1. 统计子项 counts（快照，非精确）
+  //   2. deleteMany KnowledgeRevisions（WHERE entryId IN entries of project）
+  //   3. deleteMany KnowledgeEntries  （WHERE projectId = id）
+  //   4. deleteMany Edges             （WHERE projectId = id）
+  //   5. deleteMany Nodes             （WHERE projectId = id）
+  //   6. delete     Project           （WHERE id = id）
+  // → commit → emit 'project.deleted' 并附带 counts
 
   findById(id: string): Promise<Project>      // 404 if missing
-  list(filter?: { status?: ProjectStatus }): Promise<Project[]>
+  list(): Promise<Project[]>
 
-  assertActive(id: string): Promise<void>
-  // 404 PROJECT_NOT_FOUND if missing
-  // 409 PROJECT_ARCHIVED if status=archived
-  // resolves silently if active
+  assertExists(id: string): Promise<void>
+  // 不存在则 404 PROJECT_NOT_FOUND
+  // 存在时静默通过
 }
 ```
 
-### 6.2 Guard insertion points
+### 6.2 守卫插入点
 
-`assertActive(projectId)` is the **first line** of every write method:
+**`projectId` 来源**：Node / Edge / Knowledge 的 API 路由已采用 `/graph/:projectId/...` 形式，`projectId` 来自路径参数，由各 Controller 从 `@Param` 取出后传入 Service。客户端无法在请求体中绕过路径层直接指定 projectId。Project 在此扮演校验点角色：路由结构保证了 projectId 必须显式声明，`assertExists` 保证了它必须是已知项目。
 
-| Service | Methods |
+`assertExists(projectId)` 必须是每个写方法的**第一行**：
+
+| 服务 | 方法 |
 |---|---|
 | `NodeService` | `createNode`, `updateStatus`, `resolveCheckpoint`, `deleteNode` |
 | `EdgeService` | `createEdge`, `repointEdge`, `deleteEdge` |
 | `KnowledgeEntryService` | `create`, `update`, `archive`, every other write path |
 
-**Read paths** (`list*`, `getById`) do **not** call `assertActive`. Archived projects remain queryable.
+**读路径**（`list*`、`getById`）**不**调用 `assertExists`。
 
-**Exception**: `NodeService.initProjectRootInternal` does not call `assertActive` because it runs before the project row is visible to other transactions. It is package-private to `ProjectService`.
+**例外**：`NodeService.initProjectRootInternal` 不调用 `assertExists`，因为它在项目行对外可见之前执行。它仅对 `ProjectService` 包可见。
 
-## 7. Events
+## 7. 事件
 
-New `ProjectEventPublisher`, queue name `project-events`. Same post-commit semantics as `GraphEventPublisher`: never enqueue from inside a `$transaction` callback.
+新增 `ProjectEventPublisher`，队列名 `project-events`。其提交后语义与 `GraphEventPublisher` 一致：绝不在 `$transaction` 回调内部入队。
 
 ```ts
 type ProjectEvent =
-  | { type: 'project.created';    projectId: string; rootNodeId: string }
-  | { type: 'project.archived';   projectId: string }
-  | { type: 'project.unarchived'; projectId: string }
-  | { type: 'project.deleted';    projectId: string; cascadedCounts: { nodes: number; edges: number; entries: number } }
+  | { type: 'project.created'; projectId: string; rootNodeId: string }
+  | { type: 'project.deleted'; projectId: string; cascadedCounts: { nodes: number; edges: number; entries: number } }
 ```
 
-`project.deleted` carries `cascadedCounts` — the service layer counts children **inside** the same transaction (right before the delete) and attaches the snapshot to the post-commit event. This mirrors `graph.node.deleted`'s `affectedNodeIds` field.
+`project.deleted` 携带 `cascadedCounts` —— 服务层在同一事务中（删除前一刻）统计子项，并把快照附到提交后事件上。这与 `graph.node.deleted` 的 `affectedNodeIds` 字段一致。
 
-Workers are not implemented in this PR — they go on the README punch list alongside the existing `graph-events` consumers.
+本 PR 不实现 worker —— 会与现有 `graph-events` 的 consumer 一起加入 README 待办清单。
 
-## 8. Migration Plan
+## 8. 迁移计划
 
-New file: `apps/server/prisma/migrations/<timestamp>_add_project_table/migration.sql`.
+新增文件：`apps/server/prisma/migrations/<timestamp>_add_project_table/migration.sql`。
 
-Generated by `prisma migrate dev --name add_project_table` after the schema edit. Manual review must confirm:
+在 schema 修改后执行 `prisma migrate dev --name add_project_table` 生成。人工检查必须确认：
 
-1. `CREATE TYPE "ProjectStatus" AS ENUM ('active', 'archived')`
-2. `CREATE TABLE "Project" (...)` with index on `status`
-3. `ALTER TABLE "Node" ADD CONSTRAINT "Node_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE`
-4. Same for `Edge`, `KnowledgeEntry`
-5. `ALTER TABLE "KnowledgeRevision" DROP CONSTRAINT "KnowledgeRevision_entryId_fkey", ADD CONSTRAINT ... ON DELETE CASCADE`
+1. `CREATE TABLE "Project" (...)` — 仅包含 id、name、description、createdAt、updatedAt，无枚举类型
+2. `Node`、`Edge`、`KnowledgeEntry` 的 `projectId` 列**不添加** FK 约束
 
-The dev database is empty of meaningful data, so no backfill SQL is needed. Local developers with stale rows in `Node`/`Edge`/`KnowledgeEntry` referencing nonexistent project ids must wipe their dev DB before applying — the `ALTER ... ADD FOREIGN KEY` will fail otherwise.
+开发库没有重要数据，迁移无需回填 SQL。
 
-## 9. Testing
+## 9. 测试
 
-Per the project's TDD convention:
+按项目 TDD 约定：
 
-| File | What it covers |
+| 文件 | 覆盖内容 |
 |---|---|
-| `project.service.spec.ts` | `create` rolls back if `initProjectRootInternal` throws; `assertActive` on missing → 404; on archived → 409; on active → resolves; archive/unarchive idempotency rejected; `update`/`remove` blocked when archived; `remove` event carries counts captured pre-delete. |
-| `project.controller.spec.ts` | Route → service-method mapping for all 7 endpoints. |
-| `project.repository.ts` | Not unit-tested (consistent with `GraphRepository`). |
-| `node.service.spec.ts` (edited) | New describe block: `'when project is archived'` → every write throws `ConflictException`. |
-| `edge.service.spec.ts` (edited) | Same. |
-| `knowledge-entry.service.spec.ts` (edited) | Same. |
+| `project.service.spec.ts` | `create` 在 `initProjectRootInternal` 抛错时回滚；`assertExists` 在缺失时 → 404；在存在时通过；`remove` 调用 repository 的批量删除而非子模块 Service；`remove` 事件携带删除前统计的 counts。 |
+| `project.controller.spec.ts` | 5 个端点的 route → service 方法映射。 |
+| `project.repository.ts` | 不写单测（与 `GraphRepository` 一致）。 |
+| `node.service.spec.ts`（修改） | 新增 describe 块：`'when project does not exist'` → 所有写入抛 `NotFoundException`。 |
+| `edge.service.spec.ts`（修改） | 同上。 |
+| `knowledge-entry.service.spec.ts`（修改） | 同上。 |
 
-E2E coverage of the cascade delete path is deferred to the broader E2E suite tracked in the README backlog.
+级联删除路径的 E2E 覆盖将延后到 README 待办所述的整体 E2E 套件中。
 
-## 10. Open Questions
+## 10. 待定问题
 
-None at design time. Implementation may surface NestJS DI cycle behavior between `ProjectModule ⇄ GraphModule` — if so, resolve with `forwardRef` and add an inline comment explaining the orchestration relationship rather than restructuring the modules.
+设计阶段无问题。实现过程中可能暴露 `ProjectModule ⇄ GraphModule` 的 NestJS DI 环问题——若发生，使用 `forwardRef` 解决，并用行内注释解释编排关系，而不是重构模块依赖。
 
-## 11. Implementation Order
+## 11. 实施顺序
 
-1. Schema edit + `prisma migrate dev` (no app code changes yet — should compile against existing tests if FKs accept current dev rows; if not, wipe dev DB).
-2. Create `ProjectModule` skeleton: repository, service stub, controller, DTOs, event publisher.
-3. Implement `ProjectService.create` + `assertActive`, with full spec coverage.
-4. Wire `ProjectModule` into `GraphModule.imports` and `KnowledgeModule.imports`.
-5. Add `assertActive` calls in `NodeService` / `EdgeService` / `KnowledgeEntryService` write paths; update each spec.
-6. Rename `initProjectRoot` → `initProjectRootInternal`; remove old controller route; update `graph.controller.spec.ts`.
-7. Implement remaining `ProjectService` methods (archive, unarchive, update, remove) + event payloads.
-8. Smoke test: `POST /projects`, `POST /graph/.../nodes`, `POST /projects/:id/archive`, retry write → 409, `DELETE /projects/:id` → child rows gone.
+1. 修改 schema + `prisma migrate dev`（仅新增 `Project` 表，不改现有表）。
+2. 创建 `ProjectModule` 骨架：repository、service stub、controller、DTO、event publisher。
+3. 实现 `ProjectService.create` + `assertExists`，并覆盖完整 spec。
+4. 将 `ProjectModule` 接入 `GraphModule.imports` 和 `KnowledgeModule.imports`。
+5. 在 `NodeService` / `EdgeService` / `KnowledgeEntryService` 的写路径添加 `assertExists`；更新各自 spec。
+6. 重命名 `initProjectRoot` → `initProjectRootInternal`；移除旧 controller 路由；更新 `graph.controller.spec.ts`。
+7. 实现 `ProjectService` 其余方法（update、remove）与事件载荷。
+8. 冒烟测试：`POST /projects`、`POST /graph/.../nodes`（无效 projectId 返回 404）、`DELETE /projects/:id` 后子表清空。
 
-Each step is a single commit per the project's existing convention.
+每一步按项目现有约定各自独立提交。
