@@ -11,6 +11,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module'
 import { ProjectModule } from './project/project.module'
 import { DomainExceptionFilter } from './common/exceptions'
 import { GlobalValidationPipe } from './common/validation/global-validation.pipe'
+import { OrchestratorModule } from './orchestrator/orchestrator.module'
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { GlobalValidationPipe } from './common/validation/global-validation.pipe
     { provide: APP_PIPE, useClass: GlobalValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
+    OrchestratorModule,
   ],
 })
 export class AppModule implements NestModule {
