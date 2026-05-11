@@ -129,7 +129,6 @@ trigger
   │
   ├─▶ [Context Layer]
   │     按 task type 构造初始 OrchestratorContext（候选节点、相关条目、task 历史）
-  │     → 写 task.contextSummary
   │
   └─▶ [Agentic Loop]（最多 MAX_ITERATIONS 轮，embedding task 跳过）
         SkillRegistry 查询适用 skill，拼入 system prompt
@@ -174,7 +173,7 @@ Task status → 'succeeded' | 'failed' | 'waiting_for_approval' | 'skipped'
 | `knowledge.entry.created` | `embedding` |
 | `knowledge.entry.body_revised` | `embedding` |
 | 外部 PR / commit / alert | `event_anchor` |
-| 定时触发 | `digest` |
+| 定时触发（图扫描） | `graph_growth` |
 
 ---
 
@@ -186,7 +185,7 @@ Task status → 'succeeded' | 'failed' | 'waiting_for_approval' | 'skipped'
 
 **事件触发**：`OrchestratorRouter` 作为 BullMQ Worker 订阅 `graph-events` 和 `knowledge-events` 队列，按路由规则映射到 task type。MVP 阶段只处理来自这两个队列的事件；未来由 Event Pipeline 统一接管后，Router 改为订阅 Event Pipeline 的输出队列，内部路由表不变。
 
-**定时触发**：`TaskScheduler` 维护 cron 表达式，定期扫描项目状态，生成 `digest` 或 stuck-node scan task。
+**定时触发**：`TaskScheduler` 维护 cron 表达式，定期扫描项目状态，生成 `graph_growth` task。
 
 两者都经过同一个 `OrchestratorTaskPublisher`，统一做幂等检查和 Task 创建。
 
@@ -245,8 +244,7 @@ interface OrchestratorContext {
 
 | Task | 读什么 |
 |---|---|
-| `event_anchor` | trigger 原文、Graph 候选节点（规则预筛）、相关 KnowledgeEntry、已有 Staging Graph 节点 |
-| `sedimentation` | trigger 原文、锚定节点详情、相邻 task 摘要、相似 KnowledgeEntry（防重复沉淀） |
+| `event_anchor` | trigger 原文、Graph 候选节点（规则预筛）、相关 KnowledgeEntry、已有 Staging Graph 节点、相似 KnowledgeEntry（防重复沉淀） |
 | `graph_growth` | 当前节点结构、近期主题聚类、已有 `type=growth` 节点 |
 | `checkpoint` | 环路径节点详情、相关 KnowledgeEntry、近期 task 摘要、历史 checkpoint 记录 |
 | `embedding` | KnowledgeEntry 当前 body、entry id、project id（仅此） |
@@ -260,7 +258,7 @@ interface OrchestratorContext {
 
 **SkillRegistry**
 
-启动时扫描 `src/orchestrator/skills/` 目录，按 frontmatter 索引所有 skill 文件。
+启动时扫描 `apps/server/skills/orchestrator/` 目录，递归查找每个 skill 文件夹下的 `index.md`，按 frontmatter 索引所有 skill。
 
 Skill 文件格式：
 ```markdown
@@ -291,20 +289,22 @@ applicable_tasks: [sedimentation]
 | 有意义 + 无锚点 / 信息零散 | 调用 `to_staging`（主动路由，不是降级） |
 | 需要人工判断 | 调用 `notify_human` |
 
-**Agentic Loop**
+**Agentic Loop（基于 LangGraph）**
+
+agentic loop 使用 LangGraph `StateGraph` 实现。graph state 包含消息历史和当前上下文；工具节点使用 `@langchain/core/tools` + Zod schema 定义，与 spec 的 Tool Layer 一一对应。
 
 ```
-初始上下文（来自 Context Builder）
+初始上下文（来自 Context Builder）→ LangGraph graph 入口
   ↓
-LLM 调用（system: skills, user: 上下文 + 工具调用历史）
+LLM 节点（system: skills, user: 上下文 + 消息历史）
   ↓
-  ├─ tool_use → 执行工具 → 追加结果到上下文 → 继续下一轮
-  └─ final_response → 输出 AgentInsight → 退出
+  ├─ tool_use → tool 节点执行 → 结果追加消息历史 → conditional edge 回 LLM 节点
+  └─ final_response → 输出 AgentInsight → END 节点退出
 ```
 
-- 最大轮次 `MAX_ITERATIONS`（建议 10），超出写 `failed`
-- LLM 每轮可以同时发起多个工具调用（parallel tool use）
-- `notify_human` 是特殊工具：调用后 task 进入 `waiting_for_approval` 并退出 loop
+- `recursionLimit` = MAX_ITERATIONS（超出 LangGraph 抛出错误，Runtime 捕获后写 `failed`）
+- LLM 每轮可同时发起多个工具调用（LangGraph tool 节点原生支持 parallel tool use）
+- `notify_human` **不使用** LangGraph interrupt：工具内抛出特殊信号，Runtime 捕获后 task → `waiting_for_approval` 并退出 graph。人工操作后由新事件触发新 task，不恢复原 graph 执行。
 
 **AgentInsight — loop 结束时的任务摘要**
 
@@ -330,8 +330,8 @@ interface AgentInsight {
 | Task | 模型策略 |
 |---|---|
 | `embedding` | embedding model，不走 chat，无 agentic loop |
-| `event_anchor` / `sedimentation` / `graph_growth` | 轻量模型（Haiku 级别） |
-| `checkpoint` / `digest` | 强模型（Sonnet 级别） |
+| `event_anchor` / `graph_growth` | 轻量模型（Haiku 级别） |
+| `checkpoint` | 强模型（Sonnet 级别） |
 
 ### 4.5 工具层（Tool Layer）
 
@@ -391,7 +391,6 @@ interface AgentInsight {
 | 问题 | 查询路径 |
 |---|---|
 | 这个 task 是由什么事件触发的？ | `Task.sourceType` + `Task.sourceId` |
-| 当时的上下文是什么？ | `Task.contextSummary` |
 | 模型最终理解了什么？ | `Task.modelResult`（AgentInsight） |
 | 工具调用细节？ | 可观测工具（traces / spans），不在数据库 |
 | 为什么 task 失败了？ | `Task.error` |
@@ -404,33 +403,22 @@ interface AgentInsight {
 
 每种 task 表达一种产品意图，是单 Agent Runtime 内的职责拆分，不是多 Agent 协作。
 
-### `event_anchor` — 判断事件归属
+### `event_anchor` — 判断事件归属并处置
 
 | 项 | 内容 |
 |---|---|
 | 触发 | 外部 PR / commit / alert / chat 等非确定性事件 |
-| 上下文 | trigger 原文、候选节点（规则预筛）、Staging Graph 现有节点、相关 KnowledgeEntry |
-| Skills | `event-anchoring` + 事件源特定 skill（如 `github-pr-reading`） |
-| LLM 目标 | 先判断是否噪音；有意义时找锚点决定直接写、进 Staging 或通知人工 |
-| 典型工具调用 | `search_nodes` / `search_knowledge` → `skip` / `to_staging` / `update_node_status` / `create_node` |
-| 级联 | 锚定成功且有沉淀价值 → 发 `sedimentation` task |
-
-### `sedimentation` — 沉淀为知识条目
-
-| 项 | 内容 |
-|---|---|
-| 触发 | `event_anchor` task 完成后级联发起 |
-| 上下文 | trigger 原文、锚定节点、相邻 task 摘要、相似 KnowledgeEntry（防重复） |
-| Skills | `knowledge-sedimentation` + `node-lifecycle` |
-| LLM 目标 | 生成 KnowledgeEntry 草稿（title / body / category） |
-| 典型工具调用 | `search_knowledge` → `create_knowledge_entry` / `revise_knowledge_entry` |
+| 上下文 | trigger 原文、候选节点（规则预筛）、Staging Graph 现有节点、相关 KnowledgeEntry、相似 KnowledgeEntry（防重复沉淀） |
+| Skills | `event-anchoring` + `knowledge-sedimentation` + 事件源特定 skill（如 `github-pr-reading`） |
+| LLM 目标 | 先判断是否噪音；有意义时找锚点，在同一 loop 内完成锚定、知识沉淀、节点创建等操作 |
+| 典型工具调用 | `search_nodes` / `search_knowledge` → `skip` / `to_staging` / `update_node_status` / `create_node` / `create_knowledge_entry` / `revise_knowledge_entry` |
 | 级联 | `create_knowledge_entry` 工具内自动发 `embedding` task |
 
-### `graph_growth` — 判断是否需要新节点
+### `graph_growth` — 主动扫描图结构，判断是否需要新节点
 
 | 项 | 内容 |
 |---|---|
-| 触发 | 定时扫描发现新子问题；MVP 阶段不做级联触发，独立运行 |
+| 触发 | 定时主动扫描（非事件驱动）；event_anchor 在处理事件时已可内联创建节点，graph_growth 负责无事件触发时的主动发现 |
 | 上下文 | 当前节点结构、近期主题聚类、已有 `type=growth` 节点 |
 | Skills | `graph-growth` + `node-lifecycle` |
 | LLM 目标 | 判断是否需要创建 `type=growth` 节点或补充边 |
@@ -459,17 +447,6 @@ interface AgentInsight {
 | 典型工具调用 | `write_embedding`（直接调，无 agentic loop） |
 | 级联 | 无 |
 
-### `digest` — 生成摘要报告
-
-| 项 | 内容 |
-|---|---|
-| 触发 | 定时（日报 / 周报 / 接手摘要） |
-| 上下文 | 时间窗口内的 task 摘要、节点状态变化、知识更新记录 |
-| Skills | `digest-generation` |
-| LLM 目标 | 生成可读的进展摘要 |
-| 典型工具调用 | `get_task_history` → `notify_human`（附摘要内容） |
-| 约束 | 不修改任何 Graph / Knowledge 状态 |
-
 ---
 
 ## 六、关键数据结构
@@ -481,11 +458,9 @@ interface AgentInsight {
 
 type OrchestratorTaskType =
   | 'event_anchor'
-  | 'sedimentation'
   | 'graph_growth'
   | 'checkpoint'
   | 'embedding'
-  | 'digest'
 
 type OrchestratorTaskStatus =
   | 'pending'
@@ -504,7 +479,6 @@ interface OrchestratorTask {
   status: OrchestratorTaskStatus
   idempotencyKey: string
   input: JsonValue
-  contextSummary?: JsonValue
   modelResult?: JsonValue    // AgentInsight，loop 结束时写入
   error?: JsonValue
   createdAt: Date
@@ -554,39 +528,43 @@ interface OrchestratorContext {
 文件结构从执行链路推导，每个文件职责单一：
 
 ```
+skills/                                    # Skill 文件目录（本地 Markdown，与 src/ 平级）
+└── orchestrator/                          # Orchestrator 专属 skill 命名空间
+    ├── event-anchoring/
+    │   └── index.md
+    ├── knowledge-sedimentation/
+    │   └── index.md
+    ├── node-lifecycle/
+    │   └── index.md
+    ├── graph-growth/
+    │   └── index.md
+    ├── checkpoint-analysis/
+    │   └── index.md
+    └── github-pr-reading/                 # 事件源特定 skill
+        └── index.md
+
 src/orchestrator/
 ├── types.ts                               # 所有类型定义（§六）
 ├── orchestrator.module.ts
 │
-├── skills/                                # Skill 文件目录（本地 Markdown）
-│   ├── event-anchoring.md
-│   ├── knowledge-sedimentation.md
-│   ├── node-lifecycle.md
-│   ├── graph-growth.md
-│   ├── checkpoint-analysis.md
-│   ├── digest-generation.md
-│   └── github-pr-reading.md              # 事件源特定 skill
-│
 ├── ingress/                               # 触发层
 │   ├── orchestrator-router.service.ts    # 订阅 graph-events / knowledge-events，映射 task type
-│   └── task-scheduler.service.ts         # cron 定时触发
-│
-├── queue/                                 # 任务层
-│   ├── orchestrator-task.publisher.ts    # 幂等检查 + 创建 Task + 投递 BullMQ
-│   └── orchestrator-task.worker.ts       # BullMQ Worker，消费 orchestrator-tasks
+│   ├── task-scheduler.service.ts         # cron 定时触发
+│   └── orchestrator-task.publisher.ts    # 幂等检查 + 创建 Task + 投递 BullMQ
 │
 ├── runtime/                               # Runtime 层（协调者）
 │   ├── agent-runtime.service.ts          # 主流程：load → context → agentic loop → persist
-│   └── task-runner.service.ts            # 按 task type 分发到对应 handler
+│   ├── task-runner.service.ts            # 按 task type 分发到对应 handler
+│   └── orchestrator-task.worker.ts       # BullMQ Worker，消费 orchestrator-tasks
 │
 ├── context/                               # 上下文层（初始上下文构造）
 │   ├── context-builder.service.ts        # 统一入口，按 task type 组装初始上下文
 │   ├── graph-context.reader.ts           # 查 Graph Engine（节点 / 子图 / 候选节点）
 │   └── knowledge-context.reader.ts       # 查 Knowledge Engine（相关条目 / Staging Graph）
 │
-├── llm/                                   # 推理层（agentic loop）
-│   ├── llm-client.ts                      # 模型调用 + 重试 + tool use 处理
-│   ├── skill-registry.ts                  # 扫描 skills/ 目录，按 task type 查询适用 skill
+├── llm/                                   # 推理层（agentic loop，基于 LangGraph）
+│   ├── agent-graph.ts                     # LangGraph StateGraph 定义：LLM 节点 + tool 节点 + conditional edge
+│   ├── skill-registry.ts                  # 扫描 skills/ 目录，按 task type 查询适用 skill，拼入 system message
 │   └── redaction.service.ts               # 调用前脱敏
 │
 ├── tools/                                 # 工具层（read + write tools）
@@ -610,11 +588,9 @@ src/orchestrator/
 │
 ├── tasks/                                 # Task handler（每种 task 的具体逻辑）
 │   ├── event-anchor.task.ts
-│   ├── sedimentation.task.ts
 │   ├── graph-growth.task.ts
 │   ├── checkpoint.task.ts
-│   ├── embedding.task.ts
-│   └── digest.task.ts
+│   └── embedding.task.ts
 │
 └── repository/
     └── orchestrator-task.repository.ts
@@ -626,19 +602,85 @@ src/orchestrator/
 
 第一阶段按以下顺序实现，每步可独立验收：
 
-| 步骤 | 内容 | 验收标准 |
-|---|---|---|
-| 1 | Prisma model + migration | `OrchestratorTask` 表建好，字段齐全 |
-| 2 | `OrchestratorTaskPublisher` | 相同 idempotency key 重复调用只创建一条 task 记录 |
-| 3 | BullMQ Worker + AgentRuntimeService 骨架 | task 能从 `pending` 跑到 `succeeded` / `failed`，状态有记录 |
-| 4 | `embedding` task | KnowledgeEntry 创建后自动生成 embedding 并写回 Knowledge Engine |
-| 5 | `event_anchor` task | 外部事件能锚定到节点 / 进 Staging / skip，task 记录有完整状态和 AgentInsight |
-| 6 | `sedimentation` task | `event_anchor` 成功后自动触发，生成 KnowledgeEntry 草稿或正式条目 |
-| 7 | `checkpoint` task | `graph.node.checkpoint_elevated` 触发后生成摘要草稿 + 人工确认通知，不自动写 resolution |
+### 步骤 1 — Prisma model + migration
+
+- `OrchestratorTask` 表包含所有字段：`id / projectId / type / sourceType / sourceId / status / idempotencyKey / input / modelResult / error / createdAt / updatedAt`
+- `status` 字段使用枚举约束，只允许合法值
+- 在干净数据库上执行 `pnpm prisma migrate dev` 无报错
+- `pnpm prisma generate` 后 TypeScript 类型与 schema 一致
+
+### 步骤 2 — OrchestratorTaskPublisher
+
+- 相同 idempotencyKey 调用两次：数据库只存一条记录，第二次返回已有 task id，status → `skipped`
+- 不同 idempotencyKey 各自创建独立记录，互不影响
+- 新建 task 初始 status 为 `pending`，BullMQ job 在 task 写库后投递（不在同一事务内，避免事务提交前 job 被消费）
+
+### 步骤 3 — BullMQ Worker + AgentRuntimeService 骨架
+
+- Worker 消费 job 后 task status：`pending → running → succeeded`（正常路径）
+- loop 达到 MAX_ITERATIONS：status → `failed`，error 写 `"max_iterations_exceeded"`，已执行的写操作不回滚
+- 同一项目两个 task 并发投递：两者均能推进，互不阻塞
+
+**失败类型区分（对应 §4.2 重试策略）：**
+- LLM 调用超时 / 网络错误：BullMQ 自动重试，task 保持 `running`，不写 error
+- LLM 输出 JSON 解析失败：换 prompt 变体重试，最终失败时 error 记录解析错误详情
+- Schema 校验失败：重试，error 记录校验失败的字段信息
+- 领域服务写回失败（如节点已 archived）：不重试，直接 task → `failed`，error 写明拒绝原因（与前三种行为明确区分）
+
+### 步骤 4 — `embedding` task
+
+- `knowledge.entry.created` 事件触发后，embedding task 自动创建并执行
+- embedding 向量写回 Knowledge Engine，可通过向量检索验证
+- 同一 entry 重复触发：幂等 key 命中，第二次 status → `skipped`，不重复写向量
+- entry body 更新后（`knowledge.entry.body_revised`）重新触发，向量覆盖写入旧值
+
+### 步骤 5 — `event_anchor` task
+
+**噪音路径：**
+- agent 调用 `skip`，task status → `succeeded`，`modelResult.signalType = 'noise'`，无任何节点或条目写入
+
+**锚定路径：**
+- agent 找到候选节点，调用 `update_node_status` 或 `create_node`，操作成功
+- agent 判断有知识价值，在同一 loop 内调用 `create_knowledge_entry`，KnowledgeEntry 写入
+- `create_knowledge_entry` 工具内自动触发 `embedding` task
+- task 结束时 `modelResult`（AgentInsight）完整写入：`summary / signalType / confidence / evidence` 字段均非空
+
+**无锚点路径：**
+- agent 调用 `to_staging`，事件进入 Staging Graph，task status → `succeeded`
+
+**幂等：**
+- 同一事件重复投递第二次：idempotencyKey 命中，status → `skipped`，无重复节点或条目创建
+
+### 步骤 6 — `checkpoint` task
+
+- `graph.node.checkpoint_elevated` 事件触发后，checkpoint task 创建并执行
+- agent 调用 `search_knowledge` 收集相关背景，调用 `create_knowledge_entry`（`category=decision`）写入判决草稿
+- agent 调用 `notify_human`，task status → `waiting_for_approval`
+- 验证禁止操作：agent 不调用 `update_node_status` 写 resolution（traces 中无此调用）
+- `waiting_for_approval` 的 task 不阻塞：同时投递同项目另一 task，后者正常执行至 `succeeded`
+
+**人工操作后的链路（人为与 agent loop 的交互）：**
+- 人工通过 Graph Engine API 提交 resolution 后，触发独立后续事件（如 `graph.node.status_updated`）
+- 该事件由 Ingress 正常路由为新 task，与原 checkpoint task 无关联
+- 原 checkpoint task 保持 `waiting_for_approval` 终态，不被重新激活、不被修改
+
+### 步骤 7 — `graph_growth` task
+
+- 定时触发后，graph_growth task 创建并执行
+- agent 调用 `search_nodes` 扫描图结构，发现潜在新节点机会时调用 `create_node`（`type=growth`），节点写入 Graph Engine
+- 无明确新增必要时 agent 调用 `to_staging` 或 `skip`，不强行创建节点
+- 同一调度周期重复触发（如 cron 短暂重叠）：幂等 key 命中，第二次 status → `skipped`
+
+---
 
 **横向验收标准（贯穿所有步骤）：**
-- 同一 source event 重复投递不重复创建知识或节点（写工具去重）
-- agentic loop 超过 MAX_ITERATIONS 时 task 进入 `failed`，不产生部分写入
-- `waiting_for_approval` 的 task 不阻塞同项目其他 task 运行
-- `delete_node` / `resolve_checkpoint` 等禁止操作无对应工具，调用时返回错误
-- 工具级别追踪由可观测工具负责，不依赖数据库查询
+
+| 场景 | 验收条件 |
+|---|---|
+| 端到端链路 | 外部事件 → event_anchor task 执行 → agent 调用 create_knowledge_entry → embedding task 自动触发 → 向量写入，全链路可通过同一 sourceId 追溯 |
+| 重复事件 | 同一 sourceId + taskType 重复投递，数据库只有一条 task 记录，节点和条目无重复创建 |
+| 写工具去重 | `create_knowledge_entry` 发现同主题条目已存在时返回已有 id，不新建 |
+| loop 超限 | 达到 MAX_ITERATIONS 强制退出，task → `failed`，已执行写操作保留（不回滚） |
+| 并发隔离 | `waiting_for_approval` task 存在期间，同项目其他 task 正常运行至终态 |
+| 禁止操作 | `delete_node` / `resolve_checkpoint` 不存在对应工具，LLM 无法调用，agent 不因此崩溃 |
+| 可观测 | task 执行后，traces 中有工具调用的入参/出参/耗时，数据库 `OrchestratorTask` 表中无此字段 |
