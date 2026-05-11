@@ -1,6 +1,10 @@
 import { z } from 'zod'
 
-export function makeErrorResponse<T extends z.ZodTypeAny>(code: T) {
+type ErrorCodeSchema =
+  | z.ZodLiteral<string>
+  | z.ZodEnum<Record<string, string>>
+
+export function makeErrorResponse<T extends ErrorCodeSchema>(code: T) {
   return z.object({
     code,
     message: z.string(),
