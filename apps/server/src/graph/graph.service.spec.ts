@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
+import { ConflictDomainException } from '../common/exceptions'
 import { GraphService } from './graph.service'
 import { EdgeType, NodeStatus, NodeType, CreatedBy, CheckpointResolution, NodeRole } from '@generated/client'
 import type { Node } from '@generated/client'
@@ -119,18 +120,18 @@ describe('GraphService', () => {
       ).rejects.toThrow(ConflictException)
     })
 
-    it('throws 409 when parent is archived', async () => {
+    it('throws PARENT_NODE_ARCHIVED when parent is archived', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.archived, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'n1' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toThrow(ConflictDomainException)
     })
 
-    it('throws 409 when parent is completed', async () => {
+    it('throws PARENT_NODE_COMPLETED when parent is completed', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.completed, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'n1' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toThrow(ConflictDomainException)
     })
   })
 

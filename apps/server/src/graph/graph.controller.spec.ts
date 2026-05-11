@@ -25,13 +25,22 @@ describe('GraphController', () => {
     controller = new GraphController(mockGraphService)
   })
 
-  it('createNode calls graphService.createNode with body', async () => {
-    const body = { type: NodeType.scaffold, title: 'Task A', createdBy: CreatedBy.human }
-    const node = { id: 'n1', projectId: 'p1', ...body }
+  it('createNode maps contracts request to service and returns NodeResponse shape', async () => {
+    const now = new Date('2026-01-01T00:00:00.000Z')
+    const node = {
+      id: 'n1', projectId: 'p1', title: 'Task A', status: NodeStatus.active,
+      description: null, isProjectRoot: false, createdAt: now, updatedAt: now,
+      type: NodeType.scaffold, createdBy: CreatedBy.human, isCheckpoint: false,
+      checkpointResolution: null, role: 'regular',
+    }
     mockGraphService.createNode.mockResolvedValue(node)
-    const result = await controller.createNode('p1', body)
-    expect(mockGraphService.createNode).toHaveBeenCalledWith({ projectId: 'p1', ...body })
-    expect(result).toEqual(node)
+    const params = { id: 'p1' }
+    const body = { title: 'Task A' }
+    const result = await controller.createNode(params as any, body as any)
+    expect(mockGraphService.createNode).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: 'p1', title: 'Task A', type: NodeType.scaffold, createdBy: CreatedBy.human }),
+    )
+    expect(result).toMatchObject({ id: 'n1', title: 'Task A', createdAt: now.toISOString() })
   })
 
   it('updateNode calls graphService.updateNode for non-status fields', async () => {
