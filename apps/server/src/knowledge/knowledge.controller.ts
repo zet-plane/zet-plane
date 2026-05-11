@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Delete, Param, Body, Query, BadRequestException, UsePipes, ValidationPipe } from '@nestjs/common'
+import { Controller, Post, Patch, Get, Delete, Param, Body, Query, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse, ApiQuery } from '@nestjs/swagger'
 import { EntryCategory, EntryStatus } from '@generated/client'
 import { EntryService } from './entry/entry.service'
@@ -15,7 +15,6 @@ import { StoreEmbeddingDto, SearchDto, SearchResultEntity } from './dto/search.d
 
 @ApiTags('knowledge')
 @Controller()
-@UsePipes(new ValidationPipe({ transform: true }))
 export class KnowledgeController {
   constructor(
     private readonly entryService: EntryService,

@@ -1,6 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ValidationPipe } from '@nestjs/common'
-import { PIPES_METADATA } from '@nestjs/common/constants'
 import { ProjectController } from './project.controller'
 import type { Project } from '@generated/client'
 
@@ -25,12 +23,6 @@ describe('ProjectController', () => {
       remove: vi.fn(),
     }
     controller = new ProjectController(mockService)
-  })
-
-  it('applies ValidationPipe so DTO decorators run at runtime', () => {
-    const pipes = Reflect.getMetadata(PIPES_METADATA, ProjectController) ?? []
-
-    expect(pipes.some((pipe: unknown) => pipe instanceof ValidationPipe)).toBe(true)
   })
 
   it('POST / calls service.create', async () => {

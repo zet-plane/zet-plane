@@ -1,11 +1,10 @@
-import { Controller, Post, Get, Patch, Delete, Param, Body, HttpCode, HttpStatus, UsePipes, ValidationPipe } from '@nestjs/common'
+import { Controller, Post, Get, Patch, Delete, Param, Body, HttpCode, HttpStatus } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
 import { ProjectService } from './project.service'
 import { CreateProjectDto, UpdateProjectDto, ProjectEntity } from './dto/project.dto'
 
 @ApiTags('projects')
 @Controller('projects')
-@UsePipes(new ValidationPipe({ transform: true }))
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 

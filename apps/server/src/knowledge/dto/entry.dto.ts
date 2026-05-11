@@ -1,13 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { EntryCategory, EntryStatus, EmbeddingStatus, CreatedBy } from '@generated/client'
-import { IsEnum, IsOptional } from 'class-validator'
 
 export class CreateEntryDto {
   @ApiPropertyOptional({ description: 'Anchor node ID. If omitted, entry is anchored to the project staging node.' })
   nodeId?: string
 
   @ApiProperty({ enum: EntryCategory, enumName: 'EntryCategory' })
-  @IsEnum(EntryCategory)
   category!: EntryCategory
 
   @ApiProperty()
@@ -20,7 +18,6 @@ export class CreateEntryDto {
   changeNote?: string
 
   @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
-  @IsEnum(CreatedBy)
   createdBy!: CreatedBy
 }
 
@@ -29,8 +26,6 @@ export class UpdateEntryDto {
   title?: string
 
   @ApiPropertyOptional({ enum: EntryCategory, enumName: 'EntryCategory' })
-  @IsOptional()
-  @IsEnum(EntryCategory)
   category?: EntryCategory
 
   @ApiPropertyOptional({
@@ -38,8 +33,6 @@ export class UpdateEntryDto {
     enumName: 'EntryStatus',
     description: 'Mutually exclusive with title/category/nodeId in the same request',
   })
-  @IsOptional()
-  @IsEnum(EntryStatus)
   status?: EntryStatus
 
   @ApiPropertyOptional({
@@ -56,7 +49,6 @@ export class UpdateBodyDto {
   changeNote?: string
 
   @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
-  @IsEnum(CreatedBy)
   createdBy!: CreatedBy
 }
 
