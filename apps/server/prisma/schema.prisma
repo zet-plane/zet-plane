@@ -157,3 +157,44 @@ enum EmbeddingStatus {
 
   @@map("embedding_status")
 }
+
+enum OrchestratorTaskType {
+  event_anchor
+  graph_growth
+  checkpoint
+  embedding
+}
+
+enum OrchestratorTaskStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+  waiting_for_approval
+}
+
+enum OrchestratorSourceType {
+  graph_event
+  knowledge_event
+  schedule
+  manual
+}
+
+model OrchestratorTask {
+  id             String                 @id @default(uuid())
+  projectId      String
+  type           OrchestratorTaskType
+  sourceType     OrchestratorSourceType
+  sourceId       String
+  status         OrchestratorTaskStatus @default(pending)
+  idempotencyKey String                 @unique
+  input          Json
+  modelResult    Json?
+  error          Json?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
