@@ -26,6 +26,7 @@ export class GraphController {
 
   @Post('projects/:id/nodes')
   @ApiOperation({ summary: 'Create a node in a project' })
+  @ApiParam({ name: 'id', description: 'Project ID' })
   async createNode(
     @Param() params: CreateNodeParamsDto,
     @Body() body: CreateNodeDto,

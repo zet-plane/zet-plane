@@ -1,10 +1,12 @@
-import { Catch, ExceptionFilter, ArgumentsHost, HttpException } from '@nestjs/common'
+import { Catch, ExceptionFilter, ArgumentsHost, HttpException, Logger } from '@nestjs/common'
 import { ZodValidationException } from 'nestjs-zod'
 import type { FastifyReply } from 'fastify'
 import { DomainException } from './domain-exception'
 
 @Catch()
 export class DomainExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(DomainExceptionFilter.name)
+
   catch(exception: unknown, host: ArgumentsHost) {
     const res = host.switchToHttp().getResponse<FastifyReply>()
 
@@ -33,6 +35,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
       })
     }
 
+    this.logger.error('Unhandled exception', exception)
     return res.status(500).send({
       code: 'INTERNAL_ERROR',
       message: 'Internal server error',

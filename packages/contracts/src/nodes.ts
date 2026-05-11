@@ -31,9 +31,7 @@ export const createNodeEndpoint = {
   response: NodeResponse,
   errors: {
     400: ValidationErrorResponse,
-    404: makeErrorResponse(z.literal('PROJECT_NOT_FOUND')),
-    409: makeErrorResponse(
-      z.enum(['NODE_DUPLICATE_TITLE', 'PARENT_NODE_ARCHIVED', 'PARENT_NODE_COMPLETED']),
-    ),
+    404: makeErrorResponse(z.enum(['PROJECT_NOT_FOUND', 'PARENT_NODE_NOT_FOUND'])),
+    409: makeErrorResponse(z.enum(['PARENT_NODE_ARCHIVED', 'PARENT_NODE_COMPLETED'])),
   },
 } as const

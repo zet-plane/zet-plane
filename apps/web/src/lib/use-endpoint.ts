@@ -1,15 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { apiCall } from './api-client'
-import type { z } from 'zod'
-
-type EndpointDef = {
-  method: string
-  path: string
-  params?: z.ZodType
-  request?: z.ZodType
-  response: z.ZodType
-  errors: Record<number, z.ZodType>
-}
+import { apiCall, type EndpointDef } from './api-client'
 
 export function useEndpointMutation<T extends EndpointDef>(endpoint: T) {
   return useMutation({

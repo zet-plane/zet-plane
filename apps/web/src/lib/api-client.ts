@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 import { AnyErrorResponse } from '@zet-plane/contracts'
 
-type EndpointDef = {
+export type EndpointDef = {
   method: string
   path: string
   params?: z.ZodType
@@ -31,7 +31,8 @@ export async function apiCall<T extends EndpointDef>(
     body?: z.infer<NonNullable<T['request']>>
   } = {},
 ): Promise<z.infer<T['response']>> {
-  const path = endpoint.path.replace(/:(\w+)/g, (_, k) => String((args.params as Record<string, unknown>)?.[k]))
+  const baseUrl = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? ''
+  const path = baseUrl + endpoint.path.replace(/:(\w+)/g, (_, k) => String((args.params as Record<string, unknown>)?.[k]))
   const res = await fetch(path, {
     method: endpoint.method,
     headers: { 'Content-Type': 'application/json' },
