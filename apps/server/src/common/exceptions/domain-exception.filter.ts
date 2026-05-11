@@ -1,6 +1,7 @@
 import { Catch, ExceptionFilter, ArgumentsHost, HttpException, Logger } from '@nestjs/common'
 import { ZodValidationException } from 'nestjs-zod'
-import type { FastifyReply } from 'fastify'
+import { ZodError } from 'zod'
+
 import { DomainException } from './domain-exception'
 
 @Catch()
@@ -8,7 +9,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(DomainExceptionFilter.name)
 
   catch(exception: unknown, host: ArgumentsHost) {
-    const res = host.switchToHttp().getResponse<FastifyReply>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const res = host.switchToHttp().getResponse<any>()
 
     if (exception instanceof DomainException) {
       return res.status(exception.status).send({
@@ -19,10 +21,11 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
 
     if (exception instanceof ZodValidationException) {
+      const zodError = exception.getZodError()
       return res.status(400).send({
         code: 'VALIDATION_ERROR',
         message: 'Request validation failed',
-        details: exception.getZodError().issues,
+        details: zodError instanceof ZodError ? zodError.issues : zodError,
       })
     }
 
