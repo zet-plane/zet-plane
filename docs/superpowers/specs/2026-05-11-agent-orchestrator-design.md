@@ -129,7 +129,6 @@ trigger
   │
   ├─▶ [Context Layer]
   │     按 task type 构造初始 OrchestratorContext（候选节点、相关条目、task 历史）
-  │     RedactionService 脱敏
   │     → 写 task.contextSummary
   │
   └─▶ [Agentic Loop]（最多 MAX_ITERATIONS 轮，embedding task 跳过）
@@ -393,8 +392,8 @@ interface AgentInsight {
 |---|---|
 | 这个 task 是由什么事件触发的？ | `Task.sourceType` + `Task.sourceId` |
 | 当时的上下文是什么？ | `Task.contextSummary` |
-| 模型做了哪些工具调用、说了什么？ | `Task.modelRequest`（完整 LLM 对话，含所有 tool_use） |
 | 模型最终理解了什么？ | `Task.modelResult`（AgentInsight） |
+| 工具调用细节？ | 可观测工具（traces / spans），不在数据库 |
 | 为什么 task 失败了？ | `Task.error` |
 
 工具级别的细节（入参、出参、耗时）由可观测工具提供，不在数据库查询。
@@ -506,8 +505,7 @@ interface OrchestratorTask {
   idempotencyKey: string
   input: JsonValue
   contextSummary?: JsonValue
-  modelRequest?: JsonValue
-  modelResult?: JsonValue  // AgentInsight，loop 结束时写入
+  modelResult?: JsonValue    // AgentInsight，loop 结束时写入
   error?: JsonValue
   createdAt: Date
   updatedAt: Date
@@ -515,7 +513,7 @@ interface OrchestratorTask {
 
 // ─── LLM 最终输出 ────────────────────────────────────────
 // agent 在 loop 结束时输出的任务摘要，写入 task.modelResult
-// 操作记录在 ActionLog，AgentInsight 只做理解层面的汇总
+// 工具调用细节由可观测工具负责，不写数据库
 
 type SignalType =
   | 'progress' | 'blocker' | 'decision'
