@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from "zod";
 
-export const NodeId = z.string().uuid()
-export const ProjectId = z.string().uuid()
+export const NodeId = z.uuid();
+export const ProjectId = z.uuid();
