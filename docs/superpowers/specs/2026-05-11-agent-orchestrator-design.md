@@ -8,7 +8,7 @@
 
 ## 一、定位与边界
 
-Agent Orchestrator 是 Zet Plane 服务端唯一主动的智能层。它的工作是把项目过程中发生的事件转化为可审计的 Graph / Knowledge 变更，以及在置信度不足时生成待人工确认的草稿。
+Agent Orchestrator 是 Zet Plane 服务端唯一主动的智能层。它的工作是把项目过程中发生的事件做语义路由：垃圾消息直接丢弃、有意义但归属不明的信息暂存 Staging、有清晰锚点的事件直接写入 Graph / Knowledge、需要人工判断的情况通知人工。
 
 **它做什么：**
 - 消费事件，通过 agentic loop 自主分析、锚定节点、沉淀知识、管理节点流转
@@ -275,7 +275,22 @@ applicable_tasks: [sedimentation]
 ...
 ```
 
-每次 task 执行时，Runtime 查询 `applicable_tasks` 匹配的所有 skill，按顺序拼入 system prompt。多个 skill 可同时适用于一个 task，skill 内容也应说明 agent 可以使用哪些工具、在什么情况下使用。
+每次 task 执行时，Runtime 查询 `applicable_tasks` 匹配的所有 skill，按顺序拼入 system prompt。多个 skill 可同时适用于一个 task。
+
+**工具与 skill 的职责边界：**
+- **工具**定义 agent 能做什么（操作接口，有明确的领域副作用）
+- **Skill** 定义 agent 怎么思考、什么时候该用哪个工具（行为指引，写在 Markdown 文件里）
+
+例如"遇到零散信息优先进 Staging"、"如何判断事件是否是噪音"、"何时调用 notify_human"——这些都是 skill 里的指引，不需要在工具层硬编码。工具只管执行，skill 管决策逻辑。
+
+**事件路由决策矩阵（在 `event-anchoring` skill 中定义）：**
+
+| 情况 | 处置 |
+|---|---|
+| 垃圾消息 / 无项目关联 | 调用 `skip`（明确记录原因） |
+| 有意义 + 找到合适锚点 | 写工具直接操作，级联 sedimentation |
+| 有意义 + 无锚点 / 信息零散 | 调用 `to_staging`（主动路由，不是降级） |
+| 需要人工判断 | 调用 `notify_human` |
 
 **Agentic Loop**
 
@@ -344,8 +359,9 @@ interface AgentInsight {
 | `create_edge` | Edge | 校验节点存在且未 archived；环检测由 Graph Engine 处理 |
 | `move_node` | 移动节点父级 | 同 create_edge 规则 |
 | `update_node_status` | Node status | 校验状态转移合法（调用 Graph Engine 护栏） |
-| `to_staging` | Staging Graph | 在 KE Staging Graph 下创建草稿条目或临时节点 |
-| `notify_human` | 通知 | 发通知 + task → `waiting_for_approval` + 退出 loop |
+| `to_staging` | Staging Graph | 有意义但无明确锚点时的主动路由；在 KE Staging Graph 下创建草稿条目或临时节点 |
+| `notify_human` | 通知 | 需人工判断时调用；发通知 + task → `waiting_for_approval` + 退出 loop |
+| `skip` | — | 确认是垃圾消息时调用；仅写 ActionLog（记录原因），不调用任何领域服务 |
 
 **所有写工具的统一行为：**
 ```
@@ -392,8 +408,8 @@ interface AgentInsight {
 | 触发 | 外部 PR / commit / alert / chat 等非确定性事件 |
 | 上下文 | trigger 原文、候选节点（规则预筛）、Staging Graph 现有节点、相关 KnowledgeEntry |
 | Skills | `event-anchoring` + 事件源特定 skill（如 `github-pr-reading`） |
-| LLM 目标 | 判断事件锚定到哪个节点，或进 Staging，或 skip |
-| 典型工具调用 | `search_nodes` → `create_node` / `to_staging` / `update_node_status` |
+| LLM 目标 | 先判断是否噪音；有意义时找锚点决定直接写、进 Staging 或通知人工 |
+| 典型工具调用 | `search_nodes` / `search_knowledge` → `skip` / `to_staging` / `update_node_status` / `create_node` |
 | 级联 | 锚定成功且有沉淀价值 → 发 `sedimentation` task |
 
 ### `sedimentation` — 沉淀为知识条目
@@ -507,6 +523,7 @@ type ToolActionType =
   | 'update_node_status'
   | 'to_staging'
   | 'notify_human'
+  | 'skip'
 
 interface OrchestratorActionLog {
   id: string
@@ -614,8 +631,9 @@ src/orchestrator/
 │       ├── create-edge.tool.ts
 │       ├── move-node.tool.ts
 │       ├── update-node-status.tool.ts
-│       ├── to-staging.tool.ts
-│       └── notify-human.tool.ts           # 发通知 + task → waiting_for_approval
+│       ├── to-staging.tool.ts             # 有意义但无锚点时的主动路由
+│       ├── notify-human.tool.ts           # 发通知 + task → waiting_for_approval
+│       └── skip.tool.ts                   # 噪音判定，仅写 ActionLog 不调领域服务
 │
 ├── tasks/                                 # Task handler（每种 task 的具体逻辑）
 │   ├── event-anchor.task.ts
