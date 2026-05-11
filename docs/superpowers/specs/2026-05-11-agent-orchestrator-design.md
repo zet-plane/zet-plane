@@ -153,7 +153,7 @@ trigger
   │
   ▼
 Task status → 'succeeded' | 'failed' | 'waiting_for_approval' | 'skipped'
-写 task.result / task.error
+写 task.error（失败时）
 ```
 
 **终态说明：**
@@ -503,8 +503,7 @@ interface OrchestratorTask {
   input: JsonValue
   contextSummary?: JsonValue
   modelRequest?: JsonValue
-  modelResult?: JsonValue
-  result?: JsonValue
+  modelResult?: JsonValue  // AgentInsight，loop 结束时写入
   error?: JsonValue
   createdAt: Date
   updatedAt: Date
