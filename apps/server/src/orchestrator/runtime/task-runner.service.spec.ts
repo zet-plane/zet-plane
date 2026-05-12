@@ -4,7 +4,7 @@ import { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceType } 
 import { TaskRunnerService } from './task-runner.service'
 
 // Mock the agent-graph module so tests don't need real LangGraph / Anthropic creds
-vi.mock('../llm/agent-graph', () => ({
+vi.mock('../agent/agent-graph', () => ({
   buildAgentGraph: vi.fn().mockReturnValue({}),
   runAgentLoop: vi.fn().mockResolvedValue({
     summary: 'agent done',
@@ -111,7 +111,7 @@ describe('TaskRunnerService', () => {
     })
 
     it('routes non-embedding tasks to runAgenticLoop — calls contextBuilder and agent graph', async () => {
-      const { buildAgentGraph, runAgentLoop } = await import('../llm/agent-graph')
+      const { buildAgentGraph, runAgentLoop } = await import('../agent/agent-graph')
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
 
       await service.run(task)
@@ -126,7 +126,7 @@ describe('TaskRunnerService', () => {
 
   describe('model selection', () => {
     it('uses claude-sonnet-4-6 for checkpoint tasks', async () => {
-      const { buildAgentGraph } = await import('../llm/agent-graph')
+      const { buildAgentGraph } = await import('../agent/agent-graph')
       vi.mocked(buildAgentGraph).mockClear()
 
       const task = makeTask({ type: OrchestratorTaskType.checkpoint })
@@ -138,7 +138,7 @@ describe('TaskRunnerService', () => {
     })
 
     it('uses claude-haiku-4-5-20251001 for non-checkpoint agentic tasks', async () => {
-      const { buildAgentGraph } = await import('../llm/agent-graph')
+      const { buildAgentGraph } = await import('../agent/agent-graph')
       vi.mocked(buildAgentGraph).mockClear()
 
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
@@ -161,7 +161,7 @@ describe('TaskRunnerService', () => {
     })
 
     it('passes the real root node id to toStagingTool (not a fabricated string)', async () => {
-      const { buildAgentGraph } = await import('../llm/agent-graph')
+      const { buildAgentGraph } = await import('../agent/agent-graph')
       vi.mocked(buildAgentGraph).mockClear()
 
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
