@@ -1,4 +1,4 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ConflictException } from '@nestjs/common'
 import { NodeType, CreatedBy } from '@generated/client'
@@ -10,7 +10,7 @@ export class DomainServiceError extends Error {
   }
 }
 
-export const createNodeTool = (deps: { nodeService: NodeService; projectId: string }) =>
+export const createNodeTool = (deps: { nodeService: NodeService; projectId: string }): StructuredToolInterface =>
   tool(
     async ({ title, description }) => {
       try {

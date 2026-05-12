@@ -1,8 +1,8 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { GraphContextReader } from '../../context/graph-context.reader'
 
-export const searchNodesTool = (graphReader: GraphContextReader) =>
+export const searchNodesTool = (graphReader: GraphContextReader): StructuredToolInterface =>
   tool(
     async ({ keyword, status, projectId }) => {
       const nodes = await graphReader.getCandidateNodes(projectId)

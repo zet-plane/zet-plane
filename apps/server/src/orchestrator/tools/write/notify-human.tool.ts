@@ -1,4 +1,4 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 
 export class WaitingForApprovalSignal extends Error {
@@ -7,7 +7,7 @@ export class WaitingForApprovalSignal extends Error {
   }
 }
 
-export const notifyHumanTool = () =>
+export const notifyHumanTool = (): StructuredToolInterface =>
   tool(
     async ({ reason }) => {
       throw new WaitingForApprovalSignal(reason)

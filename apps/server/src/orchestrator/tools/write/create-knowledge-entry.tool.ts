@@ -1,4 +1,4 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { EntryCategory, CreatedBy, OrchestratorSourceType, OrchestratorTaskType } from '@generated/client'
 import { EntryService } from '../../../knowledge/entry/entry.service'
@@ -8,7 +8,7 @@ export const createKnowledgeEntryTool = (deps: {
   entryService: EntryService
   publisher: OrchestratorTaskPublisher
   projectId: string
-}) =>
+}): StructuredToolInterface =>
   tool(
     async ({ nodeId, category, title, body }) => {
       // Dedup: check for existing entry with same title on this node

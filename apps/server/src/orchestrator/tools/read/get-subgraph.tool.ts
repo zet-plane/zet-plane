@@ -1,8 +1,8 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { GraphContextReader } from '../../context/graph-context.reader'
 
-export const getSubgraphTool = (graphReader: GraphContextReader) =>
+export const getSubgraphTool = (graphReader: GraphContextReader): StructuredToolInterface =>
   tool(
     async ({ nodeId }) => {
       const subgraph = await graphReader.getSubgraph(nodeId)

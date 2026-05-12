@@ -1,11 +1,11 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { SearchService } from '../../../knowledge/search/search.service'
 
 export const searchKnowledgeTool = (
   searchService: SearchService,
   queryEmbedding: (text: string) => Promise<number[]>,
-) =>
+): StructuredToolInterface =>
   tool(
     async ({ projectId, query, limit }) => {
       const vector = await queryEmbedding(query)

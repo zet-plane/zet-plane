@@ -1,11 +1,11 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ConflictException } from '@nestjs/common'
 import { EdgeType, CreatedBy } from '@generated/client'
 import { EdgeService } from '../../../graph/edge/edge.service'
 import { DomainServiceError } from './create-node.tool'
 
-export const createEdgeTool = (deps: { edgeService: EdgeService; projectId: string }) =>
+export const createEdgeTool = (deps: { edgeService: EdgeService; projectId: string }): StructuredToolInterface =>
   tool(
     async ({ fromId, toId, type }) => {
       try {

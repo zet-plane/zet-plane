@@ -1,11 +1,11 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { ConflictException } from '@nestjs/common'
 import { NodeStatus } from '@generated/client'
 import { NodeService } from '../../../graph/node/node.service'
 import { DomainServiceError } from './create-node.tool'
 
-export const updateNodeStatusTool = (deps: { nodeService: NodeService }) =>
+export const updateNodeStatusTool = (deps: { nodeService: NodeService }): StructuredToolInterface =>
   tool(
     async ({ nodeId, newStatus }) => {
       try {

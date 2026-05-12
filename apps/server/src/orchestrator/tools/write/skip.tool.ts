@@ -1,4 +1,4 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 
 export class SkipSignal extends Error {
@@ -7,7 +7,7 @@ export class SkipSignal extends Error {
   }
 }
 
-export const skipTool = () =>
+export const skipTool = (): StructuredToolInterface =>
   tool(
     async ({ reason }) => {
       throw new SkipSignal(reason)

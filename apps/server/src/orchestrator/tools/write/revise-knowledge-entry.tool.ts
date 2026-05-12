@@ -1,9 +1,9 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { CreatedBy } from '@generated/client'
 import { RevisionService } from '../../../knowledge/revision/revision.service'
 
-export const reviseKnowledgeEntryTool = (deps: { revisionService: RevisionService }) =>
+export const reviseKnowledgeEntryTool = (deps: { revisionService: RevisionService }): StructuredToolInterface =>
   tool(
     async ({ entryId, body, changeNote }) => {
       const revision = await deps.revisionService.appendRevision(entryId, {

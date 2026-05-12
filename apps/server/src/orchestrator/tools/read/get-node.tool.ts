@@ -1,8 +1,8 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { GraphRepository } from '../../../graph/repository/graph.repository'
 
-export const getNodeTool = (graphRepo: GraphRepository) =>
+export const getNodeTool = (graphRepo: GraphRepository): StructuredToolInterface =>
   tool(
     async ({ nodeId }) => {
       const node = await graphRepo.findNode(nodeId)

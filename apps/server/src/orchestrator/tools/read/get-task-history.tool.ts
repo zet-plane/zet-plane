@@ -1,8 +1,8 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { OrchestratorTaskRepository } from '../../repository/orchestrator-task.repository'
 
-export const getTaskHistoryTool = (taskRepo: OrchestratorTaskRepository) =>
+export const getTaskHistoryTool = (taskRepo: OrchestratorTaskRepository): StructuredToolInterface =>
   tool(
     async ({ projectId, limit }) => {
       const tasks = await taskRepo.findRecentByProject(projectId, limit ?? 10)

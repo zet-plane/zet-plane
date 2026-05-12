@@ -1,9 +1,9 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { EntryCategory, CreatedBy } from '@generated/client'
 import { EntryService } from '../../../knowledge/entry/entry.service'
 
-export const toStagingTool = (deps: { entryService: EntryService; projectId: string; stagingNodeId: string }) =>
+export const toStagingTool = (deps: { entryService: EntryService; projectId: string; stagingNodeId: string }): StructuredToolInterface =>
   tool(
     async ({ summary, rationale }) => {
       const entry = await deps.entryService.createEntry({

@@ -1,8 +1,8 @@
-import { tool } from '@langchain/core/tools'
+import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 import { SearchService } from '../../../knowledge/search/search.service'
 
-export const writeEmbeddingTool = (deps: { searchService: SearchService }) =>
+export const writeEmbeddingTool = (deps: { searchService: SearchService }): StructuredToolInterface =>
   tool(
     async ({ entryId, vector }) => {
       await deps.searchService.storeEmbedding(entryId, vector)
