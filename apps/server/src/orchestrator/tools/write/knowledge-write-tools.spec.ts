@@ -1,4 +1,3 @@
-import { describe, it, expect, vi } from 'vitest'
 import { createKnowledgeEntryTool } from './create-knowledge-entry.tool'
 import { EntryStatus, EntryCategory, CreatedBy, EmbeddingStatus } from '@generated/client'
 

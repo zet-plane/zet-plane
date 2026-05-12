@@ -36,7 +36,7 @@ const fakeLlm = { bindTools: vi.fn().mockReturnValue({ invoke: vi.fn() }) }
 describe('TaskRunnerService', () => {
   let service: TaskRunnerService
   let mockContextBuilder: any
-  let mockSkillRegistry: any
+  let mockPromptBuilder: any
   let mockGraphReader: any
   let mockGraphRepo: any
   let mockNodeService: any
@@ -59,7 +59,12 @@ describe('TaskRunnerService', () => {
         constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
       }),
     }
-    mockSkillRegistry = { getSystemPrompt: vi.fn().mockReturnValue('You are a helpful agent.') }
+    mockPromptBuilder = {
+      build: vi.fn().mockReturnValue({
+        systemPrompt: 'You are a helpful agent.',
+        userMessage: 'Task type: event_anchor\nProject: proj-1',
+      }),
+    }
     mockGraphReader = {}
     mockGraphRepo = { findProjectRoot: vi.fn().mockResolvedValue(fakeRoot) }
     mockNodeService = {}
@@ -78,7 +83,7 @@ describe('TaskRunnerService', () => {
 
     service = new TaskRunnerService(
       mockContextBuilder,
-      mockSkillRegistry,
+      mockPromptBuilder,
       mockGraphReader,
       mockGraphRepo,
       mockNodeService,

@@ -3,9 +3,9 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType } from '@generated/client'
 import type { OrchestratorTask, OrchestratorContext, AgentInsight } from '../types'
 import { ContextBuilderService } from '../context/context-builder.service'
-import { SkillRegistry } from '../skill/skill-registry'
 import { buildAgentGraph, runAgentLoop } from '../agent/agent-graph'
 import { LlmProviderRegistry } from '../llm/llm-provider.registry'
+import { PromptBuilderService } from '../prompt/prompt-builder.service'
 import { GraphContextReader } from '../context/graph-context.reader'
 import { GraphRepository } from '../../graph/repository/graph.repository'
 import { NodeService } from '../../graph/node/node.service'
@@ -37,7 +37,7 @@ import { toStagingTool } from '../tools/write/to-staging.tool'
 export class TaskRunnerService {
   constructor(
     private readonly contextBuilder: ContextBuilderService,
-    private readonly skillRegistry: SkillRegistry,
+    private readonly promptBuilder: PromptBuilderService,
     private readonly graphReader: GraphContextReader,
     private readonly graphRepo: GraphRepository,
     private readonly nodeService: NodeService,
@@ -81,12 +81,17 @@ export class TaskRunnerService {
     ctx: OrchestratorContext,
   ): Promise<AgentInsight> {
     const llm = this.llmRegistry.getChatModelForTask(task.type)
-    const systemPrompt = this.skillRegistry.getSystemPrompt(task.type)
+    const { systemPrompt, userMessage } = this.promptBuilder.build(task, ctx)
+    const tools = await this.buildTools(task)
+    const graph = buildAgentGraph({ tools, systemPrompt, llm })
+    return runAgentLoop(graph, userMessage)
+  }
 
+  private async buildTools(task: OrchestratorTask) {
     const root = await this.graphRepo.findProjectRoot(task.projectId)
     if (!root) throw new NotFoundException(`Project root not found for projectId=${task.projectId}`)
 
-    const tools = [
+    return [
       getNodeTool(this.graphRepo),
       getSubgraphTool(this.graphReader),
       searchNodesTool(this.graphReader),
@@ -96,35 +101,13 @@ export class TaskRunnerService {
       createEdgeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       moveNodeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       updateNodeStatusTool({ nodeService: this.nodeService }),
-      createKnowledgeEntryTool({
-        entryService: this.entryService,
-        publisher: this.publisher,
-        projectId: task.projectId,
-      }),
+      createKnowledgeEntryTool({ entryService: this.entryService, publisher: this.publisher, projectId: task.projectId }),
       reviseKnowledgeEntryTool({ revisionService: this.revisionService }),
       writeEmbeddingTool({ searchService: this.searchService }),
       skipTool(),
       notifyHumanTool(),
-      toStagingTool({
-        entryService: this.entryService,
-        projectId: task.projectId,
-        stagingNodeId: root.id,
-      }),
+      toStagingTool({ entryService: this.entryService, projectId: task.projectId, stagingNodeId: root.id }),
     ]
-
-    const userMessage = [
-      `Task type: ${task.type}`,
-      `Project: ${ctx.project.id}`,
-      `Trigger: ${JSON.stringify(ctx.trigger)}`,
-      `Candidate nodes: ${JSON.stringify(ctx.candidateNodes)}`,
-      `Related knowledge: ${JSON.stringify(ctx.relatedEntries)}`,
-      `Recent task history: ${JSON.stringify(ctx.recentTaskHistory)}`,
-      '',
-      'Analyze the trigger event and take appropriate actions using the available tools.',
-      'When done, respond with a JSON object: { "summary": "...", "signalType": "...", "confidence": 0.0-1.0, "evidence": [] }',
-    ].join('\n')
-
-    const graph = buildAgentGraph({ tools, systemPrompt, llm })
-    return runAgentLoop(graph, userMessage)
   }
+
 }

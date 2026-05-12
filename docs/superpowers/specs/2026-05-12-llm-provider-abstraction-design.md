@@ -1,7 +1,7 @@
 # LLM Provider Abstraction Design
 
 **Date:** 2026-05-12
-**Status:** Approved
+**Status:** Implemented
 
 ---
 
@@ -41,14 +41,29 @@ orchestrator:
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `provider` | enum | ✅ | `anthropic` \| `openai` \| `siliconflow` \| … |
+| `provider` | enum | ✅ | `anthropic` \| `openai` \| `siliconflow` \| `deepseek` \| … |
 | `model` | string | ✅ | 具体模型名 |
 | `api_key` | string | ✅ | API 密钥 |
 | `base_url` | string | ❌ | 自定义端点（OpenAI-compatible 必填） |
 | `temperature` | number | ❌ | 默认 undefined（由 SDK 决定） |
 | `max_tokens` | number | ❌ | 默认 undefined |
 
-OpenAI-compatible 示例（SiliconFlow）：
+OpenAI-compatible 示例（DeepSeek，当前配置）：
+```yaml
+    taskModels:
+      default:
+        provider: deepseek
+        model: deepseek-v4-pro
+        base_url: "https://api.deepseek.com/v1"
+        api_key: "sk-..."
+      checkpoint:
+        provider: deepseek
+        model: deepseek-v4-pro
+        base_url: "https://api.deepseek.com/v1"
+        api_key: "sk-..."
+```
+
+SiliconFlow 示例：
 ```yaml
     taskModels:
       default:
@@ -68,7 +83,7 @@ OpenAI-compatible 示例（SiliconFlow）：
 
 ```typescript
 const llmModelConfigSchema = z.object({
-  provider: z.enum(['anthropic', 'openai', 'siliconflow']),  // 扩展时在此添加
+  provider: z.enum(['anthropic', 'openai', 'siliconflow', 'deepseek']),  // 扩展时在此添加
   model: z.string().min(1),
   api_key: z.string().default(''),
   base_url: z.string().url().optional(),
@@ -118,6 +133,7 @@ provider 值         内部 SDK 实现
 anthropic         → AnthropicProvider   (ChatAnthropic)
 openai            → OpenAiCompatibleProvider (ChatOpenAI)
 siliconflow       → OpenAiCompatibleProvider (ChatOpenAI + base_url)
+deepseek          → OpenAiCompatibleProvider (ChatOpenAI + base_url)
 新增 provider     → 在 PROVIDER_SDK_MAP 加一行 + Zod enum 加一项
 ```
 
@@ -127,6 +143,7 @@ const PROVIDER_SDK_MAP = {
   anthropic: 'anthropic',
   openai: 'openai-compatible',
   siliconflow: 'openai-compatible',
+  deepseek: 'openai-compatible',
 } as const satisfies Record<ProviderType, 'anthropic' | 'openai-compatible'>
 ```
 
@@ -169,8 +186,9 @@ Provider 实例在 registry 构造时按需创建：遍历所有 taskModel confi
 | `src/config/app.config.ts` | 新增 `orchestrator.llm` schema；移除 `integrations.anthropic/openai.apiKey` |
 | `config.yaml` / `config.yaml.example` | 新增 `orchestrator.llm` 块；移除 anthropic apiKey |
 | `agent/agent-graph.ts` | `BuildOptions.model: string` → `BuildOptions.llm: BaseChatModel` |
-| `runtime/task-runner.service.ts` | 注入 `LlmProviderRegistry`；移除硬编码 model 选择和 `new OpenAI()` |
-| `orchestrator.module.ts` | 注册 `LlmProviderRegistry` |
+| `runtime/task-runner.service.ts` | 注入 `LlmProviderRegistry` 和 `PromptBuilderService`；移除硬编码 model 选择 |
+| `orchestrator.module.ts` | 注册 `LlmProviderRegistry`、`PromptBuilderService` |
+| `prompt/prompt-builder.service.ts` | 新增，封装 system prompt 和 user message 的组装逻辑 |
 
 ---
 
@@ -203,8 +221,10 @@ src/orchestrator/
 │   └── providers/
 │       ├── anthropic.provider.ts
 │       └── openai-compatible.provider.ts
+├── prompt/
+│   └── prompt-builder.service.ts   # skill → systemPrompt + ctx → userMessage
 ├── agent/
-│   └── agent-graph.ts          # BuildOptions.llm: BaseChatModel
+│   └── agent-graph.ts              # BuildOptions.llm: BaseChatModel
 ...
 ```
 

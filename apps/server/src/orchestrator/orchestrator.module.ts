@@ -21,6 +21,7 @@ import {
   OrchestratorKnowledgeEventWorker,
 } from './ingress/orchestrator-router.service'
 import { TaskSchedulerService } from './ingress/task-scheduler.service'
+import { PromptBuilderService } from './prompt/prompt-builder.service'
 import { AgentRuntimeService } from './runtime/agent-runtime.service'
 import { TaskRunnerService } from './runtime/task-runner.service'
 import { OrchestratorTaskWorker } from './runtime/orchestrator-task.worker'
@@ -61,6 +62,7 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
     OrchestratorGraphEventWorker,
     OrchestratorKnowledgeEventWorker,
     TaskSchedulerService,
+    PromptBuilderService,
     AgentRuntimeService,
     TaskRunnerService,
     OrchestratorTaskWorker,

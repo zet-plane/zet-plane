@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const llmModelConfigSchema = z.object({
-  provider: z.enum(['anthropic', 'openai', 'siliconflow']),
+  provider: z.enum(['anthropic', 'openai', 'siliconflow', 'deepseek']),
   model: z.string().min(1),
   api_key: z.string().default(''),
   base_url: z.string().url().optional(),

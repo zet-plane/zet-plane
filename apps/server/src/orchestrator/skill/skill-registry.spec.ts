@@ -21,10 +21,19 @@ describe('SkillRegistry', () => {
     expect(prompt).not.toContain('event-anchoring')
   })
 
-  it('returns empty string for task type with no skills', async () => {
+  it('always includes base prompt even for task type with no skills', async () => {
     const registry = new SkillRegistry(SKILLS_DIR)
     await registry.onModuleInit()
     const prompt = registry.getSystemPrompt('embedding')
-    expect(prompt).toBe('')
+    expect(prompt).toContain('agent-base')
+    expect(prompt).not.toContain('event-anchoring')
+    expect(prompt).not.toContain('checkpoint-analysis')
+  })
+
+  it('base prompt appears before task-specific skills', async () => {
+    const registry = new SkillRegistry(SKILLS_DIR)
+    await registry.onModuleInit()
+    const prompt = registry.getSystemPrompt('checkpoint')
+    expect(prompt.indexOf('agent-base')).toBeLessThan(prompt.indexOf('checkpoint-analysis'))
   })
 })

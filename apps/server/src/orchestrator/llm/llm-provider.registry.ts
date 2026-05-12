@@ -10,6 +10,7 @@ const PROVIDER_SDK_MAP = {
   anthropic: 'anthropic',
   openai: 'openai-compatible',
   siliconflow: 'openai-compatible',
+  deepseek: 'openai-compatible',
 } as const satisfies Record<ProviderType, 'anthropic' | 'openai-compatible'>
 
 @Injectable()

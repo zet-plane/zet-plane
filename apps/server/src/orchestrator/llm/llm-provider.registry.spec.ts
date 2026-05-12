@@ -1,13 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+type MockAnthropicProvider = {
+  _cfg?: unknown
+  createChatModel: ReturnType<typeof vi.fn>
+}
+
+type MockOpenAiCompatibleProvider = MockAnthropicProvider & {
+  embed: ReturnType<typeof vi.fn>
+}
+
 vi.mock('./providers/anthropic.provider', () => ({
-  AnthropicProvider: vi.fn().mockImplementation(function (cfg) {
+  AnthropicProvider: vi.fn().mockImplementation(function (this: MockAnthropicProvider, cfg: unknown) {
     this._cfg = cfg
     this.createChatModel = vi.fn().mockReturnValue({ _type: 'anthropic-model' })
   }),
 }))
 vi.mock('./providers/openai-compatible.provider', () => ({
-  OpenAiCompatibleProvider: vi.fn().mockImplementation(function (cfg) {
+  OpenAiCompatibleProvider: vi.fn().mockImplementation(function (this: MockOpenAiCompatibleProvider, cfg: unknown) {
     this._cfg = cfg
     this.createChatModel = vi.fn().mockReturnValue({ _type: 'openai-model' })
     this.embed = vi.fn().mockResolvedValue([0.1, 0.2])

@@ -8,6 +8,7 @@ type SkillEntry = {
   name: string
   applicableTasks: OrchestratorTaskType[]
   content: string
+  base?: boolean
 }
 
 @Injectable()
@@ -40,6 +41,7 @@ export class SkillRegistry implements OnModuleInit {
       const frontmatter = parseFrontmatter(match[1]) as {
         name: string
         applicable_tasks?: string[]
+        base?: boolean
       }
       const body = match[2].trim()
 
@@ -47,6 +49,7 @@ export class SkillRegistry implements OnModuleInit {
         name: frontmatter.name,
         applicableTasks: (frontmatter.applicable_tasks ?? []) as OrchestratorTaskType[],
         content: body,
+        base: frontmatter.base ?? false,
       })
     }
 
@@ -54,10 +57,9 @@ export class SkillRegistry implements OnModuleInit {
   }
 
   getSystemPrompt(taskType: OrchestratorTaskType): string {
-    const applicable = this.skills.filter((s) => s.applicableTasks.includes(taskType))
-    if (!applicable.length) return ''
-    return applicable
-      .map((s) => `## Skill: ${s.name}\n\n${s.content}`)
-      .join('\n\n---\n\n')
+    const base = this.skills.filter((s) => s.base)
+    const applicable = this.skills.filter((s) => !s.base && s.applicableTasks.includes(taskType))
+    const sections = [...base, ...applicable].map((s) => `## Skill: ${s.name}\n\n${s.content}`)
+    return sections.join('\n\n---\n\n')
   }
 }
