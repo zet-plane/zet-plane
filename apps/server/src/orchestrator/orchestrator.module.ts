@@ -27,7 +27,8 @@ import { OrchestratorTaskWorker } from './runtime/orchestrator-task.worker'
 import { ContextBuilderService } from './context/context-builder.service'
 import { GraphContextReader } from './context/graph-context.reader'
 import { KnowledgeContextReader } from './context/knowledge-context.reader'
-import { SkillRegistry } from './llm/skill-registry'
+import { SkillRegistry } from './skill/skill-registry'
+import { LlmProviderRegistry } from './llm/llm-provider.registry'
 
 const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
 
@@ -66,6 +67,7 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
     ContextBuilderService,
     GraphContextReader,
     KnowledgeContextReader,
+    LlmProviderRegistry,
     {
       provide: SkillRegistry,
       useFactory: () => new SkillRegistry(SKILLS_DIR),

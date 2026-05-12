@@ -1,9 +1,9 @@
+// apps/server/src/orchestrator/runtime/task-runner.service.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceType } from '@generated/client'
 import { TaskRunnerService } from './task-runner.service'
 
-// Mock the agent-graph module so tests don't need real LangGraph / Anthropic creds
 vi.mock('../agent/agent-graph', () => ({
   buildAgentGraph: vi.fn().mockReturnValue({}),
   runAgentLoop: vi.fn().mockResolvedValue({
@@ -13,19 +13,6 @@ vi.mock('../agent/agent-graph', () => ({
     evidence: [],
   }),
 }))
-
-// Prevent OpenAI constructor from throwing when no API key is present.
-// vi.hoisted ensures mockEmbeddingsCreate is available inside the hoisted vi.mock factory.
-const { mockEmbeddingsCreate } = vi.hoisted(() => ({
-  mockEmbeddingsCreate: vi.fn().mockResolvedValue({ data: [{ embedding: [0.1, 0.2, 0.3] }] }),
-}))
-
-vi.mock('openai', () => {
-  class MockOpenAI {
-    embeddings = { create: mockEmbeddingsCreate }
-  }
-  return { OpenAI: MockOpenAI }
-})
 
 const makeTask = (overrides: Record<string, unknown> = {}) => ({
   id: 'task-1',
@@ -44,6 +31,7 @@ const makeTask = (overrides: Record<string, unknown> = {}) => ({
 })
 
 const fakeRoot = { id: 'root-node-id', projectId: 'proj-1', isProjectRoot: true }
+const fakeLlm = { bindTools: vi.fn().mockReturnValue({ invoke: vi.fn() }) }
 
 describe('TaskRunnerService', () => {
   let service: TaskRunnerService
@@ -58,17 +46,19 @@ describe('TaskRunnerService', () => {
   let mockSearchService: any
   let mockTaskRepo: any
   let mockPublisher: any
-  beforeEach(async () => {
-    mockEmbeddingsCreate.mockClear()
+  let mockLlmRegistry: any
 
-    mockContextBuilder = { build: vi.fn().mockResolvedValue({
-      project: { id: 'proj-1', name: 'Test Project', status: 'active' },
-      trigger: { sourceType: 'graph_event', sourceId: 'src-1', raw: {} },
-      candidateNodes: [],
-      relatedEntries: [],
-      recentTaskHistory: [],
-      constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
-    }) }
+  beforeEach(() => {
+    mockContextBuilder = {
+      build: vi.fn().mockResolvedValue({
+        project: { id: 'proj-1', name: 'Test Project', status: 'active' },
+        trigger: { sourceType: 'graph_event', sourceId: 'src-1', raw: {} },
+        candidateNodes: [],
+        relatedEntries: [],
+        recentTaskHistory: [],
+        constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
+      }),
+    }
     mockSkillRegistry = { getSystemPrompt: vi.fn().mockReturnValue('You are a helpful agent.') }
     mockGraphReader = {}
     mockGraphRepo = { findProjectRoot: vi.fn().mockResolvedValue(fakeRoot) }
@@ -81,6 +71,10 @@ describe('TaskRunnerService', () => {
     mockSearchService = { storeEmbedding: vi.fn().mockResolvedValue(undefined) }
     mockTaskRepo = {}
     mockPublisher = {}
+    mockLlmRegistry = {
+      getChatModelForTask: vi.fn().mockReturnValue(fakeLlm),
+      embed: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+    }
 
     service = new TaskRunnerService(
       mockContextBuilder,
@@ -94,6 +88,7 @@ describe('TaskRunnerService', () => {
       mockSearchService,
       mockTaskRepo,
       mockPublisher,
+      mockLlmRegistry,
     )
   })
 
@@ -104,6 +99,7 @@ describe('TaskRunnerService', () => {
       const task = makeTask({ type: OrchestratorTaskType.embedding, input: { entryId: 'entry-1' } })
       const insight = await service.run(task)
 
+      expect(mockLlmRegistry.embed).toHaveBeenCalledWith('some text')
       expect(mockSearchService.storeEmbedding).toHaveBeenCalledWith('entry-1', [0.1, 0.2, 0.3])
       expect(mockContextBuilder.build).not.toHaveBeenCalled()
       expect(insight.summary).toContain('entry-1')
@@ -125,28 +121,16 @@ describe('TaskRunnerService', () => {
   // ── model selection ────────────────────────────────────────────────────────
 
   describe('model selection', () => {
-    it('uses claude-sonnet-4-6 for checkpoint tasks', async () => {
-      const { buildAgentGraph } = await import('../agent/agent-graph')
-      vi.mocked(buildAgentGraph).mockClear()
-
+    it('calls getChatModelForTask with the task type', async () => {
       const task = makeTask({ type: OrchestratorTaskType.checkpoint })
       await service.run(task)
-
-      expect(buildAgentGraph).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'claude-sonnet-4-6' }),
-      )
+      expect(mockLlmRegistry.getChatModelForTask).toHaveBeenCalledWith(OrchestratorTaskType.checkpoint)
     })
 
-    it('uses claude-haiku-4-5-20251001 for non-checkpoint agentic tasks', async () => {
-      const { buildAgentGraph } = await import('../agent/agent-graph')
-      vi.mocked(buildAgentGraph).mockClear()
-
+    it('calls getChatModelForTask for non-checkpoint tasks too', async () => {
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
       await service.run(task)
-
-      expect(buildAgentGraph).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'claude-haiku-4-5-20251001' }),
-      )
+      expect(mockLlmRegistry.getChatModelForTask).toHaveBeenCalledWith(OrchestratorTaskType.event_anchor)
     })
   })
 
@@ -156,34 +140,23 @@ describe('TaskRunnerService', () => {
     it('throws NotFoundException when project root is not found', async () => {
       mockGraphRepo.findProjectRoot.mockResolvedValue(null)
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
-
       await expect(service.run(task)).rejects.toThrow(NotFoundException)
     })
 
-    it('passes the real root node id to toStagingTool (not a fabricated string)', async () => {
-      const { buildAgentGraph } = await import('../agent/agent-graph')
-      vi.mocked(buildAgentGraph).mockClear()
-
+    it('passes the real root node id to toStagingTool', async () => {
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
       await service.run(task)
-
-      // Verify graphRepo.findProjectRoot was called and its real id is used (not fabricated)
       expect(mockGraphRepo.findProjectRoot).toHaveBeenCalledWith('proj-1')
     })
   })
 
-  // ── embed deduplication ────────────────────────────────────────────────────
+  // ── embed delegation ───────────────────────────────────────────────────────
 
-  describe('embed() private method deduplication', () => {
-    it('embedding task uses a single openai call via embed()', async () => {
+  describe('embedding task', () => {
+    it('delegates to registry.embed, not a local openai client', async () => {
       const task = makeTask({ type: OrchestratorTaskType.embedding, input: { entryId: 'entry-1' } })
       await service.run(task)
-
-      expect(mockEmbeddingsCreate).toHaveBeenCalledTimes(1)
-      expect(mockEmbeddingsCreate).toHaveBeenCalledWith({
-        model: 'text-embedding-3-small',
-        input: 'some text',
-      })
+      expect(mockLlmRegistry.embed).toHaveBeenCalledWith('some text')
     })
   })
 })

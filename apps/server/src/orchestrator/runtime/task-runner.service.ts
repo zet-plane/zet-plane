@@ -3,8 +3,9 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType } from '@generated/client'
 import type { OrchestratorTask, OrchestratorContext, AgentInsight } from '../types'
 import { ContextBuilderService } from '../context/context-builder.service'
-import { SkillRegistry } from '../llm/skill-registry'
-import { buildAgentGraph, runAgentLoop } from '../llm/agent-graph'
+import { SkillRegistry } from '../skill/skill-registry'
+import { buildAgentGraph, runAgentLoop } from '../agent/agent-graph'
+import { LlmProviderRegistry } from '../llm/llm-provider.registry'
 import { GraphContextReader } from '../context/graph-context.reader'
 import { GraphRepository } from '../../graph/repository/graph.repository'
 import { NodeService } from '../../graph/node/node.service'
@@ -14,7 +15,6 @@ import { RevisionService } from '../../knowledge/revision/revision.service'
 import { SearchService } from '../../knowledge/search/search.service'
 import { OrchestratorTaskRepository } from '../repository/orchestrator-task.repository'
 import { OrchestratorTaskPublisher } from '../ingress/orchestrator-task.publisher'
-import { OpenAI } from 'openai'
 // read tools
 import { getNodeTool } from '../tools/read/get-node.tool'
 import { getSubgraphTool } from '../tools/read/get-subgraph.tool'
@@ -35,8 +35,6 @@ import { toStagingTool } from '../tools/write/to-staging.tool'
 
 @Injectable()
 export class TaskRunnerService {
-  private readonly openai = new OpenAI()
-
   constructor(
     private readonly contextBuilder: ContextBuilderService,
     private readonly skillRegistry: SkillRegistry,
@@ -49,6 +47,7 @@ export class TaskRunnerService {
     private readonly searchService: SearchService,
     private readonly taskRepo: OrchestratorTaskRepository,
     private readonly publisher: OrchestratorTaskPublisher,
+    private readonly llmRegistry: LlmProviderRegistry,
   ) {}
 
   async run(task: OrchestratorTask): Promise<AgentInsight> {
@@ -66,7 +65,7 @@ export class TaskRunnerService {
       ? JSON.stringify(entry.body)
       : String(entry.body)
 
-    const vector = await this.embed(text)
+    const vector = await this.llmRegistry.embed(text)
     await this.searchService.storeEmbedding(input.entryId, vector)
 
     return {
@@ -81,30 +80,22 @@ export class TaskRunnerService {
     task: OrchestratorTask,
     ctx: OrchestratorContext,
   ): Promise<AgentInsight> {
-    const model = task.type === OrchestratorTaskType.checkpoint
-      ? 'claude-sonnet-4-6'
-      : 'claude-haiku-4-5-20251001'
-
+    const llm = this.llmRegistry.getChatModelForTask(task.type)
     const systemPrompt = this.skillRegistry.getSystemPrompt(task.type)
-
-    const queryEmbedding = (text: string): Promise<number[]> => this.embed(text)
 
     const root = await this.graphRepo.findProjectRoot(task.projectId)
     if (!root) throw new NotFoundException(`Project root not found for projectId=${task.projectId}`)
 
     const tools = [
-      // read
       getNodeTool(this.graphRepo),
       getSubgraphTool(this.graphReader),
       searchNodesTool(this.graphReader),
-      searchKnowledgeTool(this.searchService, queryEmbedding),
+      searchKnowledgeTool(this.searchService, (text) => this.llmRegistry.embed(text)),
       getTaskHistoryTool(this.taskRepo),
-      // write — graph
       createNodeTool({ nodeService: this.nodeService, projectId: task.projectId }),
       createEdgeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       moveNodeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       updateNodeStatusTool({ nodeService: this.nodeService }),
-      // write — knowledge
       createKnowledgeEntryTool({
         entryService: this.entryService,
         publisher: this.publisher,
@@ -112,7 +103,6 @@ export class TaskRunnerService {
       }),
       reviseKnowledgeEntryTool({ revisionService: this.revisionService }),
       writeEmbeddingTool({ searchService: this.searchService }),
-      // terminal
       skipTool(),
       notifyHumanTool(),
       toStagingTool({
@@ -134,12 +124,7 @@ export class TaskRunnerService {
       'When done, respond with a JSON object: { "summary": "...", "signalType": "...", "confidence": 0.0-1.0, "evidence": [] }',
     ].join('\n')
 
-    const graph = buildAgentGraph({ tools, systemPrompt, model })
+    const graph = buildAgentGraph({ tools, systemPrompt, llm })
     return runAgentLoop(graph, userMessage)
-  }
-
-  private async embed(text: string): Promise<number[]> {
-    const response = await this.openai.embeddings.create({ model: 'text-embedding-3-small', input: text })
-    return response.data[0].embedding
   }
 }
