@@ -38,4 +38,5 @@ export class AppConfig {
   get redis() { return this.cfg.redis }
   get auth() { return this.cfg.auth }
   get integrations() { return this.cfg.integrations }
+  get orchestrator() { return this.cfg.orchestrator }
 }
