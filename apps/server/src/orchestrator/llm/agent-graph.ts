@@ -7,7 +7,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages'
 import type { AIMessage, BaseMessage } from '@langchain/core/messages'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import type { AgentInsight } from '../types'
-import { MAX_ITERATIONS } from '../types'
+import { AgentInsightSchema, MAX_ITERATIONS } from '../types'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentGraph = CompiledStateGraph<any, any, any>
@@ -61,8 +61,8 @@ export async function runAgentLoop(
     : JSON.stringify(lastMessage.content)
 
   try {
-    const parsed = JSON.parse(content) as AgentInsight
-    if (parsed.summary && parsed.signalType) return parsed
+    const result = AgentInsightSchema.safeParse(JSON.parse(content))
+    if (result.success) return result.data
   } catch {
     // LLM returned free-form text — wrap it
   }

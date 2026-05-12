@@ -1,5 +1,5 @@
 // apps/server/src/orchestrator/runtime/task-runner.service.ts
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType } from '@generated/client'
 import type { OrchestratorTask, OrchestratorContext, AgentInsight } from '../types'
 import { ContextBuilderService } from '../context/context-builder.service'
@@ -66,11 +66,7 @@ export class TaskRunnerService {
       ? JSON.stringify(entry.body)
       : String(entry.body)
 
-    const response = await this.openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: text,
-    })
-    const vector = response.data[0].embedding
+    const vector = await this.embed(text)
     await this.searchService.storeEmbedding(input.entryId, vector)
 
     return {
@@ -91,10 +87,10 @@ export class TaskRunnerService {
 
     const systemPrompt = this.skillRegistry.getSystemPrompt(task.type)
 
-    const queryEmbedding = async (text: string): Promise<number[]> => {
-      const res = await this.openai.embeddings.create({ model: 'text-embedding-3-small', input: text })
-      return res.data[0].embedding
-    }
+    const queryEmbedding = (text: string): Promise<number[]> => this.embed(text)
+
+    const root = await this.graphRepo.findProjectRoot(task.projectId)
+    if (!root) throw new NotFoundException(`Project root not found for projectId=${task.projectId}`)
 
     const tools = [
       // read
@@ -122,7 +118,7 @@ export class TaskRunnerService {
       toStagingTool({
         entryService: this.entryService,
         projectId: task.projectId,
-        stagingNodeId: `staging-${task.projectId}`,
+        stagingNodeId: root.id,
       }),
     ]
 
@@ -140,5 +136,10 @@ export class TaskRunnerService {
 
     const graph = buildAgentGraph({ tools, systemPrompt, model })
     return runAgentLoop(graph, userMessage)
+  }
+
+  private async embed(text: string): Promise<number[]> {
+    const response = await this.openai.embeddings.create({ model: 'text-embedding-3-small', input: text })
+    return response.data[0].embedding
   }
 }

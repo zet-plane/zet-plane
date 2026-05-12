@@ -1,4 +1,5 @@
 // apps/server/src/orchestrator/types.ts
+import { z } from 'zod'
 import type { Prisma, OrchestratorTask as PrismaTask } from '@generated/client'
 
 type JsonValue = Prisma.JsonValue
@@ -7,13 +8,29 @@ export type { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceTy
 
 export type OrchestratorTask = PrismaTask
 
-export type SignalType =
-  | 'progress'
-  | 'blocker'
-  | 'decision'
-  | 'risk'
-  | 'learning'
-  | 'noise'
+export const SignalTypeSchema = z.enum([
+  'progress',
+  'blocker',
+  'decision',
+  'risk',
+  'learning',
+  'noise',
+])
+
+export type SignalType = z.infer<typeof SignalTypeSchema>
+
+export const AgentInsightSchema = z.object({
+  summary: z.string(),
+  signalType: SignalTypeSchema,
+  confidence: z.number().min(0).max(1),
+  evidence: z.array(
+    z.object({
+      sourceType: z.enum(['node', 'knowledge_entry', 'task']),
+      sourceId: z.string(),
+      note: z.string(),
+    }),
+  ),
+})
 
 export interface AgentInsight {
   summary: string
