@@ -1,11 +1,144 @@
+// apps/server/src/orchestrator/runtime/task-runner.service.ts
 import { Injectable } from '@nestjs/common'
-import type { OrchestratorTask } from '../types'
-import type { AgentInsight } from '../types'
+import { OrchestratorTaskType } from '@generated/client'
+import type { OrchestratorTask, OrchestratorContext, AgentInsight } from '../types'
+import { ContextBuilderService } from '../context/context-builder.service'
+import { SkillRegistry } from '../llm/skill-registry'
+import { buildAgentGraph, runAgentLoop } from '../llm/agent-graph'
+import { GraphContextReader } from '../context/graph-context.reader'
+import { GraphRepository } from '../../graph/repository/graph.repository'
+import { NodeService } from '../../graph/node/node.service'
+import { EdgeService } from '../../graph/edge/edge.service'
+import { EntryService } from '../../knowledge/entry/entry.service'
+import { RevisionService } from '../../knowledge/revision/revision.service'
+import { SearchService } from '../../knowledge/search/search.service'
+import { OrchestratorTaskRepository } from '../repository/orchestrator-task.repository'
+import { OrchestratorTaskPublisher } from '../ingress/orchestrator-task.publisher'
+import { OpenAI } from 'openai'
+// read tools
+import { getNodeTool } from '../tools/read/get-node.tool'
+import { getSubgraphTool } from '../tools/read/get-subgraph.tool'
+import { searchNodesTool } from '../tools/read/search-nodes.tool'
+import { searchKnowledgeTool } from '../tools/read/search-knowledge.tool'
+import { getTaskHistoryTool } from '../tools/read/get-task-history.tool'
+// write tools
+import { createNodeTool } from '../tools/write/create-node.tool'
+import { createEdgeTool } from '../tools/write/create-edge.tool'
+import { moveNodeTool } from '../tools/write/move-node.tool'
+import { updateNodeStatusTool } from '../tools/write/update-node-status.tool'
+import { createKnowledgeEntryTool } from '../tools/write/create-knowledge-entry.tool'
+import { reviseKnowledgeEntryTool } from '../tools/write/revise-knowledge-entry.tool'
+import { writeEmbeddingTool } from '../tools/write/write-embedding.tool'
+import { skipTool } from '../tools/write/skip.tool'
+import { notifyHumanTool } from '../tools/write/notify-human.tool'
+import { toStagingTool } from '../tools/write/to-staging.tool'
 
 @Injectable()
 export class TaskRunnerService {
-  async run(_task: OrchestratorTask): Promise<AgentInsight> {
-    // Full routing implemented in Task 12
-    throw new Error('TaskRunnerService.run not yet implemented')
+  private readonly openai = new OpenAI()
+
+  constructor(
+    private readonly contextBuilder: ContextBuilderService,
+    private readonly skillRegistry: SkillRegistry,
+    private readonly graphReader: GraphContextReader,
+    private readonly graphRepo: GraphRepository,
+    private readonly nodeService: NodeService,
+    private readonly edgeService: EdgeService,
+    private readonly entryService: EntryService,
+    private readonly revisionService: RevisionService,
+    private readonly searchService: SearchService,
+    private readonly taskRepo: OrchestratorTaskRepository,
+    private readonly publisher: OrchestratorTaskPublisher,
+  ) {}
+
+  async run(task: OrchestratorTask): Promise<AgentInsight> {
+    if (task.type === OrchestratorTaskType.embedding) {
+      return this.runEmbedding(task)
+    }
+    const ctx = await this.contextBuilder.build(task)
+    return this.runAgenticLoop(task, ctx)
+  }
+
+  private async runEmbedding(task: OrchestratorTask): Promise<AgentInsight> {
+    const input = task.input as { entryId: string }
+    const entry = await this.entryService.getEntry(input.entryId)
+    const text = typeof entry.body === 'object' && entry.body !== null
+      ? JSON.stringify(entry.body)
+      : String(entry.body)
+
+    const response = await this.openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: text,
+    })
+    const vector = response.data[0].embedding
+    await this.searchService.storeEmbedding(input.entryId, vector)
+
+    return {
+      summary: `Embedding indexed for entry ${input.entryId}`,
+      signalType: 'progress',
+      confidence: 1,
+      evidence: [{ sourceType: 'knowledge_entry', sourceId: input.entryId, note: 'embedding stored' }],
+    }
+  }
+
+  private async runAgenticLoop(
+    task: OrchestratorTask,
+    ctx: OrchestratorContext,
+  ): Promise<AgentInsight> {
+    const model = task.type === OrchestratorTaskType.checkpoint
+      ? 'claude-sonnet-4-6'
+      : 'claude-haiku-4-5-20251001'
+
+    const systemPrompt = this.skillRegistry.getSystemPrompt(task.type)
+
+    const queryEmbedding = async (text: string): Promise<number[]> => {
+      const res = await this.openai.embeddings.create({ model: 'text-embedding-3-small', input: text })
+      return res.data[0].embedding
+    }
+
+    const tools = [
+      // read
+      getNodeTool(this.graphRepo),
+      getSubgraphTool(this.graphReader),
+      searchNodesTool(this.graphReader),
+      searchKnowledgeTool(this.searchService, queryEmbedding),
+      getTaskHistoryTool(this.taskRepo),
+      // write — graph
+      createNodeTool({ nodeService: this.nodeService, projectId: task.projectId }),
+      createEdgeTool({ edgeService: this.edgeService, projectId: task.projectId }),
+      moveNodeTool({ edgeService: this.edgeService, projectId: task.projectId }),
+      updateNodeStatusTool({ nodeService: this.nodeService }),
+      // write — knowledge
+      createKnowledgeEntryTool({
+        entryService: this.entryService,
+        publisher: this.publisher,
+        projectId: task.projectId,
+      }),
+      reviseKnowledgeEntryTool({ revisionService: this.revisionService }),
+      writeEmbeddingTool({ searchService: this.searchService }),
+      // terminal
+      skipTool(),
+      notifyHumanTool(),
+      toStagingTool({
+        entryService: this.entryService,
+        projectId: task.projectId,
+        stagingNodeId: `staging-${task.projectId}`,
+      }),
+    ]
+
+    const userMessage = [
+      `Task type: ${task.type}`,
+      `Project: ${ctx.project.id}`,
+      `Trigger: ${JSON.stringify(ctx.trigger)}`,
+      `Candidate nodes: ${JSON.stringify(ctx.candidateNodes)}`,
+      `Related knowledge: ${JSON.stringify(ctx.relatedEntries)}`,
+      `Recent task history: ${JSON.stringify(ctx.recentTaskHistory)}`,
+      '',
+      'Analyze the trigger event and take appropriate actions using the available tools.',
+      'When done, respond with a JSON object: { "summary": "...", "signalType": "...", "confidence": 0.0-1.0, "evidence": [] }',
+    ].join('\n')
+
+    const graph = buildAgentGraph({ tools, systemPrompt, model })
+    return runAgentLoop(graph, userMessage)
   }
 }

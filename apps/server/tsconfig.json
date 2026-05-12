@@ -4,7 +4,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "paths": {
-      "@generated/client": ["./src/prisma/gen/client/client"]
+      "@generated/client": ["./src/prisma/gen/client/client"],
+      "@langchain/langgraph/prebuilt": ["./node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"]
     },
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
