@@ -4,6 +4,7 @@ import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { HttpLoggerMiddleware } from './common/http-logger.middleware'
 import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
+import { ScheduleModule } from '@nestjs/schedule'
 import { GraphModule } from './graph/graph.module'
 import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
@@ -16,6 +17,7 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module'
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     AppConfigModule,
     BullModule.forRootAsync({
       inject: [AppConfig],

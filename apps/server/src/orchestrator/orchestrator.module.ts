@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common'
 import { BullModule } from '@nestjs/bullmq'
-import { ScheduleModule } from '@nestjs/schedule'
 import { join } from 'node:path'
 import { PrismaService } from '../prisma/prisma.service'
 import { GraphRepository } from '../graph/repository/graph.repository'
@@ -34,7 +33,6 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
     BullModule.registerQueue(
       { name: ORCHESTRATOR_TASKS_QUEUE },
       { name: GRAPH_EVENTS_QUEUE },

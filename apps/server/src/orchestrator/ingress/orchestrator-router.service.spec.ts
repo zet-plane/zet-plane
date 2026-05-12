@@ -37,6 +37,19 @@ describe('OrchestratorRouterService', () => {
     )
   })
 
+  it('routes knowledge.entry.body_revised to embedding task', async () => {
+    await router.handleKnowledgeEvent({
+      type: 'knowledge.entry.body_revised',
+      payload: { entryId: 'e2', projectId: 'p1', version: 2 },
+    })
+    expect(mockPublisher.publish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: OrchestratorTaskType.embedding,
+        sourceType: OrchestratorSourceType.knowledge_event,
+      }),
+    )
+  })
+
   it('ignores irrelevant graph events', async () => {
     await router.handleGraphEvent({
       type: 'graph.node.deleted',
