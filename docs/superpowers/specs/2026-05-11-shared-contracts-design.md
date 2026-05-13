@@ -62,7 +62,6 @@ Both `apps/server` and `apps/web` add `"@zet-plane/contracts": "workspace:*"` to
 {
   "name": "@zet-plane/contracts",
   "version": "0.0.1",
-  "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
