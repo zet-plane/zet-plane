@@ -16,6 +16,7 @@ pnpm test:all         # 全量
 
 # 数据库
 pnpm prisma migrate dev --name <name>
+pnpm prisma migrate reset # 删除原有 schema
 pnpm prisma generate
 pnpm prisma studio
 ```
