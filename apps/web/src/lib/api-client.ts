@@ -6,9 +6,13 @@ export type EndpointDef = {
   path: string
   params?: z.ZodType
   request?: z.ZodType
-  response: z.ZodType
+  response?: z.ZodType
   errors: Record<number, z.ZodType>
 }
+
+type EndpointResponse<T extends EndpointDef> = T extends { response: z.ZodType }
+  ? z.infer<T['response']>
+  : void
 
 export class ApiError<T extends EndpointDef> extends Error {
   status: number
@@ -30,18 +34,46 @@ export async function apiCall<T extends EndpointDef>(
     params?: z.infer<NonNullable<T['params']>>
     body?: z.infer<NonNullable<T['request']>>
   } = {},
-): Promise<z.infer<T['response']>> {
+): Promise<EndpointResponse<T>> {
   const baseUrl = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? ''
   const path = baseUrl + endpoint.path.replace(/:(\w+)/g, (_, k) => String((args.params as Record<string, unknown>)?.[k]))
   const res = await fetch(path, {
     method: endpoint.method,
     headers: { 'Content-Type': 'application/json' },
-    body: args.body ? JSON.stringify(args.body) : undefined,
+    body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
   })
-  const json = await res.json() as unknown
+  const json = await readJsonBody(res)
   if (!res.ok) {
     const errSchema = endpoint.errors[res.status] ?? AnyErrorResponse
-    throw new ApiError(res.status, errSchema.parse(json))
+    throw new ApiError(res.status, parseErrorBody(errSchema, json, res))
   }
-  return endpoint.response.parse(json) as z.infer<T['response']>
+  if (!endpoint.response) return undefined as EndpointResponse<T>
+  return endpoint.response.parse(json) as EndpointResponse<T>
+}
+
+async function readJsonBody(res: Response): Promise<unknown> {
+  if (res.status === 204) return undefined
+
+  const text = await res.text()
+  if (text.length === 0) return undefined
+
+  return JSON.parse(text) as unknown
+}
+
+function parseErrorBody(
+  errSchema: z.ZodType,
+  json: unknown,
+  res: Response,
+): z.infer<typeof AnyErrorResponse> {
+  const declared = errSchema.safeParse(json)
+  if (declared.success) return declared.data as z.infer<typeof AnyErrorResponse>
+
+  const generic = AnyErrorResponse.safeParse(json)
+  if (generic.success) return generic.data
+
+  return {
+    code: 'HTTP_ERROR',
+    message: res.statusText || `HTTP ${res.status}`,
+    details: json,
+  }
 }
