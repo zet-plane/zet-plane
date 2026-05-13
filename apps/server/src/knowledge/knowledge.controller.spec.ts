@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BadRequestException } from '@nestjs/common'
 import { KnowledgeController } from './knowledge.controller'
+import { CreateEntryDto, UpdateBodyDto, UpdateEntryDto } from './dto/entry.dto'
+import { GlobalValidationPipe } from '../common/validation/global-validation.pipe'
 import { EntryCategory, EntryStatus, EmbeddingStatus, CreatedBy } from '@generated/client'
 import type { KnowledgeEntry } from '@generated/client'
 
@@ -71,6 +73,32 @@ describe('KnowledgeController', () => {
     })
   })
 
+  it('validates create entry enum fields before service logic', async () => {
+    const pipe = new GlobalValidationPipe()
+
+    await expect(pipe.transform({
+      category: EntryCategory.decision,
+      title: 'Test',
+      body: {},
+      createdBy: CreatedBy.human,
+    }, { type: 'body', metatype: CreateEntryDto })).resolves.toMatchObject({
+      category: EntryCategory.decision,
+      createdBy: CreatedBy.human,
+    })
+    await expect(pipe.transform({
+      category: 'invalid',
+      title: 'Test',
+      body: {},
+      createdBy: CreatedBy.human,
+    }, { type: 'body', metatype: CreateEntryDto })).rejects.toThrow()
+    await expect(pipe.transform({
+      category: EntryCategory.decision,
+      title: 'Test',
+      body: {},
+      createdBy: 'invalid',
+    }, { type: 'body', metatype: CreateEntryDto })).rejects.toThrow()
+  })
+
   it('listEntries passes projectId and filters', async () => {
     mockEntryService.listEntries.mockResolvedValue([])
     await controller.listEntries('p1', EntryCategory.decision, 'n1', EntryStatus.published)
@@ -105,6 +133,20 @@ describe('KnowledgeController', () => {
     expect(mockEntryService.reanchor).toHaveBeenCalledWith('e1', 'n2')
   })
 
+  it('validates update entry enum fields before service logic', async () => {
+    const pipe = new GlobalValidationPipe()
+
+    await expect(pipe.transform({
+      category: EntryCategory.context,
+      status: EntryStatus.published,
+    }, { type: 'body', metatype: UpdateEntryDto })).resolves.toMatchObject({
+      category: EntryCategory.context,
+      status: EntryStatus.published,
+    })
+    await expect(pipe.transform({ category: 'invalid' }, { type: 'body', metatype: UpdateEntryDto })).rejects.toThrow()
+    await expect(pipe.transform({ status: 'invalid' }, { type: 'body', metatype: UpdateEntryDto })).rejects.toThrow()
+  })
+
   it('deleteEntry calls softDelete', async () => {
     mockEntryService.softDelete.mockResolvedValue(makeEntry({ status: EntryStatus.deprecated }))
     await controller.deleteEntry('e1')
@@ -116,6 +158,15 @@ describe('KnowledgeController', () => {
     mockRevisionService.appendRevision.mockResolvedValue(revision)
     await controller.updateBody('e1', { body: { v: 2 }, createdBy: CreatedBy.agent })
     expect(mockRevisionService.appendRevision).toHaveBeenCalledWith('e1', { body: { v: 2 }, createdBy: CreatedBy.agent })
+  })
+
+  it('validates update body createdBy before service logic', async () => {
+    const pipe = new GlobalValidationPipe()
+
+    await expect(pipe.transform({ body: {}, createdBy: CreatedBy.agent }, { type: 'body', metatype: UpdateBodyDto })).resolves.toMatchObject({
+      createdBy: CreatedBy.agent,
+    })
+    await expect(pipe.transform({ body: {}, createdBy: 'invalid' }, { type: 'body', metatype: UpdateBodyDto })).rejects.toThrow()
   })
 
   it('listRevisions delegates to revisionService', async () => {
