@@ -134,4 +134,31 @@ describe('apiCall', () => {
     })
     await expect(promise).rejects.toBeInstanceOf(ApiError)
   })
+
+  it('wraps non-JSON error bodies in ApiError', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('<html><body>Bad Gateway</body></html>', {
+        status: 502,
+        statusText: 'Bad Gateway',
+        headers: { 'Content-Type': 'text/html' },
+      }),
+    )
+    const endpoint = {
+      method: 'GET',
+      path: '/health',
+      errors: {},
+    } satisfies EndpointDef
+
+    const promise = apiCall(endpoint)
+
+    await expect(promise).rejects.toMatchObject({
+      status: 502,
+      body: {
+        code: 'HTTP_ERROR',
+        message: 'Bad Gateway',
+        details: '<html><body>Bad Gateway</body></html>',
+      },
+    })
+    await expect(promise).rejects.toBeInstanceOf(ApiError)
+  })
 })

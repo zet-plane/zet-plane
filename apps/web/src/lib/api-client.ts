@@ -57,7 +57,11 @@ async function readJsonBody(res: Response): Promise<unknown> {
   const text = await res.text()
   if (text.length === 0) return undefined
 
-  return JSON.parse(text) as unknown
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return text
+  }
 }
 
 function parseErrorBody(
