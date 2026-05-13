@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NotFoundDomainException } from '../common/exceptions'
+import { NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { ProjectService } from './project.service'
 import type { Project } from '@generated/client'
 

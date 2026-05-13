@@ -40,7 +40,11 @@ export const createNodeEndpoint = {
       z.enum(["PROJECT_NOT_FOUND", "PARENT_NODE_NOT_FOUND"]),
     ),
     409: makeErrorResponse(
-      z.enum(["PARENT_NODE_ARCHIVED", "PARENT_NODE_COMPLETED"]),
+      z.enum([
+        "STAGING_NODE_PROTECTED",
+        "PARENT_NODE_ARCHIVED",
+        "PARENT_NODE_COMPLETED",
+      ]),
     ),
   },
 } as const;

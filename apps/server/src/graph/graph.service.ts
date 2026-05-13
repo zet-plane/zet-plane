@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, forwardRef, Inject } from '@nestjs/common'
-import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions'
+import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { NodeStatus, CheckpointResolution, EdgeType, CreatedBy, NodeRole, NodeType } from '@generated/client'
 import type { Node, Edge } from '@generated/client'
 import type { PrismaTx } from '../prisma/prisma.service'
@@ -40,7 +40,9 @@ export class GraphService {
       if (!parent || parent.projectId !== data.projectId) {
         throw new NotFoundDomainException('PARENT_NODE_NOT_FOUND', `Parent node ${data.parentNodeId} not found`)
       }
-      this.assertNotStagingRoot(parent)
+      if (parent.role === NodeRole.staging_root) {
+        throw new ConflictDomainException('STAGING_NODE_PROTECTED', 'Staging node is protected')
+      }
       if (parent.status === NodeStatus.archived) throw new ConflictDomainException('PARENT_NODE_ARCHIVED', 'Parent node is archived')
       if (parent.status === NodeStatus.completed) throw new ConflictDomainException('PARENT_NODE_COMPLETED', 'Parent node is completed')
     }

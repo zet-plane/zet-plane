@@ -3,7 +3,7 @@ import type { Project } from '@generated/client'
 import { ProjectRepository } from './repository/project.repository'
 import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
 import { GraphService } from '../graph/graph.service'
-import { NotFoundDomainException } from '../common/exceptions'
+import { NotFoundDomainException } from '../common/exceptions/domain-exception'
 
 @Injectable()
 export class ProjectService {

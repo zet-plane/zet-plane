@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
-import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions'
+import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { GraphService } from './graph.service'
 import { EdgeType, NodeStatus, NodeType, CreatedBy, CheckpointResolution, NodeRole } from '@generated/client'
 import type { Node } from '@generated/client'
@@ -117,7 +117,10 @@ describe('GraphService', () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'staging' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toMatchObject({
+        code: 'STAGING_NODE_PROTECTED',
+        status: 409,
+      })
     })
 
     it('throws PARENT_NODE_ARCHIVED when parent is archived', async () => {
