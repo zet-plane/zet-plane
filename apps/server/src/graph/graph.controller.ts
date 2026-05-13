@@ -1,6 +1,6 @@
 import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
-import { createZodDto } from 'nestjs-zod'
+import { createZodDto, ZodResponse } from 'nestjs-zod'
 import { NodeType, CreatedBy } from '@generated/client'
 import { createNodeEndpoint, NodeResponse } from '@zet-plane/contracts'
 import { GraphService } from './graph.service'
@@ -16,6 +16,7 @@ import { CreateEdgeDto, ReplaceEdgesDto, EdgeEntity } from './dto/edge.dto'
 
 class CreateNodeDto extends createZodDto(createNodeEndpoint.request) {}
 class CreateNodeParamsDto extends createZodDto(createNodeEndpoint.params) {}
+class CreateNodeResponseDto extends createZodDto(createNodeEndpoint.response) {}
 
 @ApiTags('graph')
 @Controller()
@@ -27,6 +28,7 @@ export class GraphController {
   @Post('projects/:id/nodes')
   @ApiOperation({ summary: 'Create a node in a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
+  @ZodResponse({ status: 201, type: CreateNodeResponseDto })
   async createNode(
     @Param() params: CreateNodeParamsDto,
     @Body() body: CreateNodeDto,

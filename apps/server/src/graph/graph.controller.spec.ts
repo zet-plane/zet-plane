@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { HttpStatus } from '@nestjs/common'
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants'
+import { DECORATORS } from '@nestjs/swagger/dist/constants'
 import { GraphController } from './graph.controller'
 import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@generated/client'
 
@@ -41,6 +42,19 @@ describe('GraphController', () => {
       expect.objectContaining({ projectId: 'p1', title: 'Task A', type: NodeType.scaffold, createdBy: CreatedBy.human }),
     )
     expect(result).toMatchObject({ id: 'n1', title: 'Task A', createdAt: now.toISOString() })
+  })
+
+  it('createNode documents the contract response schema in Swagger', () => {
+    const status = Reflect.getMetadata(HTTP_CODE_METADATA, GraphController.prototype.createNode)
+    const responses = Reflect.getMetadata(DECORATORS.API_RESPONSE, GraphController.prototype.createNode)
+
+    expect(status).toBe(HttpStatus.CREATED)
+    expect(responses).toMatchObject({
+      201: {
+        description: '',
+        type: expect.objectContaining({ isZodDto: true }),
+      },
+    })
   })
 
   it('updateNode calls graphService.updateNode for non-status fields', async () => {
