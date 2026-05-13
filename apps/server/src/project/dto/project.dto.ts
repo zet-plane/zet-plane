@@ -1,10 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
-import { IsString, IsOptional } from 'class-validator'
+import { IsOptional, IsString, MinLength } from 'class-validator'
 import type { Project } from '@generated/client'
 
 export class CreateProjectDto {
   @ApiProperty()
   @IsString()
+  @MinLength(1)
   name!: string
 
   @ApiPropertyOptional()
@@ -17,6 +18,7 @@ export class UpdateProjectDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MinLength(1)
   name?: string
 
   @ApiPropertyOptional()

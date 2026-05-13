@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { NotFoundException } from '@nestjs/common'
+import { NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { ProjectService } from './project.service'
 import type { Project } from '@generated/client'
 
@@ -69,7 +69,7 @@ describe('ProjectService', () => {
 
     it('throws 404 when project does not exist', async () => {
       mockRepo.findById.mockResolvedValue(null)
-      await expect(service.assertExists('missing')).rejects.toThrow(NotFoundException)
+      await expect(service.assertExists('missing')).rejects.toThrow(NotFoundDomainException)
     })
   })
 
@@ -82,7 +82,7 @@ describe('ProjectService', () => {
 
     it('throws 404 when not found', async () => {
       mockRepo.findById.mockResolvedValue(null)
-      await expect(service.findById('missing')).rejects.toThrow(NotFoundException)
+      await expect(service.findById('missing')).rejects.toThrow(NotFoundDomainException)
     })
   })
 
@@ -98,7 +98,7 @@ describe('ProjectService', () => {
 
     it('throws 404 when project does not exist', async () => {
       mockRepo.findById.mockResolvedValue(null)
-      await expect(service.update('missing', { name: 'X' })).rejects.toThrow(NotFoundException)
+      await expect(service.update('missing', { name: 'X' })).rejects.toThrow(NotFoundDomainException)
     })
   })
 
@@ -114,7 +114,7 @@ describe('ProjectService', () => {
 
     it('throws 404 if project does not exist', async () => {
       mockRepo.findById.mockResolvedValue(null)
-      await expect(service.remove('missing')).rejects.toThrow(NotFoundException)
+      await expect(service.remove('missing')).rejects.toThrow(NotFoundDomainException)
     })
   })
 

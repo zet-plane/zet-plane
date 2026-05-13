@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, forwardRef, Inject } from '@nestjs/common'
+import { Injectable, forwardRef, Inject } from '@nestjs/common'
 import type { Project } from '@generated/client'
 import { ProjectRepository } from './repository/project.repository'
 import type { ProjectCreateData, ProjectUpdateData } from './repository/project.repository'
 import { GraphService } from '../graph/graph.service'
+import { NotFoundDomainException } from '../common/exceptions/domain-exception'
 
 @Injectable()
 export class ProjectService {
@@ -22,7 +23,7 @@ export class ProjectService {
 
   async findById(id: string): Promise<Project> {
     const project = await this.repo.findById(id)
-    if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
+    if (!project) throw new NotFoundDomainException('PROJECT_NOT_FOUND', 'Project not found')
     return project
   }
 
@@ -42,6 +43,6 @@ export class ProjectService {
 
   async assertExists(id: string): Promise<void> {
     const project = await this.repo.findById(id)
-    if (!project) throw new NotFoundException('PROJECT_NOT_FOUND')
+    if (!project) throw new NotFoundDomainException('PROJECT_NOT_FOUND', 'Project not found')
   }
 }

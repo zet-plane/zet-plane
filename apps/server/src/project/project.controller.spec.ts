@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ValidationPipe } from '@nestjs/common'
-import { PIPES_METADATA } from '@nestjs/common/constants'
 import { ProjectController } from './project.controller'
+import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto'
+import { GlobalValidationPipe } from '../common/validation/global-validation.pipe'
 import type { Project } from '@generated/client'
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -27,16 +27,26 @@ describe('ProjectController', () => {
     controller = new ProjectController(mockService)
   })
 
-  it('applies ValidationPipe so DTO decorators run at runtime', () => {
-    const pipes = Reflect.getMetadata(PIPES_METADATA, ProjectController) ?? []
-
-    expect(pipes.some((pipe: unknown) => pipe instanceof ValidationPipe)).toBe(true)
-  })
-
   it('POST / calls service.create', async () => {
     mockService.create.mockResolvedValue(makeProject())
     await controller.create({ name: 'P' })
     expect(mockService.create).toHaveBeenCalledWith({ name: 'P' })
+  })
+
+  it('validates create payloads with the legacy class-validator DTO path', async () => {
+    const pipe = new GlobalValidationPipe()
+
+    await expect(pipe.transform({ name: 'P' }, { type: 'body', metatype: CreateProjectDto })).resolves.toEqual({ name: 'P' })
+    await expect(pipe.transform({ name: 123 }, { type: 'body', metatype: CreateProjectDto })).rejects.toThrow()
+    await expect(pipe.transform({ name: '' }, { type: 'body', metatype: CreateProjectDto })).rejects.toThrow()
+  })
+
+  it('validates update payloads with the legacy class-validator DTO path', async () => {
+    const pipe = new GlobalValidationPipe()
+
+    await expect(pipe.transform({ name: 'Renamed' }, { type: 'body', metatype: UpdateProjectDto })).resolves.toEqual({ name: 'Renamed' })
+    await expect(pipe.transform({ name: 123 }, { type: 'body', metatype: UpdateProjectDto })).rejects.toThrow()
+    await expect(pipe.transform({ name: '' }, { type: 'body', metatype: UpdateProjectDto })).rejects.toThrow()
   })
 
   it('GET / calls service.list', async () => {

@@ -1,4 +1,5 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
+import { APP_FILTER, APP_PIPE } from '@nestjs/core'
 import { HttpLoggerMiddleware } from './common/http-logger.middleware'
 import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
@@ -7,6 +8,8 @@ import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
 import { KnowledgeModule } from './knowledge/knowledge.module'
 import { ProjectModule } from './project/project.module'
+import { DomainExceptionFilter } from './common/exceptions'
+import { GlobalValidationPipe } from './common/validation/global-validation.pipe'
 
 @Module({
   imports: [
@@ -22,6 +25,10 @@ import { ProjectModule } from './project/project.module'
     GraphModule,
     KnowledgeModule,
     ProjectModule,
+  ],
+  providers: [
+    { provide: APP_PIPE, useClass: GlobalValidationPipe },
+    { provide: APP_FILTER, useClass: DomainExceptionFilter },
   ],
 })
 export class AppModule implements NestModule {

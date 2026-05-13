@@ -20,6 +20,7 @@
     "@tanstack/react-query-devtools": "^5.100.9",
     "@tanstack/react-router": "^1.169.2",
     "@xyflow/react": "^12.10.2",
+    "@zet-plane/contracts": "workspace:*",
     "@zet-plane/types": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

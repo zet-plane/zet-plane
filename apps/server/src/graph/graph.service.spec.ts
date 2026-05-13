@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
+import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { GraphService } from './graph.service'
 import { EdgeType, NodeStatus, NodeType, CreatedBy, CheckpointResolution, NodeRole } from '@generated/client'
 import type { Node } from '@generated/client'
@@ -91,14 +92,14 @@ describe('GraphService', () => {
       mockRepo.findNode.mockResolvedValue(null)
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'missing' })
-      ).rejects.toThrow(NotFoundException)
+      ).rejects.toThrow(NotFoundDomainException)
     })
 
     it('throws 404 when parentNodeId belongs to a different project', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ id: 'other', projectId: 'p2' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'other' })
-      ).rejects.toThrow(NotFoundException)
+      ).rejects.toThrow(NotFoundDomainException)
     })
 
     it('allows parentNodeId to explicitly target the project root', async () => {
@@ -116,21 +117,24 @@ describe('GraphService', () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'staging' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toMatchObject({
+        code: 'STAGING_NODE_PROTECTED',
+        status: 409,
+      })
     })
 
-    it('throws 409 when parent is archived', async () => {
+    it('throws PARENT_NODE_ARCHIVED when parent is archived', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.archived, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'n1' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toThrow(ConflictDomainException)
     })
 
-    it('throws 409 when parent is completed', async () => {
+    it('throws PARENT_NODE_COMPLETED when parent is completed', async () => {
       mockRepo.findNode.mockResolvedValue(makeNode({ status: NodeStatus.completed, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'n1' })
-      ).rejects.toThrow(ConflictException)
+      ).rejects.toThrow(ConflictDomainException)
     })
   })
 

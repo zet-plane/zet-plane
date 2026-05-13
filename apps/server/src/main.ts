@@ -5,6 +5,7 @@ import {
   NestFastifyApplication,
 } from "@nestjs/platform-fastify";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { cleanupOpenApiDoc } from "nestjs-zod";
 import { AppModule } from "./app.module";
 import { AppConfig } from "./config/app-config";
 
@@ -23,7 +24,7 @@ async function bootstrap() {
     .addTag("knowledge", "Knowledge Engine")
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+  const document = cleanupOpenApiDoc(SwaggerModule.createDocument(app, config));
   // Swagger sits outside the /api prefix intentionally
   SwaggerModule.setup("api-docs", app, document);
 

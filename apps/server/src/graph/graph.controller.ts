@@ -1,8 +1,10 @@
 import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException, HttpCode, HttpStatus } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
+import { createZodDto, ZodResponse } from 'nestjs-zod'
+import { NodeType, CreatedBy } from '@generated/client'
+import { createNodeEndpoint, NodeResponse } from '@zet-plane/contracts'
 import { GraphService } from './graph.service'
 import {
-  CreateNodeDto,
   UpdateNodeDto,
   ResolveCheckpointDto,
   DeleteNodeDto,
@@ -11,6 +13,10 @@ import {
   DeleteNodeResultEntity,
 } from './dto/node.dto'
 import { CreateEdgeDto, ReplaceEdgesDto, EdgeEntity } from './dto/edge.dto'
+
+class CreateNodeDto extends createZodDto(createNodeEndpoint.request) {}
+class CreateNodeParamsDto extends createZodDto(createNodeEndpoint.params) {}
+class CreateNodeResponseDto extends createZodDto(createNodeEndpoint.response) {}
 
 @ApiTags('graph')
 @Controller()
@@ -22,13 +28,29 @@ export class GraphController {
   @Post('projects/:id/nodes')
   @ApiOperation({ summary: 'Create a node in a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
-  @ApiBody({ type: CreateNodeDto })
-  @ApiResponse({ status: 201, type: NodeEntity })
-  createNode(
-    @Param('id') projectId: string,
+  @ZodResponse({ status: 201, type: CreateNodeResponseDto })
+  async createNode(
+    @Param() params: CreateNodeParamsDto,
     @Body() body: CreateNodeDto,
-  ) {
-    return this.graphService.createNode({ projectId, ...body })
+  ): Promise<NodeResponse> {
+    const node = await this.graphService.createNode({
+      projectId: params.id,
+      title: body.title,
+      description: body.description,
+      parentNodeId: body.parentId,
+      type: NodeType.scaffold,
+      createdBy: CreatedBy.human,
+    })
+    return {
+      id: node.id,
+      projectId: node.projectId,
+      title: node.title,
+      status: node.status as NodeResponse['status'],
+      description: node.description,
+      isProjectRoot: node.isProjectRoot,
+      createdAt: node.createdAt.toISOString(),
+      updatedAt: node.updatedAt.toISOString(),
+    }
   }
 
   @Get('projects/:id/nodes')

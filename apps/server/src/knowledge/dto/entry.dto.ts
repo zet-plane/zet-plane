@@ -1,9 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
+import { IsEnum, IsOptional, IsString } from 'class-validator'
 import { EntryCategory, EntryStatus, EmbeddingStatus, CreatedBy } from '@generated/client'
-import { IsEnum, IsOptional } from 'class-validator'
 
 export class CreateEntryDto {
   @ApiPropertyOptional({ description: 'Anchor node ID. If omitted, entry is anchored to the project staging node.' })
+  @IsOptional()
+  @IsString()
   nodeId?: string
 
   @ApiProperty({ enum: EntryCategory, enumName: 'EntryCategory' })
@@ -11,12 +13,15 @@ export class CreateEntryDto {
   category!: EntryCategory
 
   @ApiProperty()
+  @IsString()
   title!: string
 
   @ApiProperty({ description: 'Arbitrary JSON body content' })
   body!: unknown
 
   @ApiPropertyOptional({ description: 'Note describing this initial version' })
+  @IsOptional()
+  @IsString()
   changeNote?: string
 
   @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
@@ -26,6 +31,8 @@ export class CreateEntryDto {
 
 export class UpdateEntryDto {
   @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   title?: string
 
   @ApiPropertyOptional({ enum: EntryCategory, enumName: 'EntryCategory' })
@@ -45,6 +52,8 @@ export class UpdateEntryDto {
   @ApiPropertyOptional({
     description: 'Re-anchor to a different node. Mutually exclusive with title/category/status.',
   })
+  @IsOptional()
+  @IsString()
   nodeId?: string
 }
 
@@ -53,6 +62,8 @@ export class UpdateBodyDto {
   body!: unknown
 
   @ApiPropertyOptional({ description: 'Human-readable note about what changed' })
+  @IsOptional()
+  @IsString()
   changeNote?: string
 
   @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
