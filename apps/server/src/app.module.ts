@@ -3,13 +3,13 @@ import { APP_FILTER, APP_PIPE } from '@nestjs/core'
 import { HttpLoggerMiddleware } from './common/http-logger.middleware'
 import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
-import { ZodValidationPipe } from 'nestjs-zod'
 import { GraphModule } from './graph/graph.module'
 import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
 import { KnowledgeModule } from './knowledge/knowledge.module'
 import { ProjectModule } from './project/project.module'
 import { DomainExceptionFilter } from './common/exceptions'
+import { GlobalValidationPipe } from './common/validation/global-validation.pipe'
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { DomainExceptionFilter } from './common/exceptions'
     ProjectModule,
   ],
   providers: [
-    { provide: APP_PIPE, useClass: ZodValidationPipe },
+    { provide: APP_PIPE, useClass: GlobalValidationPipe },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
   ],
 })
