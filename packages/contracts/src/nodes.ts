@@ -144,6 +144,7 @@ export const listNodesEndpoint = {
   params: z.object({ id: ProjectId }),
   response: z.array(NodeResponse),
   errors: {
+    400: ValidationErrorResponse,
     404: makeErrorResponse(z.literal("PROJECT_NOT_FOUND")),
   },
 } as const;
@@ -154,7 +155,8 @@ export const getNodeSubgraphEndpoint = {
   params: z.object({ id: NodeId }),
   response: SubgraphResponse,
   errors: {
-    404: makeErrorResponse(z.enum(["HTTP_ERROR", "PROJECT_NOT_FOUND"])),
+    400: ValidationErrorResponse,
+    404: makeErrorResponse(z.literal("HTTP_ERROR")),
   },
 } as const;
 
@@ -195,7 +197,7 @@ export const deleteNodeEndpoint = {
   response: DeleteNodeResponse,
   errors: {
     400: ValidationErrorResponse,
-    404: makeErrorResponse(z.literal("HTTP_ERROR")),
+    404: makeErrorResponse(z.enum(["HTTP_ERROR", "PROJECT_NOT_FOUND"])),
     409: makeErrorResponse(z.literal("HTTP_ERROR")),
   },
 } as const;
