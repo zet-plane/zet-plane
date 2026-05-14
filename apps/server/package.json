@@ -27,8 +27,6 @@
     "@zet-plane/contracts": "workspace:*",
     "@zet-plane/types": "workspace:*",
     "bullmq": "^5.4.0",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.15.1",
     "js-yaml": "^4.1.1",
     "nestjs-zod": "^5.3.0",
     "pg": "8.20.0",
