@@ -43,6 +43,6 @@ function ProjectsListPage() {
 	);
 }
 
-export const Route = createFileRoute("/projects")({
+export const Route = createFileRoute("/projects/")({
 	component: ProjectsListPage,
 });
