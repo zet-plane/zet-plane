@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getProjectEndpoint } from "@zet-plane/contracts";
 import { apiCall } from "@/lib/api-client";
+import { ProjectSwitcher } from "@/features/graph/components/ProjectSwitcher";
 
 function ProjectShell() {
   const { projectId } = Route.useParams();
@@ -19,7 +20,8 @@ function ProjectShell() {
         <span className="text-muted-foreground">/</span>
         <span className="text-muted-foreground">Graph</span>
       </header>
-      <aside className="row-start-2 border-r border-border p-3 text-sm">
+      <aside className="row-start-2 flex flex-col gap-3 border-r border-border p-3 text-sm">
+        <ProjectSwitcher activeProjectId={projectId} />
         <nav className="flex flex-col gap-1">
           <Link
             to="/projects/$projectId/graph"

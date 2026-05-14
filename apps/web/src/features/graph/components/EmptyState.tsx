@@ -1,20 +1,37 @@
-export function EmptyState() {
+type EmptyProps = { rootOnly?: boolean };
+
+export function EmptyState({ rootOnly }: EmptyProps) {
   return (
-    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-      This project doesn't have any work nodes yet.
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
+      <div>{rootOnly ? "This project doesn't have any work nodes yet." : "Nothing to display."}</div>
     </div>
   );
 }
 
 export function LoadingState({ message }: { message: string }) {
-  return <div className="flex h-full items-center justify-center text-sm text-muted-foreground">{message}</div>;
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-sm text-muted-foreground">
+      <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+      <div>{message}</div>
+    </div>
+  );
 }
 
-export function ErrorState({ error }: { error: Error }) {
+export function ErrorState({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center">
-      <div className="rounded-lg border border-destructive p-4 text-sm text-destructive">
-        Failed to load graph: {error.message}
+    <div className="flex h-full items-center justify-center p-6">
+      <div className="max-w-md rounded-lg border border-destructive bg-background p-4 text-center text-sm">
+        <div className="mb-2 font-medium text-destructive">Failed to load graph</div>
+        <div className="mb-3 text-muted-foreground">{error.message}</div>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-md border border-border px-3 py-1 text-xs hover:bg-accent"
+          >
+            Retry
+          </button>
+        )}
       </div>
     </div>
   );
