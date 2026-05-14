@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 
 declare module "*?worker" {
-  const WorkerFactory: {
-    new (): Worker;
-  };
+	const WorkerFactory: {
+		new (): Worker;
+	};
 
-  export default WorkerFactory;
+	export default WorkerFactory;
 }
