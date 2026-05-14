@@ -96,6 +96,24 @@ describe("aggregateStatus", () => {
     expect(result.get("root")?.counts.archived).toBe(0);
   });
 
+  it("seals archived subtrees so descendants do not affect ancestors", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("archived", "archived"), node("blocked", "blocked")],
+      edges: [composition("root", "archived", 0), composition("archived", "blocked", 1)],
+    };
+
+    const result = aggregateStatus(g);
+
+    expect(result.get("root")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+    expect(result.get("archived")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
   it("seals a completed container - counts empty, worst null", () => {
     const g: ProjectGraph = {
       nodes: [node("root", "completed"), node("a", "blocked")],

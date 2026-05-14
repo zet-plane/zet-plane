@@ -104,7 +104,7 @@ export function aggregateStatus(graph: ProjectGraph): Map<string, AggregatedStat
       return empty;
     }
 
-    if (node.status === "completed") {
+    if (node.status === "completed" || node.status === "archived") {
       const sealed: AggregatedStatus = { worst: null, counts: emptyCounts() };
       result.set(nodeId, sealed);
       return sealed;
