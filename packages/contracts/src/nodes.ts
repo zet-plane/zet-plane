@@ -208,7 +208,7 @@ export const replaceNodeEdgesEndpoint = {
   response: EdgeResponse,
   errors: {
     400: ValidationErrorResponse,
-    404: makeErrorResponse(z.literal("HTTP_ERROR")),
+    404: makeErrorResponse(z.enum(["HTTP_ERROR", "PROJECT_NOT_FOUND"])),
     409: makeErrorResponse(z.literal("HTTP_ERROR")),
   },
 } as const;
