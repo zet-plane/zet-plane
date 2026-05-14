@@ -108,4 +108,48 @@ describe("aggregateStatus", () => {
 
     expect(aggregateStatus(g).get("root")?.worst).toBe("active");
   });
+
+  it("ignores dangling composition child ids", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active")],
+      edges: [composition("root", "missing", 0)],
+    };
+
+    expect(aggregateStatus(g).get("root")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
+  it("does not double-count duplicate same-parent composition edges", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("child", "blocked")],
+      edges: [composition("root", "child", 0), composition("root", "child", 1)],
+    };
+
+    expect(aggregateStatus(g).get("root")).toEqual({
+      worst: "blocked",
+      counts: { blocked: 1, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
+  it("throws when a child has duplicate composition parents", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("other", "active"), node("child", "blocked")],
+      edges: [composition("root", "child", 0), composition("other", "child", 1)],
+    };
+
+    expect(() => aggregateStatus(g)).toThrowError(
+      "Duplicate composition parent for child child: root and other",
+    );
+  });
+
+  it("throws on composition cycles with the cycle path", () => {
+    const g: ProjectGraph = {
+      nodes: [node("a", "active"), node("b", "blocked"), node("c", "active")],
+      edges: [composition("a", "b", 0), composition("b", "c", 1), composition("c", "a", 2)],
+    };
+
+    expect(() => aggregateStatus(g)).toThrowError("Composition cycle detected: a -> b -> c -> a");
+  });
 });

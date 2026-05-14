@@ -5,8 +5,10 @@ export type ProjectGraph = {
   edges: EdgeResponse[];
 };
 
+export type AggregateWorstStatus = Exclude<NodeResponse["status"], "archived">;
+
 export type AggregatedStatus = {
-  worst: NodeResponse["status"] | null;
+  worst: AggregateWorstStatus | null;
   counts: {
     blocked: number;
     active: number;
