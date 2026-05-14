@@ -456,6 +456,13 @@ describe('GraphService', () => {
       const edges = [{ id: 'e1', projectId: 'p1', fromId: 'n1', toId: 'n2', type: EdgeType.composition, createdBy: CreatedBy.human, createdAt: new Date() }]
       mockRepo.listProjectEdges.mockResolvedValue(edges)
       await expect(service.listProjectEdges('p1')).resolves.toEqual(edges)
+      expect(mockProjectService.assertExists).toHaveBeenCalledWith('p1')
+    })
+
+    it('throws when project does not exist', async () => {
+      mockProjectService.assertExists.mockRejectedValue(new NotFoundDomainException('PROJECT_NOT_FOUND', 'Project not found'))
+      await expect(service.listProjectEdges('missing')).rejects.toThrow(NotFoundDomainException)
+      expect(mockRepo.listProjectEdges).not.toHaveBeenCalled()
     })
   })
 

@@ -175,6 +175,7 @@ export class GraphService {
   }
 
   async listProjectEdges(projectId: string): Promise<Edge[]> {
+    await this.projectService.assertExists(projectId)
     return this.repo.listProjectEdges(projectId)
   }
 

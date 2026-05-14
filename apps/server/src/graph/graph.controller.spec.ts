@@ -112,9 +112,10 @@ describe('GraphController', () => {
 
   it('createEdge delegates to graphService', async () => {
     const body = { fromId: 'a', toId: 'b', type: EdgeType.composition, createdBy: CreatedBy.human }
-    mockGraphService.createEdge.mockResolvedValue({ id: 'e1', ...body, projectId: 'p1' })
-    await controller.createEdge('p1', body)
+    mockGraphService.createEdge.mockResolvedValue(makeEdge({ ...body, projectId: 'p1' }))
+    const result = await controller.createEdge({ projectId: 'p1' }, body)
     expect(mockGraphService.createEdge).toHaveBeenCalledWith({ projectId: 'p1', ...body })
+    expect(result).toEqual(expect.objectContaining({ id: 'e1', createdAt: now.toISOString() }))
   })
 
   it('listNodes delegates to graphService.listProjectNodes', async () => {
@@ -137,16 +138,16 @@ describe('GraphController', () => {
   })
 
   it('listEdges delegates to graphService.listProjectEdges', async () => {
-    const edges = [{ id: 'e1', projectId: 'p1' }]
+    const edges = [makeEdge()]
     mockGraphService.listProjectEdges.mockResolvedValue(edges)
-    const result = await controller.listEdges('p1')
+    const result = await controller.listEdges({ id: 'p1' })
     expect(mockGraphService.listProjectEdges).toHaveBeenCalledWith('p1')
-    expect(result).toEqual(edges)
+    expect(result).toEqual([expect.objectContaining({ id: 'e1', createdAt: now.toISOString() })])
   })
 
   it('deleteEdge delegates to graphService.deleteEdge', async () => {
     mockGraphService.deleteEdge.mockResolvedValue(undefined)
-    await controller.deleteEdge('e1')
+    await controller.deleteEdge({ id: 'e1' })
     expect(mockGraphService.deleteEdge).toHaveBeenCalledWith('e1')
   })
 
