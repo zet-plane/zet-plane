@@ -1,5 +1,5 @@
 import { Catch, ExceptionFilter, ArgumentsHost, HttpException, Logger } from '@nestjs/common'
-import { ZodValidationException } from 'nestjs-zod'
+import { ZodSerializationException, ZodValidationException } from 'nestjs-zod'
 import { ZodError } from 'zod'
 
 import { DomainException } from './domain-exception'
@@ -29,12 +29,24 @@ export class DomainExceptionFilter implements ExceptionFilter {
       })
     }
 
+    if (exception instanceof ZodSerializationException) {
+      const zodError = exception.getZodError()
+      const message = zodError instanceof Error ? zodError.message : String(zodError)
+      this.logger.error(`Response serialization failed: ${message}`)
+      return res.status(500).send({
+        code: 'INTERNAL_ERROR',
+        message: 'Internal server error',
+      })
+    }
+
     if (exception instanceof HttpException) {
       const status = exception.getStatus()
       const resp = exception.getResponse()
+      const message = getHttpExceptionMessage(resp, exception.message)
       return res.status(status).send({
         code: 'HTTP_ERROR',
-        message: typeof resp === 'string' ? resp : ((resp as any).message ?? exception.message),
+        message,
+        details: typeof resp === 'object' ? resp : undefined,
       })
     }
 
@@ -44,4 +56,14 @@ export class DomainExceptionFilter implements ExceptionFilter {
       message: 'Internal server error',
     })
   }
+}
+
+function getHttpExceptionMessage(response: string | object, fallback: string): string {
+  if (typeof response === 'string') return response
+
+  const message = (response as { message?: unknown }).message
+  if (typeof message === 'string') return message
+  if (Array.isArray(message)) return message.join('; ')
+
+  return fallback
 }
