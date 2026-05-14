@@ -163,7 +163,10 @@ export const updateNodeEndpoint = {
   request: UpdateNodeRequest,
   response: NodeResponse,
   errors: {
-    400: makeErrorResponse(z.literal("HTTP_ERROR")),
+    400: z.union([
+      ValidationErrorResponse,
+      makeErrorResponse(z.literal("HTTP_ERROR")),
+    ]),
     404: makeErrorResponse(z.literal("HTTP_ERROR")),
     409: makeErrorResponse(z.literal("HTTP_ERROR")),
   },
