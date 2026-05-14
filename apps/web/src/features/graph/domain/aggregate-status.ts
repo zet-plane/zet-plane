@@ -15,11 +15,16 @@ function isAggregateWorstStatus(status: string): status is AggregateWorstStatus 
 }
 
 function createChildrenMap(graph: ProjectGraph): Map<string, string[]> {
+  const nodeIds = new Set(graph.nodes.map((node) => node.id));
   const parentByChild = new Map<string, string>();
   const childrenOf = new Map<string, Set<string>>();
 
   for (const edge of graph.edges) {
     if (edge.type !== "composition") {
+      continue;
+    }
+
+    if (!nodeIds.has(edge.fromId) || !nodeIds.has(edge.toId)) {
       continue;
     }
 

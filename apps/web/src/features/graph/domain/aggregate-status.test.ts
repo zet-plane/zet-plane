@@ -128,6 +128,24 @@ describe("aggregateStatus", () => {
     });
   });
 
+  it("seals completed subtrees so descendants do not affect ancestors", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("completed", "completed"), node("blocked", "blocked")],
+      edges: [composition("root", "completed", 0), composition("completed", "blocked", 1)],
+    };
+
+    const result = aggregateStatus(g);
+
+    expect(result.get("root")).toEqual({
+      worst: "completed",
+      counts: { blocked: 0, active: 0, completed: 1, archived: 0 },
+    });
+    expect(result.get("completed")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
   it("worst ordering: blocked > active > completed", () => {
     const g: ProjectGraph = {
       nodes: [node("root", "active"), node("a", "completed"), node("b", "active")],
@@ -153,6 +171,30 @@ describe("aggregateStatus", () => {
     const g: ProjectGraph = {
       nodes: [node("root", "active")],
       edges: [composition("root", "missing", 0)],
+    };
+
+    expect(aggregateStatus(g).get("root")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
+  it("ignores duplicate parents targeting a missing child", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("other", "active")],
+      edges: [composition("root", "missing", 0), composition("other", "missing", 1)],
+    };
+
+    expect(aggregateStatus(g).get("root")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
+  });
+
+  it("ignores cycles among missing composition ids", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active")],
+      edges: [composition("missing-a", "missing-b", 0), composition("missing-b", "missing-a", 1)],
     };
 
     expect(aggregateStatus(g).get("root")).toEqual({
