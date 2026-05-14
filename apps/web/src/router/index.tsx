@@ -2,9 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ReactFlow, type Node, type Edge } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useState } from "react";
-import { graphSearchSchema } from "@/lib/schemas/graph-search";
+import { z } from "zod";
 import { useEndpointMutation } from "@/lib/use-endpoint";
 import { createNodeEndpoint } from "@zet-plane/contracts";
+
+const demoRouteSearchSchema = z
+  .object({
+    projectId: z.string().optional(),
+  })
+  .strip();
 
 const initialNodes: Node[] = [
   { id: "1", position: { x: 100, y: 100 }, data: { label: "Project Root" } },
@@ -88,6 +94,6 @@ function GraphPage() {
 }
 
 export const Route = createFileRoute("/")({
-  validateSearch: (raw) => graphSearchSchema.parse(raw),
+  validateSearch: (raw) => demoRouteSearchSchema.parse(raw),
   component: GraphPage,
 });

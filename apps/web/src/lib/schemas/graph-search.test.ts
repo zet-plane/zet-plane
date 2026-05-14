@@ -19,4 +19,8 @@ describe("graphSearchSchema", () => {
   it("rejects non-string nodeId", () => {
     expect(() => graphSearchSchema.parse({ nodeId: 5 })).toThrow();
   });
+
+  it("rejects an empty nodeId", () => {
+    expect(() => graphSearchSchema.parse({ nodeId: "" })).toThrow();
+  });
 });
