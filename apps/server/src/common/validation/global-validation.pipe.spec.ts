@@ -1,23 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { IsString, MinLength } from 'class-validator'
 import { createZodDto, ZodValidationException } from 'nestjs-zod'
 import { z } from 'zod'
 import { GlobalValidationPipe } from './global-validation.pipe'
 
-class LegacyDto {
-  @IsString()
-  @MinLength(1)
-  name!: string
-}
-
 class ZodDto extends createZodDto(z.object({ title: z.string().min(1) })) {}
 
 describe('GlobalValidationPipe', () => {
-  it('validates legacy class-validator DTOs', async () => {
+  it('passes through non-Zod DTOs and primitive params', () => {
     const pipe = new GlobalValidationPipe()
 
-    await expect(pipe.transform({ name: 'P' }, { type: 'body', metatype: LegacyDto })).resolves.toEqual({ name: 'P' })
-    await expect(pipe.transform({ name: '' }, { type: 'body', metatype: LegacyDto })).rejects.toThrow()
+    expect(pipe.transform({ name: '' }, { type: 'body', metatype: class LegacyDto {} })).toEqual({ name: '' })
+    expect(pipe.transform('abc', { type: 'param', metatype: String })).toBe('abc')
   })
 
   it('validates nestjs-zod DTOs', () => {
