@@ -2,21 +2,68 @@ import { Controller, Post, Patch, Get, Delete, Param, Body, BadRequestException,
 import { ApiTags, ApiOperation, ApiParam, ApiBody, ApiResponse } from '@nestjs/swagger'
 import { createZodDto, ZodResponse } from 'nestjs-zod'
 import { NodeType, CreatedBy } from '@generated/client'
-import { createNodeEndpoint, NodeResponse } from '@zet-plane/contracts'
-import { GraphService } from './graph.service'
+import type { Edge, Node } from '@generated/client'
 import {
-  UpdateNodeDto,
-  ResolveCheckpointDto,
-  DeleteNodeDto,
-  NodeEntity,
-  SubgraphEntity,
-  DeleteNodeResultEntity,
-} from './dto/node.dto'
-import { CreateEdgeDto, ReplaceEdgesDto, EdgeEntity } from './dto/edge.dto'
+  createNodeEndpoint,
+  deleteNodeEndpoint,
+  getNodeSubgraphEndpoint,
+  listNodesEndpoint,
+  replaceNodeEdgesEndpoint,
+  resolveCheckpointEndpoint,
+  updateNodeEndpoint,
+  type DeleteNodeResponse,
+  type EdgeResponse,
+  type NodeResponse,
+  type SubgraphResponse,
+} from '@zet-plane/contracts'
+import { GraphService } from './graph.service'
+import { CreateEdgeDto, EdgeEntity } from './dto/edge.dto'
 
 class CreateNodeDto extends createZodDto(createNodeEndpoint.request) {}
 class CreateNodeParamsDto extends createZodDto(createNodeEndpoint.params) {}
 class CreateNodeResponseDto extends createZodDto(createNodeEndpoint.response) {}
+class ListNodesParamsDto extends createZodDto(listNodesEndpoint.params) {}
+class ListNodesResponseDto extends createZodDto(listNodesEndpoint.response) {}
+class NodeParamsDto extends createZodDto(updateNodeEndpoint.params) {}
+class SubgraphResponseDto extends createZodDto(getNodeSubgraphEndpoint.response) {}
+class UpdateNodeDto extends createZodDto(updateNodeEndpoint.request) {}
+class UpdateNodeResponseDto extends createZodDto(updateNodeEndpoint.response) {}
+class ResolveCheckpointDto extends createZodDto(resolveCheckpointEndpoint.request) {}
+class ResolveCheckpointResponseDto extends createZodDto(resolveCheckpointEndpoint.response) {}
+class DeleteNodeDto extends createZodDto(deleteNodeEndpoint.request) {}
+class DeleteNodeResponseDto extends createZodDto(deleteNodeEndpoint.response) {}
+class ReplaceNodeEdgesDto extends createZodDto(replaceNodeEdgesEndpoint.request) {}
+class ReplaceNodeEdgesResponseDto extends createZodDto(replaceNodeEdgesEndpoint.response) {}
+
+function toNodeResponse(node: Node): NodeResponse {
+  return {
+    id: node.id,
+    projectId: node.projectId,
+    isProjectRoot: node.isProjectRoot,
+    role: node.role,
+    type: node.type,
+    title: node.title,
+    description: node.description,
+    status: node.status,
+    isCheckpoint: node.isCheckpoint,
+    checkpointResolution: node.checkpointResolution,
+    createdBy: node.createdBy,
+    createdAt: node.createdAt.toISOString(),
+    updatedAt: node.updatedAt.toISOString(),
+  }
+}
+
+function toEdgeResponse(edge: Edge): EdgeResponse {
+  return {
+    id: edge.id,
+    projectId: edge.projectId,
+    fromId: edge.fromId,
+    toId: edge.toId,
+    type: edge.type,
+    createdBy: edge.createdBy,
+    createdAt: edge.createdAt.toISOString(),
+  }
+}
 
 @ApiTags('graph')
 @Controller()
@@ -41,83 +88,82 @@ export class GraphController {
       type: NodeType.scaffold,
       createdBy: CreatedBy.human,
     })
-    return {
-      id: node.id,
-      projectId: node.projectId,
-      title: node.title,
-      status: node.status as NodeResponse['status'],
-      description: node.description,
-      isProjectRoot: node.isProjectRoot,
-      createdAt: node.createdAt.toISOString(),
-      updatedAt: node.updatedAt.toISOString(),
-    }
+    return toNodeResponse(node)
   }
 
   @Get('projects/:id/nodes')
   @ApiOperation({ summary: 'List all nodes in a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
-  @ApiResponse({ status: 200, type: [NodeEntity] })
-  listNodes(@Param('id') projectId: string) {
-    return this.graphService.listProjectNodes(projectId)
+  @ZodResponse({ status: 200, type: ListNodesResponseDto })
+  async listNodes(@Param() params: ListNodesParamsDto): Promise<NodeResponse[]> {
+    const nodes = await this.graphService.listProjectNodes(params.id)
+    return nodes.map(toNodeResponse)
   }
 
   @Get('nodes/:id/subgraph')
   @ApiOperation({ summary: 'Get a node subgraph (all descendants and their edges)' })
   @ApiParam({ name: 'id', description: 'Node ID' })
-  @ApiResponse({ status: 200, type: SubgraphEntity })
+  @ZodResponse({ status: 200, type: SubgraphResponseDto })
   @ApiResponse({ status: 404, description: 'Node not found' })
-  getSubgraph(@Param('id') nodeId: string) {
-    return this.graphService.getSubgraph(nodeId)
+  async getSubgraph(@Param() params: NodeParamsDto): Promise<SubgraphResponse> {
+    const subgraph = await this.graphService.getSubgraph(params.id)
+    return {
+      nodes: subgraph.nodes.map(toNodeResponse),
+      edges: subgraph.edges.map(toEdgeResponse),
+    }
   }
 
   @Patch('nodes/:id')
   @ApiOperation({ summary: 'Update node fields or transition status (mutually exclusive)' })
   @ApiParam({ name: 'id', description: 'Node ID' })
   @ApiBody({ type: UpdateNodeDto })
-  @ApiResponse({ status: 200, type: NodeEntity })
+  @ZodResponse({ status: 200, type: UpdateNodeResponseDto })
   @ApiResponse({ status: 400, description: 'Cannot mix status with field updates in a single request' })
   @ApiResponse({ status: 404, description: 'Node not found' })
   @ApiResponse({ status: 409, description: 'Invalid status transition or node archived' })
   async updateNode(
-    @Param('id') nodeId: string,
+    @Param() params: NodeParamsDto,
     @Body() body: UpdateNodeDto,
-  ) {
+  ): Promise<NodeResponse> {
     const { status, ...rest } = body
     if (status !== undefined) {
       if (Object.keys(rest).some(k => rest[k as keyof typeof rest] !== undefined)) {
         throw new BadRequestException('Cannot mix status update with field updates in a single request')
       }
-      return this.graphService.updateStatus(nodeId, status)
+      const node = await this.graphService.updateStatus(params.id, status)
+      return toNodeResponse(node)
     }
-    return this.graphService.updateNode(nodeId, rest)
+    const node = await this.graphService.updateNode(params.id, rest)
+    return toNodeResponse(node)
   }
 
   @Patch('nodes/:id/resolution')
   @ApiOperation({ summary: 'Resolve a blocked checkpoint node' })
   @ApiParam({ name: 'id', description: 'Node ID' })
   @ApiBody({ type: ResolveCheckpointDto })
-  @ApiResponse({ status: 200, type: NodeEntity })
+  @ZodResponse({ status: 200, type: ResolveCheckpointResponseDto })
   @ApiResponse({ status: 404, description: 'Node not found' })
   @ApiResponse({ status: 409, description: 'Node is not a blocked checkpoint' })
-  resolveCheckpoint(
-    @Param('id') nodeId: string,
+  async resolveCheckpoint(
+    @Param() params: NodeParamsDto,
     @Body() body: ResolveCheckpointDto,
-  ) {
-    return this.graphService.resolveCheckpoint(nodeId, body.resolution)
+  ): Promise<NodeResponse> {
+    const node = await this.graphService.resolveCheckpoint(params.id, body.resolution)
+    return toNodeResponse(node)
   }
 
   @Delete('nodes/:id')
   @ApiOperation({ summary: 'Delete a node with configurable child-handling strategy' })
   @ApiParam({ name: 'id', description: 'Node ID' })
   @ApiBody({ type: DeleteNodeDto, required: false })
-  @ApiResponse({ status: 200, type: DeleteNodeResultEntity })
+  @ZodResponse({ status: 200, type: DeleteNodeResponseDto })
   @ApiResponse({ status: 404, description: 'Node not found' })
   @ApiResponse({ status: 409, description: 'Cannot delete project root, or child nodes are blocked' })
-  deleteNode(
-    @Param('id') nodeId: string,
+  async deleteNode(
+    @Param() params: NodeParamsDto,
     @Body() body?: DeleteNodeDto,
-  ) {
-    return this.graphService.deleteNode(nodeId, body?.strategy)
+  ): Promise<DeleteNodeResponse> {
+    return this.graphService.deleteNode(params.id, body?.strategy)
   }
 
   // ── Edges ─────────────────────────────────────────────────────────────
@@ -157,14 +203,15 @@ export class GraphController {
   @Patch('nodes/:id/edges')
   @ApiOperation({ summary: "Replace a node's incoming edge of a given type" })
   @ApiParam({ name: 'id', description: 'Node ID' })
-  @ApiBody({ type: ReplaceEdgesDto })
-  @ApiResponse({ status: 200, type: EdgeEntity })
+  @ApiBody({ type: ReplaceNodeEdgesDto })
+  @ZodResponse({ status: 200, type: ReplaceNodeEdgesResponseDto })
   @ApiResponse({ status: 404, description: 'Node not found' })
   @ApiResponse({ status: 409, description: 'Replacement would introduce a cycle' })
-  replaceEdges(
-    @Param('id') nodeId: string,
-    @Body() body: ReplaceEdgesDto,
-  ) {
-    return this.graphService.replaceNodeEdges(nodeId, body.type, body.newFromId, body.projectId, body.createdBy)
+  async replaceEdges(
+    @Param() params: NodeParamsDto,
+    @Body() body: ReplaceNodeEdgesDto,
+  ): Promise<EdgeResponse> {
+    const edge = await this.graphService.replaceNodeEdges(params.id, body.type, body.newFromId, body.projectId, body.createdBy)
+    return toEdgeResponse(edge)
   }
 }
