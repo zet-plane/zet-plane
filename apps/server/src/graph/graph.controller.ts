@@ -16,8 +16,12 @@ import {
   type NodeResponse,
   type SubgraphResponse,
 } from '@zet-plane/contracts'
+import {
+  createEdgeEndpoint,
+  deleteEdgeEndpoint,
+  listEdgesEndpoint,
+} from '@zet-plane/contracts'
 import { GraphService } from './graph.service'
-import { CreateEdgeDto, EdgeEntity } from './dto/edge.dto'
 
 class CreateNodeDto extends createZodDto(createNodeEndpoint.request) {}
 class CreateNodeParamsDto extends createZodDto(createNodeEndpoint.params) {}
@@ -34,6 +38,12 @@ class DeleteNodeDto extends createZodDto(deleteNodeEndpoint.request) {}
 class DeleteNodeResponseDto extends createZodDto(deleteNodeEndpoint.response) {}
 class ReplaceNodeEdgesDto extends createZodDto(replaceNodeEdgesEndpoint.request) {}
 class ReplaceNodeEdgesResponseDto extends createZodDto(replaceNodeEdgesEndpoint.response) {}
+class CreateEdgeDto extends createZodDto(createEdgeEndpoint.request) {}
+class CreateEdgeParamsDto extends createZodDto(createEdgeEndpoint.params) {}
+class CreateEdgeResponseDto extends createZodDto(createEdgeEndpoint.response) {}
+class ListEdgesParamsDto extends createZodDto(listEdgesEndpoint.params) {}
+class ListEdgesResponseDto extends createZodDto(listEdgesEndpoint.response) {}
+class DeleteEdgeParamsDto extends createZodDto(deleteEdgeEndpoint.params) {}
 
 function toNodeResponse(node: Node): NodeResponse {
   return {
@@ -171,23 +181,24 @@ export class GraphController {
   @Post('projects/:projectId/edges')
   @ApiOperation({ summary: 'Create an edge between two nodes' })
   @ApiParam({ name: 'projectId', description: 'Project ID' })
-  @ApiBody({ type: CreateEdgeDto })
-  @ApiResponse({ status: 201, type: EdgeEntity })
+  @ZodResponse({ status: 201, type: CreateEdgeResponseDto })
   @ApiResponse({ status: 404, description: 'Source or target node not found' })
   @ApiResponse({ status: 409, description: 'Edge already exists or would introduce a cycle' })
-  createEdge(
-    @Param('projectId') projectId: string,
+  async createEdge(
+    @Param() params: CreateEdgeParamsDto,
     @Body() body: CreateEdgeDto,
-  ) {
-    return this.graphService.createEdge({ projectId, ...body })
+  ): Promise<EdgeResponse> {
+    const edge = await this.graphService.createEdge({ projectId: params.projectId, ...body })
+    return toEdgeResponse(edge)
   }
 
   @Get('projects/:id/edges')
   @ApiOperation({ summary: 'List all edges in a project' })
   @ApiParam({ name: 'id', description: 'Project ID' })
-  @ApiResponse({ status: 200, type: [EdgeEntity] })
-  listEdges(@Param('id') projectId: string) {
-    return this.graphService.listProjectEdges(projectId)
+  @ZodResponse({ status: 200, type: ListEdgesResponseDto })
+  async listEdges(@Param() params: ListEdgesParamsDto): Promise<EdgeResponse[]> {
+    const edges = await this.graphService.listProjectEdges(params.id)
+    return edges.map(toEdgeResponse)
   }
 
   @Delete('edges/:id')
@@ -196,8 +207,8 @@ export class GraphController {
   @ApiResponse({ status: 204, description: 'Edge deleted' })
   @ApiResponse({ status: 404, description: 'Edge not found' })
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteEdge(@Param('id') edgeId: string) {
-    return this.graphService.deleteEdge(edgeId)
+  deleteEdge(@Param() params: DeleteEdgeParamsDto) {
+    return this.graphService.deleteEdge(params.id)
   }
 
   @Patch('nodes/:id/edges')
