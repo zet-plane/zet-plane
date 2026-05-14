@@ -319,6 +319,13 @@ describe('GraphService', () => {
       const nodes = [makeNode({ id: 'n2' }), makeNode({ id: 'n3' })]
       mockRepo.listProjectNodes.mockResolvedValue(nodes)
       await expect(service.listProjectNodes('p1')).resolves.toEqual(nodes)
+      expect(mockProjectService.assertExists).toHaveBeenCalledWith('p1')
+    })
+
+    it('throws when project does not exist', async () => {
+      mockProjectService.assertExists.mockRejectedValue(new NotFoundDomainException('PROJECT_NOT_FOUND', 'Project not found'))
+      await expect(service.listProjectNodes('missing')).rejects.toThrow(NotFoundDomainException)
+      expect(mockRepo.listProjectNodes).not.toHaveBeenCalled()
     })
   })
 

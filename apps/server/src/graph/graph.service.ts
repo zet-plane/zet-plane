@@ -55,6 +55,7 @@ export class GraphService {
   }
 
   async listProjectNodes(projectId: string): Promise<Node[]> {
+    await this.projectService.assertExists(projectId)
     return this.repo.listProjectNodes(projectId)
   }
 

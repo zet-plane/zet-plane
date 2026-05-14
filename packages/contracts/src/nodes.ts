@@ -144,7 +144,7 @@ export const listNodesEndpoint = {
   params: z.object({ id: ProjectId }),
   response: z.array(NodeResponse),
   errors: {
-    404: makeErrorResponse(z.literal("HTTP_ERROR")),
+    404: makeErrorResponse(z.literal("PROJECT_NOT_FOUND")),
   },
 } as const;
 
