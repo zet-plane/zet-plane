@@ -5,6 +5,7 @@ export type EndpointDef = {
   method: string
   path: string
   params?: z.ZodType
+  query?: z.ZodType
   request?: z.ZodType
   response?: z.ZodType
   errors: Record<number, z.ZodType>
@@ -32,12 +33,14 @@ export async function apiCall<T extends EndpointDef>(
   endpoint: T,
   args: {
     params?: z.infer<NonNullable<T['params']>>
+    query?: z.infer<NonNullable<T['query']>>
     body?: z.infer<NonNullable<T['request']>>
   } = {},
 ): Promise<EndpointResponse<T>> {
   const baseUrl = (import.meta.env?.VITE_API_BASE_URL as string | undefined) ?? ''
   const path = baseUrl + endpoint.path.replace(/:(\w+)/g, (_, k) => String((args.params as Record<string, unknown>)?.[k]))
-  const res = await fetch(path, {
+  const url = appendQuery(path, args.query)
+  const res = await fetch(url, {
     method: endpoint.method,
     headers: { 'Content-Type': 'application/json' },
     body: args.body !== undefined ? JSON.stringify(args.body) : undefined,
@@ -49,6 +52,23 @@ export async function apiCall<T extends EndpointDef>(
   }
   if (!endpoint.response) return undefined as EndpointResponse<T>
   return endpoint.response.parse(json) as EndpointResponse<T>
+}
+
+function appendQuery(path: string, query: unknown): string {
+  if (query === undefined) return path
+
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query as Record<string, unknown>)) {
+    if (value === undefined) continue
+    if (Array.isArray(value)) {
+      for (const item of value) params.append(key, String(item))
+      continue
+    }
+    params.set(key, String(value))
+  }
+
+  const serialized = params.toString()
+  return serialized.length > 0 ? `${path}?${serialized}` : path
 }
 
 async function readJsonBody(res: Response): Promise<unknown> {

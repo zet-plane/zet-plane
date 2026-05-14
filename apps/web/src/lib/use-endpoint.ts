@@ -12,7 +12,7 @@ export function useEndpointQuery<T extends EndpointDef>(
   args: Parameters<typeof apiCall<T>>[1],
 ) {
   return useQuery({
-    queryKey: [endpoint.path, args?.params, args?.body],
+    queryKey: [endpoint.path, args?.params, args?.query, args?.body],
     queryFn: () => apiCall(endpoint, args),
   })
 }

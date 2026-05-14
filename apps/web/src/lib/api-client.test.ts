@@ -49,6 +49,36 @@ describe('apiCall', () => {
     await expect(apiCall(endpoint, { params: { id: 'project-1' } })).resolves.toBeUndefined()
   })
 
+  it('serializes query parameters', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const endpoint = {
+      method: 'GET',
+      path: '/projects/:id/entries',
+      params: z.object({ id: z.string() }),
+      query: z.object({
+        category: z.string().optional(),
+        tags: z.array(z.string()).optional(),
+      }),
+      response: z.array(z.unknown()),
+      errors: {},
+    } satisfies EndpointDef
+
+    await apiCall(endpoint, {
+      params: { id: 'project-1' },
+      query: { category: 'decision', tags: ['a', 'b'] },
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/projects/project-1/entries?category=decision&tags=a&tags=b',
+      expect.any(Object),
+    )
+  })
+
   it('parses declared error envelopes', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ code: 'EDGE_NOT_FOUND', message: 'Edge not found' }), {
