@@ -8,6 +8,33 @@ import { NodeType, CreatedBy, NodeStatus, EdgeType } from '@generated/client'
 describe('GraphController', () => {
   let controller: GraphController
   let mockGraphService: any
+  const now = new Date('2026-01-01T00:00:00.000Z')
+  const makeNode = (overrides: Record<string, unknown> = {}) => ({
+    id: 'n1',
+    projectId: 'p1',
+    title: 'Task A',
+    status: NodeStatus.active,
+    description: null,
+    isProjectRoot: false,
+    createdAt: now,
+    updatedAt: now,
+    type: NodeType.scaffold,
+    createdBy: CreatedBy.human,
+    isCheckpoint: false,
+    checkpointResolution: null,
+    role: 'regular',
+    ...overrides,
+  })
+  const makeEdge = (overrides: Record<string, unknown> = {}) => ({
+    id: 'e1',
+    projectId: 'p1',
+    fromId: 'a',
+    toId: 'b',
+    type: EdgeType.composition,
+    createdBy: CreatedBy.human,
+    createdAt: now,
+    ...overrides,
+  })
 
   beforeEach(() => {
     mockGraphService = {
@@ -27,13 +54,7 @@ describe('GraphController', () => {
   })
 
   it('createNode maps contracts request to service and returns NodeResponse shape', async () => {
-    const now = new Date('2026-01-01T00:00:00.000Z')
-    const node = {
-      id: 'n1', projectId: 'p1', title: 'Task A', status: NodeStatus.active,
-      description: null, isProjectRoot: false, createdAt: now, updatedAt: now,
-      type: NodeType.scaffold, createdBy: CreatedBy.human, isCheckpoint: false,
-      checkpointResolution: null, role: 'regular',
-    }
+    const node = makeNode()
     mockGraphService.createNode.mockResolvedValue(node)
     const params = { id: 'p1' }
     const body = { title: 'Task A' }
@@ -59,33 +80,33 @@ describe('GraphController', () => {
 
   it('updateNode calls graphService.updateNode for non-status fields', async () => {
     const body = { title: 'New Title' }
-    mockGraphService.updateNode.mockResolvedValue({ id: 'n1', title: 'New Title' })
-    await controller.updateNode('n1', body)
+    mockGraphService.updateNode.mockResolvedValue(makeNode({ title: 'New Title' }))
+    await controller.updateNode({ id: 'n1' }, body)
     expect(mockGraphService.updateNode).toHaveBeenCalledWith('n1', body)
   })
 
   it('updateNode calls graphService.updateStatus when status is in body', async () => {
     const body = { status: NodeStatus.completed }
-    mockGraphService.updateStatus.mockResolvedValue({ id: 'n1', status: NodeStatus.completed })
-    await controller.updateNode('n1', body)
+    mockGraphService.updateStatus.mockResolvedValue(makeNode({ status: NodeStatus.completed }))
+    await controller.updateNode({ id: 'n1' }, body)
     expect(mockGraphService.updateStatus).toHaveBeenCalledWith('n1', NodeStatus.completed)
   })
 
   it('resolveCheckpoint delegates to graphService', async () => {
-    mockGraphService.resolveCheckpoint.mockResolvedValue({ id: 'n1' })
-    await controller.resolveCheckpoint('n1', { resolution: 'continue' })
+    mockGraphService.resolveCheckpoint.mockResolvedValue(makeNode())
+    await controller.resolveCheckpoint({ id: 'n1' }, { resolution: 'continue' })
     expect(mockGraphService.resolveCheckpoint).toHaveBeenCalledWith('n1', 'continue')
   })
 
   it('deleteNode passes strategy from body', async () => {
     mockGraphService.deleteNode.mockResolvedValue({ affectedNodeIds: [] })
-    await controller.deleteNode('n1', { strategy: 'cascade' })
+    await controller.deleteNode({ id: 'n1' }, { strategy: 'cascade' })
     expect(mockGraphService.deleteNode).toHaveBeenCalledWith('n1', 'cascade')
   })
 
   it('deleteNode uses default strategy when body is absent', async () => {
     mockGraphService.deleteNode.mockResolvedValue({ affectedNodeIds: [] })
-    await controller.deleteNode('n1', undefined)
+    await controller.deleteNode({ id: 'n1' }, undefined)
     expect(mockGraphService.deleteNode).toHaveBeenCalledWith('n1', undefined)
   })
 
@@ -97,19 +118,22 @@ describe('GraphController', () => {
   })
 
   it('listNodes delegates to graphService.listProjectNodes', async () => {
-    const nodes = [{ id: 'n1', projectId: 'p1' }]
+    const nodes = [makeNode()]
     mockGraphService.listProjectNodes.mockResolvedValue(nodes)
-    const result = await controller.listNodes('p1')
+    const result = await controller.listNodes({ id: 'p1' })
     expect(mockGraphService.listProjectNodes).toHaveBeenCalledWith('p1')
-    expect(result).toEqual(nodes)
+    expect(result).toEqual([expect.objectContaining({ id: 'n1', createdAt: now.toISOString() })])
   })
 
   it('getSubgraph delegates to graphService.getSubgraph', async () => {
-    const subgraph = { nodes: [{ id: 'n1' }], edges: [] }
+    const subgraph = { nodes: [makeNode()], edges: [] }
     mockGraphService.getSubgraph.mockResolvedValue(subgraph)
-    const result = await controller.getSubgraph('n1')
+    const result = await controller.getSubgraph({ id: 'n1' })
     expect(mockGraphService.getSubgraph).toHaveBeenCalledWith('n1')
-    expect(result).toEqual(subgraph)
+    expect(result).toEqual({
+      nodes: [expect.objectContaining({ id: 'n1', createdAt: now.toISOString() })],
+      edges: [],
+    })
   })
 
   it('listEdges delegates to graphService.listProjectEdges', async () => {
@@ -134,10 +158,10 @@ describe('GraphController', () => {
 
   it('replaceEdges delegates with all body fields', async () => {
     const body = { type: EdgeType.composition, newFromId: 'newParent', projectId: 'p1', createdBy: CreatedBy.human }
-    const edge = { id: 'e2', projectId: 'p1', fromId: 'newParent', toId: 'n1', type: EdgeType.composition }
+    const edge = makeEdge({ id: 'e2', projectId: 'p1', fromId: 'newParent', toId: 'n1', type: EdgeType.composition })
     mockGraphService.replaceNodeEdges.mockResolvedValue(edge)
-    const result = await controller.replaceEdges('n1', body)
+    const result = await controller.replaceEdges({ id: 'n1' }, body)
     expect(mockGraphService.replaceNodeEdges).toHaveBeenCalledWith('n1', EdgeType.composition, 'newParent', 'p1', CreatedBy.human)
-    expect(result).toEqual(edge)
+    expect(result).toEqual(expect.objectContaining({ id: 'e2', createdAt: now.toISOString() }))
   })
 })

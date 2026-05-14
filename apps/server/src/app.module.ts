@@ -1,5 +1,6 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common'
-import { APP_FILTER, APP_PIPE } from '@nestjs/core'
+import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core'
+import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { HttpLoggerMiddleware } from './common/http-logger.middleware'
 import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
@@ -28,6 +29,7 @@ import { GlobalValidationPipe } from './common/validation/global-validation.pipe
   ],
   providers: [
     { provide: APP_PIPE, useClass: GlobalValidationPipe },
+    { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
   ],
 })

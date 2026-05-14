@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { HttpException } from '@nestjs/common'
-import { ZodValidationException } from 'nestjs-zod'
+import { ConflictException, HttpException } from '@nestjs/common'
+import { ZodSerializationException, ZodValidationException } from 'nestjs-zod'
 import { z } from 'zod'
 import { DomainExceptionFilter } from './domain-exception.filter'
 import { DomainException } from './domain-exception'
@@ -44,6 +44,24 @@ describe('DomainExceptionFilter', () => {
     filter.catch(new HttpException('Not found', 404), host)
     expect(host.switchToHttp().getResponse().status).toHaveBeenCalledWith(404)
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ code: 'HTTP_ERROR' }))
+  })
+
+  it('preserves object HttpException responses as details with a string message', () => {
+    const host = makeHost(send)
+    filter.catch(new ConflictException({ error: 'HAS_ACTIVE_CHILDREN', affectedNodes: ['n1'] }), host)
+    expect(host.switchToHttp().getResponse().status).toHaveBeenCalledWith(409)
+    expect(send).toHaveBeenCalledWith({
+      code: 'HTTP_ERROR',
+      message: 'Conflict Exception',
+      details: { error: 'HAS_ACTIVE_CHILDREN', affectedNodes: ['n1'] },
+    })
+  })
+
+  it('handles ZodSerializationException without leaking response details', () => {
+    const host = makeHost(send)
+    filter.catch(new ZodSerializationException(new z.ZodError([])), host)
+    expect(host.switchToHttp().getResponse().status).toHaveBeenCalledWith(500)
+    expect(send).toHaveBeenCalledWith({ code: 'INTERNAL_ERROR', message: 'Internal server error' })
   })
 
   it('handles unknown exception with 500 + INTERNAL_ERROR', () => {

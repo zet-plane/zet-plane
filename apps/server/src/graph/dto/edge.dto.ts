@@ -15,20 +15,6 @@ export class CreateEdgeDto {
   createdBy!: CreatedBy
 }
 
-export class ReplaceEdgesDto {
-  @ApiProperty({ enum: EdgeType, enumName: 'EdgeType', description: 'Edge type to replace' })
-  type!: EdgeType
-
-  @ApiProperty({ description: 'New source node ID' })
-  newFromId!: string
-
-  @ApiProperty({ description: 'Project ID' })
-  projectId!: string
-
-  @ApiProperty({ enum: CreatedBy, enumName: 'CreatedBy' })
-  createdBy!: CreatedBy
-}
-
 export class EdgeEntity {
   @ApiProperty() id!: string
   @ApiProperty() projectId!: string
