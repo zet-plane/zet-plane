@@ -74,6 +74,19 @@ describe("buildParentMap", () => {
     expect(m.size).toBe(1);
   });
 
+  it("treats duplicate same-parent composition edges as idempotent", () => {
+    const m = buildParentMap({
+      nodes: [],
+      edges: mkEdges([
+        ["root", "child"],
+        ["root", "child"],
+      ]),
+    });
+
+    expect(m.get("child")).toBe("root");
+    expect(m.size).toBe(1);
+  });
+
   it("throws when a child has duplicate composition parents", () => {
     expect(() =>
       buildParentMap({

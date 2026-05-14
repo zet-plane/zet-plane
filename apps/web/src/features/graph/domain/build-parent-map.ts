@@ -11,7 +11,7 @@ export function buildParentMap(
     if (edge.type === "composition") {
       const existingParentId = map.get(edge.toId);
 
-      if (existingParentId !== undefined) {
+      if (existingParentId !== undefined && existingParentId !== edge.fromId) {
         throw new Error(
           `Duplicate composition parent for child ${edge.toId}: ${existingParentId} and ${edge.fromId}`,
         );

@@ -31,6 +31,16 @@ const composition = (from: string, to: string, i: number) => ({
   createdAt: "2026-05-14T00:00:00Z",
 });
 
+const dependency = (from: string, to: string, i: number) => ({
+  id: `d${i}`,
+  projectId: "p",
+  fromId: from,
+  toId: to,
+  type: "dependency" as const,
+  createdBy: "human" as const,
+  createdAt: "2026-05-14T00:00:00Z",
+});
+
 describe("aggregateStatus", () => {
   it("returns null worst and zero counts for a leaf node", () => {
     const g: ProjectGraph = { nodes: [node("n1", "active")], edges: [] };
@@ -107,6 +117,18 @@ describe("aggregateStatus", () => {
     };
 
     expect(aggregateStatus(g).get("root")?.worst).toBe("active");
+  });
+
+  it("ignores dependency edges for counts and worst", () => {
+    const g: ProjectGraph = {
+      nodes: [node("root", "active"), node("blocked", "blocked")],
+      edges: [dependency("root", "blocked", 0)],
+    };
+
+    expect(aggregateStatus(g).get("root")).toEqual({
+      worst: null,
+      counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
+    });
   });
 
   it("ignores dangling composition child ids", () => {
