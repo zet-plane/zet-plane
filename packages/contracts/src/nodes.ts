@@ -63,9 +63,11 @@ export const DeleteNodeStrategy = z.enum([
   "reparent-to-root",
 ]);
 
-export const DeleteNodeRequest = z.object({
-  strategy: DeleteNodeStrategy.optional(),
-});
+export const DeleteNodeRequest = z
+  .object({
+    strategy: DeleteNodeStrategy.optional(),
+  })
+  .default({});
 export type DeleteNodeRequest = z.infer<typeof DeleteNodeRequest>;
 
 export const ReplaceNodeEdgesRequest = z.object({
