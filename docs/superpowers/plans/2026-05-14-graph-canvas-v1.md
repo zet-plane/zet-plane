@@ -1895,7 +1895,7 @@ Custom xyflow node type. Receives the underlying `NodeResponse` via `data` plus 
 
 ```tsx
 // apps/web/src/features/graph/components/NodeCard.tsx
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Flag } from "lucide-react";
 import type { NodeResponse } from "@zet-plane/contracts";
 import { nodeStatusClass, nodeTypeClass } from "./status-classes";
@@ -1907,7 +1907,9 @@ export type NodeCardData = {
   dimmed: boolean;
 };
 
-export function NodeCard({ data }: NodeProps<NodeCardData>) {
+export type NodeCardNode = Node<NodeCardData>;
+
+export function NodeCard({ data }: NodeProps<NodeCardNode>) {
   const { node, knowledgeCount, selected, dimmed } = data;
   const classes = ["zp-node", nodeTypeClass(node.type), nodeStatusClass(node.status)];
   if (selected) classes.push("zp-selection-ring");
@@ -1956,7 +1958,7 @@ git commit -m "feat(web): NodeCard custom xyflow node with status, type, checkpo
 
 ```tsx
 // apps/web/src/features/graph/components/ContainerCard.tsx
-import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { Flag } from "lucide-react";
 import type { NodeResponse } from "@zet-plane/contracts";
 import type { AggregatedStatus } from "../domain/types";
@@ -1970,7 +1972,9 @@ export type ContainerCardData = {
   dimmed: boolean;
 };
 
-export function ContainerCard({ data }: NodeProps<ContainerCardData>) {
+export type ContainerCardNode = Node<ContainerCardData>;
+
+export function ContainerCard({ data }: NodeProps<ContainerCardNode>) {
   const { node, aggregation, selected, dimmed } = data;
   const classes = ["zp-container", nodeTypeClass(node.type), containerStatusClass(aggregation.worst, node.status)];
   if (selected) classes.push("zp-selection-ring");
@@ -2021,7 +2025,7 @@ git commit -m "feat(web): ContainerCard with aggregated status tint and count ba
 
 ```tsx
 // apps/web/src/features/graph/components/DependencyEdge.tsx
-import { BaseEdge, getBezierPath, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, getBezierPath, type EdgeProps, type Edge } from "@xyflow/react";
 import type { NodeResponse } from "@zet-plane/contracts";
 import { edgeStatusClass } from "./status-classes";
 
@@ -2030,7 +2034,9 @@ export type DependencyEdgeData = {
   dimmed: boolean;
 };
 
-export function DependencyEdge(props: EdgeProps<DependencyEdgeData>) {
+export type DependencyEdgeType = Edge<DependencyEdgeData>;
+
+export function DependencyEdge(props: EdgeProps<DependencyEdgeType>) {
   const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd } = props;
   const [path] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const classes = ["zp-edge", edgeStatusClass(data?.targetStatus ?? "active")];
