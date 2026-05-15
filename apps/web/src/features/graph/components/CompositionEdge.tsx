@@ -5,6 +5,8 @@ import {
 	getBezierPath,
 } from "@xyflow/react";
 
+const COMPOSITION_EDGE_OFFSET = 10;
+
 export type CompositionEdgeData = {
 	dimmed: boolean;
 };
@@ -23,9 +25,10 @@ export function CompositionEdge(props: EdgeProps<CompositionEdgeType>) {
 		markerEnd,
 	} = props;
 	const [path] = getBezierPath({
-		sourceX,
+		// Offset composition slightly so it stays visible beside dependencies.
+		sourceX: sourceX + COMPOSITION_EDGE_OFFSET,
 		sourceY,
-		targetX,
+		targetX: targetX + COMPOSITION_EDGE_OFFSET,
 		targetY,
 		sourcePosition,
 		targetPosition,
