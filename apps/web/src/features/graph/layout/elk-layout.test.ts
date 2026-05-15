@@ -37,6 +37,30 @@ describe("layoutGraph", () => {
 		expect(child!.position.y).toBeGreaterThanOrEqual(0);
 	});
 
+	it("sizes parent nodes to contain their children", async () => {
+		const input: LayoutInput = {
+			nodes: [
+				{ id: "parent", width: 120, height: 40, parentId: null },
+				{ id: "child-a", width: 100, height: 40, parentId: "parent" },
+				{ id: "child-b", width: 100, height: 40, parentId: "parent" },
+			],
+			edges: [{ id: "e1", fromId: "child-a", toId: "child-b" }],
+		};
+
+		const result = await layoutGraph(input);
+		const parent = result.nodes.find((node) => node.id === "parent");
+		const children = result.nodes.filter((node) => node.id.startsWith("child-"));
+
+		expect(parent).toBeDefined();
+		expect(children).toHaveLength(2);
+		for (const child of children) {
+			expect(child.position.x + child.width).toBeLessThanOrEqual(parent!.width);
+			expect(child.position.y + child.height).toBeLessThanOrEqual(
+				parent!.height,
+			);
+		}
+	});
+
 	it("preserves a real node with id root in the output", async () => {
 		const input: LayoutInput = {
 			nodes: [{ id: "root", width: 160, height: 64, parentId: null }],
