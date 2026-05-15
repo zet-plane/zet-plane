@@ -36,7 +36,7 @@ describe('S-3: Checkpoint Phase Judgment', () => {
       projectId,
       type: OrchestratorTaskType.checkpoint,
       sourceType: OrchestratorSourceType.graph_event,
-      sourceId: N1.id,
+      sourceId: `manual-s3-${Date.now()}`,
       input: { nodeId: N1.id, projectId, title: 'MVP 阶段' },
     })
 
