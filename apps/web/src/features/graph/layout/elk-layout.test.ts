@@ -20,7 +20,33 @@ describe("layoutGraph", () => {
 		expect(target!.position.y).toBeGreaterThan(source!.position.y);
 	});
 
-	it("keeps child positions non-negative inside a parent", async () => {
+	it("lays out composition descendants below their source without parent containers", async () => {
+		const input: LayoutInput = {
+			nodes: [
+				{ id: "root", width: 160, height: 64, parentId: null },
+				{ id: "event", width: 140, height: 52, parentId: null },
+				{ id: "branch", width: 140, height: 52, parentId: null },
+			],
+			edges: [
+				{ id: "c1", fromId: "root", toId: "event" },
+				{ id: "c2", fromId: "event", toId: "branch" },
+			],
+		};
+
+		const result = await layoutGraph(input);
+		const root = result.nodes.find((node) => node.id === "root");
+		const event = result.nodes.find((node) => node.id === "event");
+		const branch = result.nodes.find((node) => node.id === "branch");
+
+		expect(root).toBeDefined();
+		expect(event).toBeDefined();
+		expect(branch).toBeDefined();
+		expect(event!.position.y).toBeGreaterThan(root!.position.y);
+		expect(branch!.position.y).toBeGreaterThan(event!.position.y);
+		expect(root!.height).toBe(64);
+	});
+
+	it("keeps child positions non-negative when a parent is provided", async () => {
 		const input: LayoutInput = {
 			nodes: [
 				{ id: "parent", width: 240, height: 120, parentId: null },
@@ -35,30 +61,6 @@ describe("layoutGraph", () => {
 		expect(child).toBeDefined();
 		expect(child!.position.x).toBeGreaterThanOrEqual(0);
 		expect(child!.position.y).toBeGreaterThanOrEqual(0);
-	});
-
-	it("sizes parent nodes to contain their children", async () => {
-		const input: LayoutInput = {
-			nodes: [
-				{ id: "parent", width: 120, height: 40, parentId: null },
-				{ id: "child-a", width: 100, height: 40, parentId: "parent" },
-				{ id: "child-b", width: 100, height: 40, parentId: "parent" },
-			],
-			edges: [{ id: "e1", fromId: "child-a", toId: "child-b" }],
-		};
-
-		const result = await layoutGraph(input);
-		const parent = result.nodes.find((node) => node.id === "parent");
-		const children = result.nodes.filter((node) => node.id.startsWith("child-"));
-
-		expect(parent).toBeDefined();
-		expect(children).toHaveLength(2);
-		for (const child of children) {
-			expect(child.position.x + child.width).toBeLessThanOrEqual(parent!.width);
-			expect(child.position.y + child.height).toBeLessThanOrEqual(
-				parent!.height,
-			);
-		}
 	});
 
 	it("preserves a real node with id root in the output", async () => {
