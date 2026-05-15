@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { useGraphViewStore } from "@/stores/graph-view.store";
 import { aggregateStatus } from "../domain/aggregate-status";
+import { effectiveNodeStatus } from "../domain/effective-status";
 import type { ProjectGraph } from "../domain/types";
 import { useLayoutedGraph } from "../layout/use-layouted-graph";
 import { CompositionEdge } from "./CompositionEdge";
@@ -190,8 +191,9 @@ function CanvasInner({
 					zoomable
 					pannable
 					nodeColor={(n) => {
-						const d = n.data as { node?: { status?: string } } | undefined;
-						const s = d?.node?.status;
+						const d = n.data as NodeCardData | undefined;
+						if (!d?.node) return "var(--zp-status-active)";
+						const s = effectiveNodeStatus(d.node.status, d.aggregation);
 						if (s === "blocked") return "var(--zp-status-blocked)";
 						if (s === "completed") return "var(--zp-status-completed)";
 						if (s === "archived") return "var(--zp-status-archived)";

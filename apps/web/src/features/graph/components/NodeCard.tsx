@@ -1,6 +1,7 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import type { NodeResponse } from "@zet-plane/contracts";
 import { Flag } from "lucide-react";
+import { effectiveNodeStatus } from "../domain/effective-status";
 import type { AggregatedStatus } from "../domain/types";
 import { nodeStatusClass, nodeTypeClass } from "./status-classes";
 
@@ -16,10 +17,7 @@ export type NodeCardNode = Node<NodeCardData>;
 
 export function NodeCard({ data }: NodeProps<NodeCardNode>) {
 	const { node, aggregation, knowledgeCount, selected, dimmed } = data;
-	const displayStatus =
-		node.status === "completed" || node.status === "archived"
-			? node.status
-			: (aggregation?.worst ?? node.status);
+	const displayStatus = effectiveNodeStatus(node.status, aggregation);
 	const classes = [
 		"zp-node",
 		nodeTypeClass(node.type),

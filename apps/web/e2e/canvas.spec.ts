@@ -25,7 +25,7 @@ test("graph canvas renders and selection updates URL", async ({
 	).toBeVisible();
 });
 
-test("graph canvas fills the viewport and renders composition containment", async ({
+test("graph canvas renders root and child as independent cards linked by a composition edge", async ({
 	page,
 	baseURL,
 }) => {
@@ -50,12 +50,14 @@ test("graph canvas fills the viewport and renders composition containment", asyn
 
 	expect(rootBox).not.toBeNull();
 	expect(taskABox).not.toBeNull();
-	expect(taskABox!.x).toBeGreaterThanOrEqual(rootBox!.x);
-	expect(taskABox!.y).toBeGreaterThanOrEqual(rootBox!.y);
-	expect(taskABox!.x + taskABox!.width).toBeLessThanOrEqual(
-		rootBox!.x + rootBox!.width,
-	);
-	expect(taskABox!.y + taskABox!.height).toBeLessThanOrEqual(
+
+	// New model: root and child are independent cards (no containment).
+	// The child should sit below the root, not inside it.
+	expect(taskABox!.y).toBeGreaterThanOrEqual(
 		rootBox!.y + rootBox!.height,
 	);
+
+	// Composition edge between root and Task A should be rendered in the SVG layer.
+	const compositionEdge = page.locator("path.zp-edge--composition").first();
+	await expect(compositionEdge).toBeAttached();
 });
