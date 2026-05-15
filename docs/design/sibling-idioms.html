@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Pill idiom — sibling node visual reference</title>
+		<style>
+			:root {
+				--bg: #f6f6f4;
+				--ink: #1a1a1a;
+				--ink-mute: #6b6b6b;
+				--ink-fade: #9a9a9a;
+				--rule: #e3e1dc;
+				--canvas: #ffffff;
+
+				--st-active: #3b82f6;
+				--st-active-bg: #e0ecff;
+				--st-blocked: #d97757;
+				--st-blocked-bg: #fbe5da;
+				--st-done: #5d9970;
+				--st-done-bg: #dceadf;
+				--st-archived: #b6b6b6;
+				--st-archived-bg: #ececec;
+
+				--accent-scaffold: #c79420;
+				--accent-growth: #2f8c8c;
+
+				--shadow-1: 0 1px 2px rgba(20, 20, 20, 0.04),
+					0 1px 3px rgba(20, 20, 20, 0.06);
+				--shadow-2: 0 2px 4px rgba(20, 20, 20, 0.05),
+					0 4px 10px rgba(20, 20, 20, 0.06);
+
+				--sans:
+					"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+				--mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+			}
+
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				background: var(--bg);
+				color: var(--ink);
+				font-family: var(--sans);
+				font-size: 14px;
+				line-height: 1.5;
+				-webkit-font-smoothing: antialiased;
+			}
+
+			.page {
+				max-width: 1120px;
+				margin: 0 auto;
+				padding: 48px 32px 96px;
+			}
+
+			.page-head {
+				margin-bottom: 32px;
+			}
+
+			.page-head h1 {
+				margin: 0 0 6px;
+				font-size: 22px;
+				font-weight: 600;
+				letter-spacing: -0.01em;
+			}
+
+			.page-head .sub {
+				font-size: 12px;
+				color: var(--ink-mute);
+			}
+
+			.legend {
+				display: flex;
+				gap: 14px;
+				flex-wrap: wrap;
+				margin-bottom: 32px;
+				padding: 12px 14px;
+				background: var(--canvas);
+				border: 1px solid var(--rule);
+				border-radius: 8px;
+				font-size: 12px;
+				color: var(--ink-mute);
+			}
+
+			.legend .item {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.legend .swatch {
+				width: 10px;
+				height: 10px;
+				border-radius: 2px;
+			}
+
+			.canvas {
+				background: var(--canvas);
+				border: 1px solid var(--rule);
+				border-radius: 10px;
+				padding: 28px 24px;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 18px 22px;
+				align-items: center;
+			}
+
+			.row-label {
+				font-family: var(--mono);
+				font-size: 10px;
+				color: var(--ink-fade);
+				text-transform: uppercase;
+				letter-spacing: 0.06em;
+				width: 100%;
+				margin-bottom: -6px;
+			}
+
+			.spacer {
+				flex-basis: 100%;
+				height: 0;
+			}
+
+			/* Pill */
+			.pill {
+				position: relative;
+				display: inline-flex;
+				align-items: center;
+				gap: 10px;
+				padding: 6px 14px 6px 12px;
+				border-radius: 999px;
+				font-size: 13px;
+				color: var(--ink);
+				background: var(--st-active-bg);
+				box-shadow: var(--shadow-1);
+				min-width: 140px;
+				overflow: hidden;
+			}
+			.pill .title {
+				font-weight: 500;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				max-width: 220px;
+			}
+			.pill .chip {
+				font-family: var(--mono);
+				font-size: 10px;
+				color: var(--ink-mute);
+				background: rgba(255, 255, 255, 0.55);
+				padding: 1px 6px;
+				border-radius: 6px;
+			}
+			.pill .dive {
+				font-family: var(--mono);
+				font-size: 11px;
+				color: var(--ink-mute);
+				margin-left: auto;
+				padding-left: 6px;
+			}
+			.pill .agg-bar {
+				position: absolute;
+				bottom: 0;
+				left: 0;
+				right: 0;
+				height: 3px;
+				display: flex;
+			}
+			.pill .agg-bar > i { display: block; height: 100%; }
+			.pill .agg-bar .a { background: var(--st-active); }
+			.pill .agg-bar .b { background: var(--st-blocked); }
+			.pill .agg-bar .d { background: var(--st-done); }
+
+			.pill.is-blocked { background: var(--st-blocked-bg); }
+			.pill.is-done { background: var(--st-done-bg); color: var(--ink-mute); }
+			.pill.is-done .title {
+				text-decoration: line-through;
+				text-decoration-color: var(--ink-fade);
+			}
+			.pill.is-archived { background: var(--st-archived-bg); color: var(--ink-fade); }
+
+			/* Scaffold variant: wider, has flag-tab notch on left */
+			.pill.is-scaffold {
+				padding-left: 22px;
+				font-size: 13.5px;
+				font-weight: 500;
+				box-shadow: var(--shadow-2);
+			}
+			.pill.is-scaffold::before {
+				content: "";
+				position: absolute;
+				left: 0;
+				top: 50%;
+				transform: translateY(-50%);
+				width: 14px;
+				height: 100%;
+				background: var(--accent-scaffold);
+				clip-path: polygon(
+					0 0, 100% 0, 100% 35%, 60% 50%, 100% 65%, 100% 100%, 0 100%
+				);
+				opacity: 0.85;
+			}
+			.pill.is-scaffold.is-checkpoint::before {
+				background: var(--accent-scaffold);
+				opacity: 1;
+			}
+			.pill.is-scaffold.is-checkpoint::after {
+				content: "⚑";
+				position: absolute;
+				left: 3px;
+				top: 50%;
+				transform: translateY(-50%);
+				font-size: 9px;
+				color: #fff;
+				line-height: 1;
+			}
+
+			/* Growth variant: compact */
+			.pill.is-growth {
+				font-size: 12.5px;
+				padding-top: 4px;
+				padding-bottom: 4px;
+				background: var(--st-active-bg);
+			}
+			.pill.is-growth.is-blocked { background: var(--st-blocked-bg); }
+			.pill.is-growth.is-done { background: var(--st-done-bg); }
+			.pill.is-growth::before {
+				content: "";
+				display: inline-block;
+				width: 5px;
+				height: 5px;
+				border-radius: 50%;
+				background: var(--accent-growth);
+				margin-right: 2px;
+				flex: 0 0 auto;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="page">
+			<header class="page-head">
+				<h1>Pill idiom — sibling node visual reference</h1>
+				<div class="sub">
+					Locked sibling-node visual for the scaffold-led graph rendering model.
+					Scaffold has the flag-tab notch (heavier shape) — Growth is the compact pill.
+				</div>
+			</header>
+
+			<div class="legend">
+				<div class="item">
+					<span class="swatch" style="background: var(--st-active)"></span>active
+				</div>
+				<div class="item">
+					<span class="swatch" style="background: var(--st-blocked)"></span>blocked
+				</div>
+				<div class="item">
+					<span class="swatch" style="background: var(--st-done)"></span>completed
+				</div>
+				<div class="item">
+					<span class="swatch" style="background: var(--st-archived)"></span>archived
+				</div>
+				<div class="item">
+					<span class="swatch" style="background: var(--accent-scaffold)"></span>scaffold accent
+				</div>
+				<div class="item">
+					<span class="swatch" style="background: var(--accent-growth)"></span>growth accent
+				</div>
+				<div class="item">⚑ checkpoint</div>
+				<div class="item">K· knowledge count</div>
+				<div class="item">↳· dive-in</div>
+			</div>
+
+			<section>
+				<div class="canvas">
+					<span class="row-label">scaffold</span>
+					<span class="pill is-scaffold is-checkpoint">
+						<span class="title">Ship v1 — public beta</span>
+						<span class="chip">K3</span>
+						<span class="dive">↳5</span>
+						<span class="agg-bar"
+							><i class="a" style="flex: 2"></i><i class="b" style="flex: 1"></i
+							><i class="d" style="flex: 3"></i
+						></span>
+					</span>
+					<span class="pill is-scaffold is-blocked">
+						<span class="title">Auth refactor phase</span>
+						<span class="chip">K1</span>
+						<span class="dive">↳8</span>
+						<span class="agg-bar"
+							><i class="a" style="flex: 1"></i><i class="b" style="flex: 3"></i
+							><i class="d" style="flex: 1"></i
+						></span>
+					</span>
+					<span class="pill is-scaffold is-done">
+						<span class="title">Design system v0</span>
+						<span class="dive">↳4</span>
+					</span>
+
+					<span class="spacer"></span>
+					<span class="row-label">growth</span>
+					<span class="pill is-growth">
+						<span class="title">Investigate session timeout bug</span>
+						<span class="chip">K2</span>
+					</span>
+					<span class="pill is-growth is-blocked">
+						<span class="title">SSO provider eval</span>
+					</span>
+					<span class="pill is-growth is-done">
+						<span class="title">Migrate user table</span>
+					</span>
+					<span class="pill is-growth is-archived">
+						<span class="title">Spike: alt routing</span>
+					</span>
+				</div>
+			</section>
+		</div>
+	</body>
+</html>
