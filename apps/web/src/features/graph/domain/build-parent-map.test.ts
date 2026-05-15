@@ -13,6 +13,23 @@ const mkEdges = (pairs: [string, string][]): ProjectGraph["edges"] =>
 		createdAt: "2026-05-14T00:00:00Z",
 	}));
 
+const mkNodes = (...ids: string[]): ProjectGraph["nodes"] =>
+	ids.map((id) => ({
+		id,
+		projectId: "p",
+		isProjectRoot: false,
+		role: "regular",
+		type: "scaffold",
+		title: id,
+		description: null,
+		status: "active",
+		isCheckpoint: false,
+		checkpointResolution: null,
+		createdBy: "human",
+		createdAt: "2026-05-14T00:00:00Z",
+		updatedAt: "2026-05-14T00:00:00Z",
+	}));
+
 describe("buildParentMap", () => {
 	it("returns empty map when no composition edges", () => {
 		const m = buildParentMap({ nodes: [], edges: [] });
@@ -21,7 +38,7 @@ describe("buildParentMap", () => {
 
 	it("maps child to parent for composition edges", () => {
 		const m = buildParentMap({
-			nodes: [],
+			nodes: mkNodes("root", "a", "b", "c"),
 			edges: mkEdges([
 				["root", "a"],
 				["root", "b"],
@@ -55,7 +72,7 @@ describe("buildParentMap", () => {
 
 	it("ignores dependency edges targeting the same child as a composition edge", () => {
 		const m = buildParentMap({
-			nodes: [],
+			nodes: mkNodes("root", "child"),
 			edges: [
 				...mkEdges([["root", "child"]]),
 				{
@@ -76,7 +93,7 @@ describe("buildParentMap", () => {
 
 	it("treats duplicate same-parent composition edges as idempotent", () => {
 		const m = buildParentMap({
-			nodes: [],
+			nodes: mkNodes("root", "child"),
 			edges: mkEdges([
 				["root", "child"],
 				["root", "child"],
@@ -87,10 +104,19 @@ describe("buildParentMap", () => {
 		expect(m.size).toBe(1);
 	});
 
+	it("ignores composition edges whose parent is not in graph.nodes", () => {
+		const m = buildParentMap({
+			nodes: mkNodes("child"),
+			edges: mkEdges([["missing-root", "child"]]),
+		});
+
+		expect(m.has("child")).toBe(false);
+	});
+
 	it("throws when a child has duplicate composition parents", () => {
 		expect(() =>
 			buildParentMap({
-				nodes: [],
+				nodes: mkNodes("root", "other", "child"),
 				edges: mkEdges([
 					["root", "child"],
 					["other", "child"],
