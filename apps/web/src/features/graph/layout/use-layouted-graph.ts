@@ -29,25 +29,6 @@ type LayoutRunState = {
 	error: Error | null;
 };
 
-type WorkerRequest = {
-	id: string;
-	input: LayoutInput;
-};
-
-type WorkerSuccess = {
-	id: string;
-	ok: true;
-	result: LayoutOutput;
-};
-
-type WorkerFailure = {
-	id: string;
-	ok: false;
-	error: string;
-};
-
-type WorkerResponse = WorkerSuccess | WorkerFailure;
-
 type LayoutRun = {
 	promise: Promise<LayoutOutput>;
 	cancel: () => void;
@@ -97,87 +78,6 @@ function runLayoutInline(input: LayoutInput): LayoutRun {
 		promise: layoutGraph(input),
 		cancel: () => {},
 	};
-}
-
-function runLayoutInWorker(input: LayoutInput): LayoutRun {
-	let worker: Worker | null = null;
-	let rejectPromise: ((error: Error) => void) | null = null;
-	let cancelled = false;
-
-	const promise = import("./elk.worker?worker").then(
-		(workerModule) =>
-			new Promise<LayoutOutput>((resolve, reject) => {
-				rejectPromise = reject;
-
-				if (cancelled) {
-					reject(new Error("Layout cancelled"));
-					return;
-				}
-
-				const WorkerConstructor = workerModule.default;
-				worker = new WorkerConstructor();
-				const id = `layout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-				const cleanup = () => {
-					if (worker === null) {
-						return;
-					}
-
-					worker.onmessage = null;
-					worker.onerror = null;
-					worker.terminate();
-					worker = null;
-				};
-
-				worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-					if (event.data.id !== id) {
-						return;
-					}
-
-					cleanup();
-
-					if (cancelled) {
-						reject(new Error("Layout cancelled"));
-						return;
-					}
-
-					if (event.data.ok) {
-						resolve(event.data.result);
-						return;
-					}
-
-					reject(new Error(event.data.error));
-				};
-
-				worker.onerror = (event) => {
-					cleanup();
-					reject(new Error(event.message || "Worker layout failed"));
-				};
-
-				const request: WorkerRequest = { id, input };
-				worker.postMessage(request);
-			}),
-	);
-
-	return {
-		promise,
-		cancel: () => {
-			cancelled = true;
-
-			if (worker !== null) {
-				worker.terminate();
-				worker = null;
-			}
-
-			rejectPromise?.(new Error("Layout cancelled"));
-		},
-	};
-}
-
-function canUseLayoutWorker(): boolean {
-	const meta = import.meta as ImportMeta & { vitest?: unknown };
-
-	return typeof Worker === "function" && meta.vitest === undefined;
 }
 
 function mergeLayoutResult(
@@ -256,12 +156,10 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 		}));
 
 		const input = createLayoutInput(graph);
-		const run = canUseLayoutWorker()
-			? runLayoutInWorker(input)
-			: runLayoutInline(input);
+		const run = runLayoutInline(input);
 
 		void run.promise
-			.then((result) => {
+			.then((result: LayoutOutput) => {
 				if (cancelled) {
 					return;
 				}
