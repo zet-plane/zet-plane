@@ -143,4 +143,29 @@ describe("useLayoutedGraph", () => {
 		expect(result.current.isLayouting).toBe(false);
 		expect(layoutGraphMock).toHaveBeenCalledTimes(1);
 	});
+
+	it("adds extra layout height for nodes with visible aggregation summaries", async () => {
+		const graph: ProjectGraph = {
+			nodes: [node("root", "Root"), node("child", "Child")],
+			edges: [edge("e1", "root", "child", "composition")],
+		};
+
+		renderHook(() => useLayoutedGraph(graph));
+
+		await waitFor(() => expect(layoutGraphMock).toHaveBeenCalledTimes(1));
+
+		const call = layoutGraphMock.mock.calls[0]?.[0] as
+			| {
+					nodes: Array<{ id: string; height: number }>;
+			  }
+			| undefined;
+		const rootNode = call?.nodes.find(
+			(layoutNode: { id: string; height: number }) => layoutNode.id === "root",
+		);
+		const childNode = call?.nodes.find(
+			(layoutNode: { id: string; height: number }) => layoutNode.id === "child",
+		);
+
+		expect(rootNode?.height).toBeGreaterThan(childNode?.height ?? 0);
+	});
 });

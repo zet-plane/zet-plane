@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { aggregateStatus } from "../domain/aggregate-status";
 import { topologyHash } from "../domain/topology-hash";
 import type {
 	LayoutedGraph,
@@ -13,6 +14,8 @@ const NODE_TITLE_MAX_WIDTH = 220;
 const NODE_TITLE_LINE_HEIGHT = 20;
 const NODE_HORIZONTAL_PADDING = 24;
 const NODE_VERTICAL_PADDING = 24;
+const NODE_SUMMARY_GAP = 4;
+const NODE_SUMMARY_LINE_HEIGHT = 13;
 
 type LayoutState = {
 	data: LayoutedGraph | undefined;
@@ -34,7 +37,9 @@ type LayoutRun = {
 
 function createLayoutKey(graph: ProjectGraph): string {
 	const textKey = graph.nodes
-		.map((node) => [node.id, node.title, node.description] as const)
+		.map(
+			(node) => [node.id, node.title, node.description, node.status] as const,
+		)
 		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
 
 	return JSON.stringify({
@@ -43,7 +48,34 @@ function createLayoutKey(graph: ProjectGraph): string {
 	});
 }
 
+function createSummaryNodeIds(graph: ProjectGraph): Set<string> {
+	const aggregateById = aggregateStatus(graph);
+	const nodesWithCompositionChildren = new Set<string>();
+
+	for (const edge of graph.edges) {
+		if (edge.type === "composition") {
+			nodesWithCompositionChildren.add(edge.fromId);
+		}
+	}
+
+	const summaryNodeIds = new Set<string>();
+	for (const nodeId of nodesWithCompositionChildren) {
+		const aggregation = aggregateById.get(nodeId);
+		if (!aggregation) continue;
+		const total =
+			aggregation.counts.blocked +
+			aggregation.counts.active +
+			aggregation.counts.completed;
+		if (total > 0) {
+			summaryNodeIds.add(nodeId);
+		}
+	}
+
+	return summaryNodeIds;
+}
+
 function createLayoutInput(graph: ProjectGraph): LayoutInput {
+	const summaryNodeIds = createSummaryNodeIds(graph);
 	const nodes = graph.nodes.map((node) => {
 		const textSize = measureNodeText({
 			text: node.title,
@@ -51,11 +83,17 @@ function createLayoutInput(graph: ProjectGraph): LayoutInput {
 			maxWidth: NODE_TITLE_MAX_WIDTH,
 			lineHeight: NODE_TITLE_LINE_HEIGHT,
 		});
+		const summaryHeight = summaryNodeIds.has(node.id)
+			? NODE_SUMMARY_GAP + NODE_SUMMARY_LINE_HEIGHT
+			: 0;
 
 		return {
 			id: node.id,
 			width: Math.max(1, textSize.width + NODE_HORIZONTAL_PADDING * 2),
-			height: Math.max(1, textSize.height + NODE_VERTICAL_PADDING * 2),
+			height: Math.max(
+				1,
+				textSize.height + summaryHeight + NODE_VERTICAL_PADDING * 2,
+			),
 			parentId: null,
 		};
 	});

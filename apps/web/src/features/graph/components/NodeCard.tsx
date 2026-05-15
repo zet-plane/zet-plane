@@ -16,10 +16,14 @@ export type NodeCardNode = Node<NodeCardData>;
 
 export function NodeCard({ data }: NodeProps<NodeCardNode>) {
 	const { node, aggregation, knowledgeCount, selected, dimmed } = data;
+	const displayStatus =
+		node.status === "completed" || node.status === "archived"
+			? node.status
+			: (aggregation?.worst ?? node.status);
 	const classes = [
 		"zp-node",
 		nodeTypeClass(node.type),
-		nodeStatusClass(node.status),
+		nodeStatusClass(displayStatus),
 	];
 	if (selected) classes.push("zp-selection-ring");
 	if (dimmed) classes.push("zp-edge--dim");

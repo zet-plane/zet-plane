@@ -29,7 +29,7 @@ function renderNodeCard(data: NodeCardData) {
 }
 
 describe("NodeCard", () => {
-	it("shows aggregated descendant counts when provided", () => {
+	it("shows aggregated descendant counts and aggregate worst status when provided", () => {
 		const data = {
 			node: {
 				id: "node-1",
@@ -60,10 +60,11 @@ describe("NodeCard", () => {
 			},
 		} satisfies NodeCardNode["data"];
 
-		renderNodeCard(data);
+		const { container } = renderNodeCard(data);
 
 		expect(
 			screen.getByText("1 blocked / 2 active / 3 completed"),
 		).toBeInTheDocument();
+		expect(container.firstChild).toHaveClass("zp-node--blocked");
 	});
 });
