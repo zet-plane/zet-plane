@@ -120,6 +120,9 @@ export interface PublishInput {
 /** Publish a task, execute it synchronously, and return the final OrchestratorTask record. */
 export async function publishAndExecute(ctx: EvalApp, input: PublishInput) {
   const result = await ctx.publisher.publish(input)
+  if (!result.created) {
+    throw new Error(`publishAndExecute: idempotency collision — task already exists (taskId=${result.taskId}). Use a unique sourceId per test run.`)
+  }
   await ctx.runtime.execute(result.taskId)
   return ctx.prisma.orchestratorTask.findUniqueOrThrow({ where: { id: result.taskId } })
 }
