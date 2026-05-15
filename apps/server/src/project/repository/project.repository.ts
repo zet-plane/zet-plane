@@ -26,7 +26,7 @@ export class ProjectRepository {
   }
 
   async list(): Promise<Project[]> {
-    return this.prisma.project.findMany()
+    return this.prisma.project.findMany({ orderBy: { createdAt: 'asc' } })
   }
 
   async update(id: string, data: ProjectUpdateData): Promise<Project> {
