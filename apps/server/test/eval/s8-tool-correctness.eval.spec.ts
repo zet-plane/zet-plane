@@ -50,7 +50,7 @@ describe('S-8: Tool Call Correctness & Timing', () => {
     const edges = await ctx.prisma.edge.findMany({ where: { projectId } })
     const newNodeIds = new Set(newNodes.map(n => n.id))
     const compositionToN1 = edges.filter(
-      e => newNodeIds.has(e.fromId) && e.toId === N1.id && e.type === 'composition',
+      e => e.fromId === N1.id && newNodeIds.has(e.toId) && e.type === 'composition',
     )
     expect(compositionToN1.length).toBeGreaterThanOrEqual(1)
 
