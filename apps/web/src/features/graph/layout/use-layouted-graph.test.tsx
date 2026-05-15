@@ -89,9 +89,12 @@ describe("useLayoutedGraph", () => {
 		expect(layoutGraphMock).toHaveBeenCalledWith({
 			nodes: [
 				expect.objectContaining({ id: "root", parentId: null }),
-				expect.objectContaining({ id: "child", parentId: "root" }),
+				expect.objectContaining({ id: "child", parentId: null }),
 			],
-			edges: [{ id: "e2", fromId: "root", toId: "child" }],
+			edges: [
+				{ id: "e1", fromId: "root", toId: "child" },
+				{ id: "e2", fromId: "root", toId: "child" },
+			],
 		});
 		expect(result.current.data).toEqual({
 			nodes: [
@@ -102,7 +105,7 @@ describe("useLayoutedGraph", () => {
 				}),
 				expect.objectContaining({
 					id: "child",
-					parentId: "root",
+					parentId: null,
 					position: { x: 24, y: 32 },
 				}),
 			],

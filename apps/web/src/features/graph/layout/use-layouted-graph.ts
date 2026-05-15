@@ -1,6 +1,4 @@
-import type { NodeResponse } from "@zet-plane/contracts";
 import { useEffect, useMemo, useState } from "react";
-import { buildParentMap } from "../domain/build-parent-map";
 import { topologyHash } from "../domain/topology-hash";
 import type {
 	LayoutedGraph,
@@ -46,7 +44,6 @@ function createLayoutKey(graph: ProjectGraph): string {
 }
 
 function createLayoutInput(graph: ProjectGraph): LayoutInput {
-	const parentMap = buildParentMap(graph);
 	const nodes = graph.nodes.map((node) => {
 		const textSize = measureNodeText({
 			text: node.title,
@@ -59,16 +56,14 @@ function createLayoutInput(graph: ProjectGraph): LayoutInput {
 			id: node.id,
 			width: Math.max(1, textSize.width + NODE_HORIZONTAL_PADDING * 2),
 			height: Math.max(1, textSize.height + NODE_VERTICAL_PADDING * 2),
-			parentId: parentMap.get(node.id) ?? null,
+			parentId: null,
 		};
 	});
-	const edges = graph.edges
-		.filter((edge) => edge.type === "dependency")
-		.map((edge) => ({
-			id: edge.id,
-			fromId: edge.fromId,
-			toId: edge.toId,
-		}));
+	const edges = graph.edges.map((edge) => ({
+		id: edge.id,
+		fromId: edge.fromId,
+		toId: edge.toId,
+	}));
 
 	return { nodes, edges };
 }
@@ -82,7 +77,6 @@ function runLayoutInline(input: LayoutInput): LayoutRun {
 
 function mergeLayoutResult(
 	graph: ProjectGraph,
-	parentMap: Map<NodeResponse["id"], NodeResponse["id"]>,
 	result: LayoutOutput,
 ): LayoutedGraph {
 	const layoutById = new Map(result.nodes.map((node) => [node.id, node]));
@@ -100,7 +94,7 @@ function mergeLayoutResult(
 				width: layoutNode.width,
 				height: layoutNode.height,
 				position: layoutNode.position,
-				parentId: parentMap.get(node.id) ?? null,
+				parentId: null,
 			};
 		}),
 		edges: graph.edges,
@@ -129,7 +123,7 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			return undefined;
 		}
 
-		return mergeLayoutResult(graph, buildParentMap(graph), state.layoutResult);
+		return mergeLayoutResult(graph, state.layoutResult);
 	}, [graph, layoutKey, state.layoutKey, state.layoutResult]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: layoutKey is a content hash of graph; depending on graph would trigger redundant layouts on identical inputs.
