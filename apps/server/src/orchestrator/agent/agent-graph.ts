@@ -21,6 +21,7 @@ type BuildOptions = {
 export function buildAgentGraph(options: BuildOptions): AgentGraph {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const toolNode = new ToolNode(options.tools as any[])
+  if (!options.llm.bindTools) throw new Error('LLM provider does not support tool binding')
   const llm = options.llm.bindTools(options.tools)
 
   function shouldContinue(state: typeof MessagesAnnotation.State): 'tools' | typeof END {

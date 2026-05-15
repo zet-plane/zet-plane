@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
-import { NodeType, NodeStatus, EdgeType, CreatedBy, NodeRole } from '@generated/client'
+import { NodeType, NodeStatus, EdgeType, CreatedBy } from '@generated/client'
 import type { Node, Edge } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
 import type { PrismaTx } from '../../prisma/prisma.service'
@@ -64,7 +64,6 @@ export class GraphRepository {
         data: {
           projectId,
           isProjectRoot: true,
-          role: NodeRole.project_root,
           type: NodeType.scaffold,
           title: '[Project Root]',
           createdBy: CreatedBy.human,
@@ -85,7 +84,6 @@ export class GraphRepository {
       data: {
         projectId,
         isProjectRoot: true,
-        role: NodeRole.project_root,
         type: NodeType.scaffold,
         title: '[Project Root]',
         createdBy: CreatedBy.human,
@@ -95,8 +93,8 @@ export class GraphRepository {
     const stagingNode = await tx.node.create({
       data: {
         projectId,
-        role: NodeRole.staging_root,
-        type: NodeType.staging,
+        isStagingRoot: true,
+        type: NodeType.scaffold,
         title: '[Staging Area]',
         createdBy: CreatedBy.human,
       },
@@ -116,7 +114,7 @@ export class GraphRepository {
 
   async findStagingNode(projectId: string): Promise<Node | null> {
     return this.prisma.node.findFirst({
-      where: { projectId, role: NodeRole.staging_root },
+      where: { projectId, isStagingRoot: true },
     })
   }
 

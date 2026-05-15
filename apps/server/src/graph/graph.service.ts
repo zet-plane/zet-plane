@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException, forwardRef, Inject } from '@nestjs/common'
 import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions/domain-exception'
-import { NodeStatus, CheckpointResolution, EdgeType, CreatedBy, NodeRole, NodeType } from '@generated/client'
+import { NodeStatus, CheckpointResolution, EdgeType, CreatedBy, NodeType } from '@generated/client'
 import type { Node, Edge } from '@generated/client'
 import type { PrismaTx } from '../prisma/prisma.service'
 import { GraphRepository, HasCompositionChildrenError, AmbiguousParentError } from './repository/graph.repository'
@@ -31,7 +31,7 @@ export class GraphService {
    *  to project root. Non-structural dependency edges must be created separately. */
   async createNode(data: NodeCreateData): Promise<Node> {
     await this.projectService.assertExists(data.projectId)
-    if (data.type === NodeType.staging) throw new ConflictException('STAGING_NODE_SYSTEM_MANAGED')
+    if ((data as any).isStagingRoot) throw new ConflictException('STAGING_NODE_SYSTEM_MANAGED')
     if (data.edgeType !== undefined && data.edgeType !== EdgeType.composition) {
       throw new BadRequestException('NODE_PARENT_EDGE_MUST_BE_COMPOSITION')
     }
@@ -40,7 +40,7 @@ export class GraphService {
       if (!parent || parent.projectId !== data.projectId) {
         throw new NotFoundDomainException('PARENT_NODE_NOT_FOUND', `Parent node ${data.parentNodeId} not found`)
       }
-      if (parent.role === NodeRole.staging_root) {
+      if (parent.isStagingRoot) {
         throw new ConflictDomainException('STAGING_NODE_PROTECTED', 'Staging node is protected')
       }
       if (parent.status === NodeStatus.archived) throw new ConflictDomainException('PARENT_NODE_ARCHIVED', 'Parent node is archived')
@@ -78,7 +78,7 @@ export class GraphService {
     const node = await this.requireNode(nodeId)
     this.assertNotProjectRoot(node)
     await this.projectService.assertExists(node.projectId)
-    if (node.role === NodeRole.staging_root && (newStatus === NodeStatus.completed || newStatus === NodeStatus.archived)) {
+    if (node.isStagingRoot && (newStatus === NodeStatus.completed || newStatus === NodeStatus.archived)) {
       throw new ConflictException('STAGING_NODE_PROTECTED')
     }
     await this.validateStatusTransition(node, newStatus)
@@ -243,15 +243,15 @@ export class GraphService {
   }
 
   private assertNotProjectRoot(node: Node): void {
-    if (node.isProjectRoot || node.role === NodeRole.project_root) throw new ConflictException('Cannot modify project root node')
+    if (node.isProjectRoot) throw new ConflictException('Cannot modify project root node')
   }
 
   private assertNotStagingRoot(node: Node): void {
-    if (node.role === NodeRole.staging_root) throw new ConflictException('STAGING_NODE_PROTECTED')
+    if (node.isStagingRoot) throw new ConflictException('STAGING_NODE_PROTECTED')
   }
 
   private assertStagingAreaStructureUnchanged(node: Node): void {
-    if (node.role === NodeRole.staging_root) throw new ConflictException('STAGING_NODE_STRUCTURE_PROTECTED')
+    if (node.isStagingRoot) throw new ConflictException('STAGING_NODE_STRUCTURE_PROTECTED')
   }
 
   private async validateStatusTransition(node: Node, newStatus: NodeStatus): Promise<void> {

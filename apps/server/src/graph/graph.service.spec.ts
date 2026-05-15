@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common'
 import { ConflictDomainException, NotFoundDomainException } from '../common/exceptions/domain-exception'
 import { GraphService } from './graph.service'
-import { EdgeType, NodeStatus, NodeType, CreatedBy, CheckpointResolution, NodeRole } from '@generated/client'
+import { EdgeType, NodeStatus, NodeType, CreatedBy, CheckpointResolution } from '@generated/client'
 import type { Node } from '@generated/client'
 import { HasCompositionChildrenError, AmbiguousParentError } from './repository/graph.repository'
 
@@ -11,7 +11,7 @@ function makeNode(overrides: Partial<Node> = {}): Node {
     id: 'n1',
     projectId: 'p1',
     isProjectRoot: false,
-    role: NodeRole.regular,
+    isStagingRoot: false,
     type: NodeType.scaffold,
     title: 'Test Node',
     description: null,
@@ -65,7 +65,7 @@ describe('GraphService', () => {
   describe('createNode', () => {
     it('throws 409 when trying to create staging node through public createNode', async () => {
       await expect(
-        service.createNode({ projectId: 'p1', type: NodeType.staging, title: '[Staging Area]', createdBy: CreatedBy.human })
+        service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: '[Staging Area]', createdBy: CreatedBy.human, isStagingRoot: true } as any)
       ).rejects.toThrow(ConflictException)
 
       expect(mockRepo.createNode).not.toHaveBeenCalled()
@@ -105,7 +105,7 @@ describe('GraphService', () => {
     it('allows parentNodeId to explicitly target the project root', async () => {
       const data = { projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'root' }
       const created = makeNode({ id: 'n2', title: 'x' })
-      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'root', isProjectRoot: true, role: NodeRole.project_root, projectId: 'p1' }))
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'root', isProjectRoot: true, projectId: 'p1' }))
       mockRepo.createNode.mockResolvedValue(created)
 
       await expect(service.createNode(data)).resolves.toEqual(created)
@@ -114,7 +114,7 @@ describe('GraphService', () => {
     })
 
     it('throws 409 when parent is staging root', async () => {
-      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging, projectId: 'p1' }))
+      mockRepo.findNode.mockResolvedValue(makeNode({ id: 'staging', isStagingRoot: true, type: NodeType.scaffold, projectId: 'p1' }))
       await expect(
         service.createNode({ projectId: 'p1', type: NodeType.scaffold, title: 'x', createdBy: CreatedBy.human, parentNodeId: 'staging' })
       ).rejects.toMatchObject({
@@ -142,7 +142,7 @@ describe('GraphService', () => {
 
   describe('updateStatus', () => {
     it('throws 409 when completing or archiving a staging root node', async () => {
-      mockRepo.findNode.mockResolvedValue(makeNode({ role: NodeRole.staging_root }))
+      mockRepo.findNode.mockResolvedValue(makeNode({ isStagingRoot: true }))
 
       await expect(service.updateStatus('staging', NodeStatus.completed)).rejects.toThrow(ConflictException)
       await expect(service.updateStatus('staging', NodeStatus.archived)).rejects.toThrow(ConflictException)
@@ -260,7 +260,7 @@ describe('GraphService', () => {
 
   describe('deleteNode', () => {
     it('throws 409 when node is staging root', async () => {
-      mockRepo.findNode.mockResolvedValue(makeNode({ role: NodeRole.staging_root }))
+      mockRepo.findNode.mockResolvedValue(makeNode({ isStagingRoot: true }))
 
       await expect(service.deleteNode('staging', 'cascade')).rejects.toThrow(ConflictException)
 
@@ -304,7 +304,7 @@ describe('GraphService', () => {
 
   describe('findStagingNode', () => {
     it('asserts project exists and delegates to repository', async () => {
-      const staging = makeNode({ id: 'staging', type: NodeType.staging, role: NodeRole.staging_root, title: '[Staging Area]' })
+      const staging = makeNode({ id: 'staging', type: NodeType.scaffold, isStagingRoot: true, title: '[Staging Area]' })
       mockRepo.findStagingNode.mockResolvedValue(staging)
 
       await expect(service.findStagingNode('p1')).resolves.toEqual(staging)
@@ -401,7 +401,7 @@ describe('GraphService', () => {
 
     it('throws 409 when edge would mutate staging area structure', async () => {
       mockRepo.findNode
-        .mockResolvedValueOnce(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging }))
+        .mockResolvedValueOnce(makeNode({ id: 'staging', isStagingRoot: true, type: NodeType.scaffold }))
         .mockResolvedValueOnce(makeNode({ id: 'b' }))
 
       await expect(
@@ -526,7 +526,7 @@ describe('GraphService', () => {
     it('throws 409 when replacement would mutate staging area structure', async () => {
       mockRepo.findNode
         .mockResolvedValueOnce(makeNode({ id: 'child' }))
-        .mockResolvedValueOnce(makeNode({ id: 'staging', role: NodeRole.staging_root, type: NodeType.staging }))
+        .mockResolvedValueOnce(makeNode({ id: 'staging', isStagingRoot: true, type: NodeType.scaffold }))
 
       await expect(
         service.replaceNodeEdges('child', EdgeType.composition, 'staging', 'p1', CreatedBy.human)

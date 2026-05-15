@@ -50,7 +50,7 @@ function toNodeResponse(node: Node): NodeResponse {
     id: node.id,
     projectId: node.projectId,
     isProjectRoot: node.isProjectRoot,
-    role: node.role,
+    role: node.isProjectRoot ? 'project_root' : node.isStagingRoot ? 'staging_root' : 'regular',
     type: node.type,
     title: node.title,
     description: node.description,

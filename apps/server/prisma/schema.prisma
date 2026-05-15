@@ -10,7 +10,7 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(uuid())
+  id          String   @id(map: "projects_pkey") @default(uuid())
   name        String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -23,6 +23,7 @@ model Node {
   id                   String                @id(map: "nodes_pkey") @default(uuid())
   projectId            String                @map("project_id")
   isProjectRoot        Boolean               @default(false) @map("is_project_root")
+  isStagingRoot        Boolean               @default(false) @map("is_staging_root")
   type                 NodeType              @map("node_type")
   title                String
   description          String?
@@ -40,16 +41,16 @@ model Node {
 model Edge {
   id        String    @id(map: "edges_pkey") @default(uuid())
   projectId String    @map("project_id")
-  fromId    String    @map("from_node_id")
-  toId      String    @map("to_node_id")
+  fromId    String    @map("from_id")
+  toId      String    @map("to_id")
   type      EdgeType  @map("edge_type")
   createdBy CreatedBy @map("created_by")
   createdAt DateTime  @default(now()) @map("created_at")
 
-  @@unique([fromId, toId, type], map: "uk_edges_from_node_id_to_node_id_edge_type")
+  @@unique([fromId, toId, type], map: "uk_edges_from_to_type")
   @@index([projectId], map: "idx_edges_project_id")
-  @@index([fromId], map: "idx_edges_from_node_id")
-  @@index([toId], map: "idx_edges_to_node_id")
+  @@index([fromId], map: "idx_edges_from_id")
+  @@index([toId], map: "idx_edges_to_id")
   @@map("edges")
 }
 
@@ -91,18 +92,18 @@ enum CreatedBy {
 }
 
 model KnowledgeEntry {
-  id              String                       @id(map: "knowledge_entries_pkey") @default(uuid())
-  projectId       String                       @map("project_id")
-  nodeId          String                       @map("node_id")
-  category        EntryCategory
+  id              String          @id(map: "knowledge_entries_pkey") @default(uuid())
+  projectId       String          @map("project_id")
+  nodeId          String          @map("node_id")
+  category        EntryCategory   @map("entry_category")
   title           String
   body            Json
-  status          EntryStatus                  @default(draft) @map("entry_status")
-  embeddingStatus EmbeddingStatus              @default(unindexed) @map("embedding_status")
+  status          EntryStatus     @default(draft) @map("entry_status")
+  embeddingStatus EmbeddingStatus @default(unindexed) @map("embedding_status")
   embedding       Unsupported("vector(1536)")?
-  createdBy       CreatedBy                    @map("created_by")
-  createdAt       DateTime                     @default(now()) @map("created_at")
-  updatedAt       DateTime                     @updatedAt @map("updated_at")
+  createdBy       CreatedBy       @map("created_by")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   @@index([projectId], map: "idx_knowledge_entries_project_id")
   @@index([nodeId], map: "idx_knowledge_entries_node_id")
@@ -111,15 +112,15 @@ model KnowledgeEntry {
 
 model KnowledgeRevision {
   id         String    @id(map: "knowledge_revisions_pkey") @default(uuid())
-  entryId    String    @map("knowledge_entry_id")
+  entryId    String    @map("entry_id")
   version    Int
   body       Json
   changeNote String?   @map("change_note")
   createdBy  CreatedBy @map("created_by")
   createdAt  DateTime  @default(now()) @map("created_at")
 
-  @@unique([entryId, version], map: "uk_knowledge_revisions_knowledge_entry_id_version")
-  @@index([entryId], map: "idx_knowledge_revisions_knowledge_entry_id")
+  @@unique([entryId, version], map: "uk_knowledge_revisions_entry_version")
+  @@index([entryId], map: "idx_knowledge_revisions_entry_id")
   @@map("knowledge_revisions")
 }
 
