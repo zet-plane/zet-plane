@@ -11,16 +11,15 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { useGraphViewStore } from "@/stores/graph-view.store";
-import { aggregateStatus } from "../domain/aggregate-status";
 import type { ProjectGraph } from "../domain/types";
 import { useLayoutedGraph } from "../layout/use-layouted-graph";
-import { ContainerCard, type ContainerCardData } from "./ContainerCard";
+import { CompositionEdge } from "./CompositionEdge";
 import { DependencyEdge } from "./DependencyEdge";
 import { EmptyState, ErrorState, LoadingState } from "./EmptyState";
 import { NodeCard, type NodeCardData } from "./NodeCard";
 
-const nodeTypes = { node: NodeCard, container: ContainerCard };
-const edgeTypes = { dependency: DependencyEdge };
+const nodeTypes = { node: NodeCard };
+const edgeTypes = { composition: CompositionEdge, dependency: DependencyEdge };
 
 type Props = {
 	graph: ProjectGraph | undefined;
@@ -57,27 +56,12 @@ function CanvasInner({
 	const rfApi = useReactFlow();
 	const initialCenterDone = useRef(false);
 
-	const aggregation = useMemo(
-		() => (graph ? aggregateStatus(graph) : new Map()),
-		[graph],
-	);
-	const isContainer = useMemo(() => {
-		const set = new Set<string>();
-		if (layouted)
-			for (const n of layouted.nodes) if (n.parentId) set.add(n.parentId);
-		return set;
-	}, [layouted]);
-
 	const focusId = hoveredNodeId ?? selectedNodeId;
 	const focusEdgeIds = useMemo(() => {
 		if (!focusId || !graph) return new Set<string>();
 		const ids = new Set<string>();
 		for (const e of graph.edges) {
-			if (
-				e.type === "dependency" &&
-				(e.fromId === focusId || e.toId === focusId)
-			)
-				ids.add(e.id);
+			if (e.fromId === focusId || e.toId === focusId) ids.add(e.id);
 		}
 		return ids;
 	}, [focusId, graph]);
@@ -127,32 +111,18 @@ function CanvasInner({
 	if (layouted.nodes.length <= 1) return <EmptyState rootOnly />;
 
 	const xyNodes: Node[] = layouted.nodes.map((n) => {
-		const isParent = isContainer.has(n.id);
-		const data: NodeCardData | ContainerCardData = isParent
-			? {
-					node: n,
-					aggregation: aggregation.get(n.id) ?? {
-						worst: null,
-						counts: { blocked: 0, active: 0, completed: 0, archived: 0 },
-					},
-					knowledgeCount: 0,
-					selected: selectedNodeId === n.id,
-					dimmed: focusId !== null && focusId !== n.id,
-				}
-			: {
-					node: n,
-					knowledgeCount: 0,
-					selected: selectedNodeId === n.id,
-					dimmed: focusId !== null && focusId !== n.id,
-				};
+		const data: NodeCardData = {
+			node: n,
+			knowledgeCount: 0,
+			selected: selectedNodeId === n.id,
+			dimmed: focusId !== null && focusId !== n.id,
+		};
 		return {
 			id: n.id,
-			type: isParent ? "container" : "node",
+			type: "node",
 			position: n.position,
 			width: n.width,
 			height: n.height,
-			parentId: n.parentId ?? undefined,
-			extent: n.parentId ? ("parent" as const) : undefined,
 			data: data as Record<string, unknown>,
 			selectable: true,
 			draggable: false,
@@ -160,16 +130,28 @@ function CanvasInner({
 	});
 
 	const xyEdges: Edge[] = layouted.edges
-		.filter((e) => e.type === "dependency")
+		.filter((e) => e.type === "composition" || e.type === "dependency")
 		.map((e) => {
 			const target = nodesById.get(e.toId);
 			const dimmed = focusId !== null && !focusEdgeIds.has(e.id);
+			if (e.type === "composition") {
+				return {
+					id: e.id,
+					source: e.fromId,
+					target: e.toId,
+					type: "composition",
+					data: { dimmed } as Record<string, unknown>,
+				};
+			}
 			return {
 				id: e.id,
 				source: e.fromId,
 				target: e.toId,
 				type: "dependency",
-				data: { targetStatus: target?.status ?? "active", dimmed },
+				data: {
+					targetStatus: target?.status ?? "active",
+					dimmed,
+				} as Record<string, unknown>,
 			};
 		});
 

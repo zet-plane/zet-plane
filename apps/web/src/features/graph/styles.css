@@ -109,6 +109,10 @@
 .zp-edge--active {
 	stroke: var(--zp-badge-neutral);
 }
+.zp-edge--composition {
+	stroke: var(--zp-badge-neutral);
+	stroke-width: 1.75;
+}
 .zp-edge--dim {
 	opacity: var(--zp-edge-dim-opacity);
 }
