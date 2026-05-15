@@ -13,6 +13,14 @@ export class DomainServiceError extends Error {
 export const createNodeTool = (deps: { nodeService: NodeService; projectId: string }): StructuredToolInterface =>
   tool(
     async ({ title, description }) => {
+      // Idempotent by title: if a node with the same title already exists in this project,
+      // return it instead of creating a duplicate (prevents agent loop double-creation).
+      const existing = await deps.nodeService.listProjectNodes(deps.projectId)
+      const match = existing.find(n => n.title === title)
+      if (match) {
+        return JSON.stringify({ nodeId: match.id, title: match.title, alreadyExists: true })
+      }
+
       try {
         const node = await deps.nodeService.createNode({
           projectId: deps.projectId,

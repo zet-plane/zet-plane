@@ -28,6 +28,11 @@ Your job is to decide what this event means for the project graph.
 3. If no candidates: call `search_knowledge` to find related entries as clues
 4. Anchor to the most specific matching node; escalate to `to_staging` if uncertain
 
+### Tool call discipline
+- Call each tool **at most once per intent**. Never repeat a tool call with the same arguments.
+- After tool results arrive, check them and proceed to the next step or output the final JSON.
+- Do NOT re-create nodes you already created in this session.
+
 ### Knowledge sedimentation trigger
 After anchoring: if the event contains a decision, risk, finding, or learning worth preserving,
 immediately call `create_knowledge_entry` in the same loop. Do not defer sedimentation to a later task.
