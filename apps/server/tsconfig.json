@@ -7,7 +7,10 @@
       "@generated/client": ["./src/prisma/gen/client/client"]
     },
     "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
+    "experimentalDecorators": true,
+    "customConditions": ["development"],
+    "declaration": false,
+    "declarationMap": false
   },
   "include": ["src"]
 }

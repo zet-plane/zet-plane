@@ -4,6 +4,8 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import type { Prisma } from '@generated/client'
 import { AppConfig } from '../config/app-config'
 
+export type PrismaTx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+
 @Injectable()
 export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private readonly client: PrismaClient
@@ -12,6 +14,7 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get edge() { return this.client.edge }
   get knowledgeEntry() { return this.client.knowledgeEntry }
   get knowledgeRevision() { return this.client.knowledgeRevision }
+  get project() { return this.client.project }
 
   // Overloads mirror PrismaClient.$transaction so callers (GraphRepository) compile correctly.
   $transaction<P extends Prisma.PrismaPromise<unknown>[]>(

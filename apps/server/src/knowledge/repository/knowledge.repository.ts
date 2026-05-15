@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma, EntryCategory, EntryStatus, EmbeddingStatus, CreatedBy } from '@generated/client'
-import type { KnowledgeEntry, KnowledgeRevision } from '@generated/client'
+import type { KnowledgeEntry, KnowledgeRevision, Node } from '@generated/client'
 import { PrismaService } from '../../prisma/prisma.service'
 
-export type EntryCreateData = {
+export type EntryCreateInput = {
   projectId: string
-  nodeId: string
+  nodeId?: string
   category: EntryCategory
   title: string
   body: unknown
   changeNote?: string
   createdBy: CreatedBy
+}
+
+export type EntryCreateData = EntryCreateInput & {
+  nodeId: string
 }
 
 export type EntryListFilters = {
@@ -82,6 +86,10 @@ export class KnowledgeRepository {
     return this.prisma.knowledgeEntry.findUnique({ where: { id } })
   }
 
+  async findNode(id: string): Promise<Node | null> {
+    return this.prisma.node.findUnique({ where: { id } })
+  }
+
   async listEntries(projectId: string, filters: EntryListFilters): Promise<KnowledgeEntry[]> {
     const where: Record<string, unknown> = { projectId }
     if (filters.category !== undefined) where.category = filters.category
@@ -130,10 +138,10 @@ export class KnowledgeRepository {
   async updateEmbedding(id: string, vector: number[]): Promise<void> {
     const vectorStr = `[${vector.join(',')}]`
     await this.prisma.$executeRaw(Prisma.sql`
-      UPDATE "KnowledgeEntry"
+      UPDATE knowledge_entries
       SET embedding = ${vectorStr}::vector,
-          "embeddingStatus" = 'indexed',
-          "updatedAt" = NOW()
+          embedding_status = 'indexed',
+          updated_at = NOW()
       WHERE id = ${id}
     `)
   }
@@ -148,8 +156,8 @@ export class KnowledgeRepository {
     const vectorStr = `[${queryVector.join(',')}]`
 
     const conditions: Prisma.Sql[] = [
-      Prisma.sql`"projectId" = ${projectId}`,
-      Prisma.sql`"embeddingStatus" = 'indexed'`,
+      Prisma.sql`project_id = ${projectId}`,
+      Prisma.sql`embedding_status = 'indexed'`,
       Prisma.sql`embedding IS NOT NULL`,
       Prisma.sql`(1 - (embedding <=> ${vectorStr}::vector)) >= ${threshold}`,
     ]
@@ -160,16 +168,25 @@ export class KnowledgeRepository {
       conditions.push(Prisma.sql`status::text = ANY(ARRAY[${Prisma.join(filters.status.map(s => Prisma.sql`${s}`), ',')}]::text[])`)
     }
     if (filters.nodeId?.length) {
-      conditions.push(Prisma.sql`"nodeId" = ANY(ARRAY[${Prisma.join(filters.nodeId.map(n => Prisma.sql`${n}`), ',')}]::text[])`)
+      conditions.push(Prisma.sql`node_id = ANY(ARRAY[${Prisma.join(filters.nodeId.map(n => Prisma.sql`${n}`), ',')}]::text[])`)
     }
 
     const whereClause = Prisma.join(conditions, ' AND ')
 
     return this.prisma.$queryRaw<SearchResult[]>(Prisma.sql`
-      SELECT id, "projectId", "nodeId", category, title, body, status,
-             "embeddingStatus", "createdBy", "createdAt", "updatedAt",
+      SELECT id,
+             project_id AS "projectId",
+             node_id AS "nodeId",
+             category,
+             title,
+             body,
+             status,
+             embedding_status AS "embeddingStatus",
+             created_by AS "createdBy",
+             created_at AS "createdAt",
+             updated_at AS "updatedAt",
              (1 - (embedding <=> ${vectorStr}::vector)) AS score
-      FROM "KnowledgeEntry"
+      FROM knowledge_entries
       WHERE ${whereClause}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}

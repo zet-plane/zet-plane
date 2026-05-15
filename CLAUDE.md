@@ -93,3 +93,17 @@ For library API questions during/after an upgrade, **use the context7 MCP** (`re
 2. [docs/superpowers/specs/](docs/superpowers/specs/) — current feature specs
 3. [README.md](README.md) — current delivery status and known issues
 4. [docs/dependencies.md](docs/dependencies.md) — outstanding dep upgrades and per-package adaptation notes
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`zet-plane/zet-plane`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
