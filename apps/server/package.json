@@ -10,7 +10,8 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:watch": "vitest",
-    "seed": "prisma db seed"
+    "seed": "prisma db seed",
+    "seed:clean": "tsx prisma/seed.ts --clean"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",

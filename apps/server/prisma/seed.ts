@@ -71,32 +71,40 @@ const PROJECT_FULL = '00000000-0000-4000-8000-000000000001'
 const PROJECT_EMPTY = '00000000-0000-4000-8000-000000000002'
 const PROJECT_COMPACT = '00000000-0000-4000-8000-000000000003'
 
-const SEED_PROJECT_IDS = [PROJECT_FULL, PROJECT_EMPTY, PROJECT_COMPACT] as const
-
 // Version nibble = 4, variant nibble = 8 — valid RFC 4122 format.
 const fullNode = (i: number) => `00000000-0000-4000-8001-${String(i).padStart(12, '0')}`
 const emptyNode = (i: number) => `00000000-0000-4000-8002-${String(i).padStart(12, '0')}`
 const compactNode = (i: number) => `00000000-0000-4000-8003-${String(i).padStart(12, '0')}`
 
 // ─── Wipe ────────────────────────────────────────────────────────────────────
+// Matches by name prefix rather than a hardcoded UUID list so that stale rows
+// from old runs (with different UUIDs) are always cleaned up.
 
 async function wipeSeedProjects(): Promise<void> {
-  // KnowledgeRevision has no `entry` relation field in schema — only the FK
-  // column — so we resolve entry IDs first and delete by entryId.
+  const demoProjects = await prisma.project.findMany({
+    where: { name: { startsWith: '[demo]' } },
+    select: { id: true },
+  })
+  const ids = demoProjects.map((p) => p.id)
+  if (ids.length === 0) return
+
+  // KnowledgeRevision has no `entry` relation field — resolve entry IDs first.
   const entryIds = (
     await prisma.knowledgeEntry.findMany({
-      where: { projectId: { in: [...SEED_PROJECT_IDS] } },
+      where: { projectId: { in: ids } },
       select: { id: true },
     })
   ).map((r) => r.id)
 
   await prisma.$transaction([
     prisma.knowledgeRevision.deleteMany({ where: { entryId: { in: entryIds } } }),
-    prisma.knowledgeEntry.deleteMany({ where: { projectId: { in: [...SEED_PROJECT_IDS] } } }),
-    prisma.edge.deleteMany({ where: { projectId: { in: [...SEED_PROJECT_IDS] } } }),
-    prisma.node.deleteMany({ where: { projectId: { in: [...SEED_PROJECT_IDS] } } }),
-    prisma.project.deleteMany({ where: { id: { in: [...SEED_PROJECT_IDS] } } }),
+    prisma.knowledgeEntry.deleteMany({ where: { projectId: { in: ids } } }),
+    prisma.edge.deleteMany({ where: { projectId: { in: ids } } }),
+    prisma.node.deleteMany({ where: { projectId: { in: ids } } }),
+    prisma.project.deleteMany({ where: { id: { in: ids } } }),
   ])
+
+  console.log(`[seed] wiped ${ids.length} demo project(s)`)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -416,9 +424,16 @@ async function seedEmpty(tx: PrismaTx): Promise<void> {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
+const cleanOnly = process.argv.includes('--clean')
+
 async function main(): Promise<void> {
-  console.log('[seed] wiping seed-owned projects…')
+  console.log('[seed] wiping demo projects…')
   await wipeSeedProjects()
+
+  if (cleanOnly) {
+    console.log('[seed:clean] done.')
+    return
+  }
 
   console.log('[seed] inserting fixture…')
   await prisma.$transaction(async (tx) => {
