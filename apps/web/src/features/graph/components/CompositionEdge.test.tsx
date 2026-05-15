@@ -10,9 +10,9 @@ describe("CompositionEdge", () => {
 			sourceX: 100,
 			sourceY: 80,
 			targetX: 260,
-			targetY: 80,
-			sourcePosition: Position.Right,
-			targetPosition: Position.Left,
+			targetY: 220,
+			sourcePosition: Position.Bottom,
+			targetPosition: Position.Top,
 			data: { dimmed: false },
 		} as EdgeProps<CompositionEdgeType>;
 

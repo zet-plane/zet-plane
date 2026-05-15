@@ -11,6 +11,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import "@xyflow/react/dist/style.css";
 import { useGraphViewStore } from "@/stores/graph-view.store";
+import { aggregateStatus } from "../domain/aggregate-status";
 import type { ProjectGraph } from "../domain/types";
 import { useLayoutedGraph } from "../layout/use-layouted-graph";
 import { CompositionEdge } from "./CompositionEdge";
@@ -55,6 +56,18 @@ function CanvasInner({
 	const setHoveredNodeId = useGraphViewStore((s) => s.setHoveredNodeId);
 	const rfApi = useReactFlow();
 	const initialCenterDone = useRef(false);
+	const aggregation = useMemo(
+		() => (graph ? aggregateStatus(graph) : new Map()),
+		[graph],
+	);
+	const nodesWithCompositionChildren = useMemo(() => {
+		const ids = new Set<string>();
+		if (!graph) return ids;
+		for (const edge of graph.edges) {
+			if (edge.type === "composition") ids.add(edge.fromId);
+		}
+		return ids;
+	}, [graph]);
 
 	const focusId = hoveredNodeId ?? selectedNodeId;
 	const focusEdgeIds = useMemo(() => {
@@ -113,6 +126,9 @@ function CanvasInner({
 	const xyNodes: Node[] = layouted.nodes.map((n) => {
 		const data: NodeCardData = {
 			node: n,
+			aggregation: nodesWithCompositionChildren.has(n.id)
+				? aggregation.get(n.id)
+				: undefined,
 			knowledgeCount: 0,
 			selected: selectedNodeId === n.id,
 			dimmed: focusId !== null && focusId !== n.id,

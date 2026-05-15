@@ -38,6 +38,12 @@
 .zp-node__title {
 	color: var(--foreground);
 }
+.zp-node__summary {
+	margin-top: 4px;
+	font-size: 10px;
+	line-height: 1.3;
+	color: var(--zp-badge-neutral);
+}
 .zp-node__glyph {
 	position: absolute;
 	top: 4px;
