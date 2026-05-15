@@ -1,5 +1,5 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify'
-import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
+import { OrchestratorTaskType, OrchestratorSourceType, Prisma } from '@generated/client'
 import type { EvalApp } from './setup'
 
 // ── Project ──────────────────────────────────────────────────────────────────
@@ -23,7 +23,8 @@ export async function getSystemNodes(ctx: EvalApp, projectId: string) {
 export async function deleteProject(ctx: EvalApp, projectId: string) {
   const prisma = ctx.prisma
   await prisma.orchestratorTask.deleteMany({ where: { projectId } })
-  await prisma.knowledgeRevision.deleteMany({ where: { entry: { projectId } } })
+  const entryIds = (await prisma.knowledgeEntry.findMany({ where: { projectId }, select: { id: true } })).map(e => e.id)
+  await prisma.knowledgeRevision.deleteMany({ where: { entryId: { in: entryIds } } })
   await prisma.knowledgeEntry.deleteMany({ where: { projectId } })
   await prisma.edge.deleteMany({ where: { projectId } })
   await prisma.node.deleteMany({ where: { projectId } })
@@ -115,7 +116,7 @@ export interface PublishInput {
   type: OrchestratorTaskType
   sourceType: OrchestratorSourceType
   sourceId: string
-  input: Record<string, unknown>
+  input: Prisma.JsonValue
 }
 
 /** Publish a task, execute it synchronously, and return the final OrchestratorTask record. */
