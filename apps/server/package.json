@@ -8,6 +8,7 @@
     "start": "node dist/main",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:eval": "vitest run --config vitest.eval.config.ts",
     "test:all": "pnpm test && pnpm test:e2e",
     "test:watch": "vitest",
     "seed": "prisma db seed",
