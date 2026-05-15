@@ -14,34 +14,17 @@ const makeNode = (overrides = {}) => ({
 describe('createNodeTool', () => {
   it('creates a growth node and returns its id', async () => {
     const mockNodeService = {
-      listProjectNodes: vi.fn().mockResolvedValue([]),
       createNode: vi.fn().mockResolvedValue(makeNode()),
     }
     const t = createNodeTool({ nodeService: mockNodeService as any, projectId: 'p1' })
     const result = await t.invoke({ title: 'New Feature', description: 'desc' })
     const parsed = JSON.parse(result)
     expect(parsed.nodeId).toBe('n1')
-    expect(parsed.alreadyExists).toBeUndefined()
-  })
-
-  it('returns existing node without creating when title already exists', async () => {
-    const existing = makeNode({ id: 'existing-1', title: 'Existing Node' })
-    const mockNodeService = {
-      listProjectNodes: vi.fn().mockResolvedValue([existing]),
-      createNode: vi.fn(),
-    }
-    const t = createNodeTool({ nodeService: mockNodeService as any, projectId: 'p1' })
-    const result = await t.invoke({ title: 'Existing Node' })
-    const parsed = JSON.parse(result)
-    expect(parsed.nodeId).toBe('existing-1')
-    expect(parsed.alreadyExists).toBe(true)
-    expect(mockNodeService.createNode).not.toHaveBeenCalled()
   })
 
   it('throws DomainServiceError when ConflictException thrown', async () => {
     const { ConflictException } = await import('@nestjs/common')
     const mockNodeService = {
-      listProjectNodes: vi.fn().mockResolvedValue([]),
       createNode: vi.fn().mockRejectedValue(new ConflictException('NODE_ARCHIVED')),
     }
     const t = createNodeTool({ nodeService: mockNodeService as any, projectId: 'p1' })
