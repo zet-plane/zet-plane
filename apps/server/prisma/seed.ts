@@ -67,15 +67,16 @@ type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 // ─── Stable UUIDs ────────────────────────────────────────────────────────────
 
-const PROJECT_FULL = '00000000-0000-0000-0000-000000000001'
-const PROJECT_EMPTY = '00000000-0000-0000-0000-000000000002'
-const PROJECT_COMPACT = '00000000-0000-0000-0000-000000000003'
+const PROJECT_FULL = '00000000-0000-4000-8000-000000000001'
+const PROJECT_EMPTY = '00000000-0000-4000-8000-000000000002'
+const PROJECT_COMPACT = '00000000-0000-4000-8000-000000000003'
 
 const SEED_PROJECT_IDS = [PROJECT_FULL, PROJECT_EMPTY, PROJECT_COMPACT] as const
 
-const fullNode = (i: number) => `00000000-0000-0000-0001-${String(i).padStart(12, '0')}`
-const emptyNode = (i: number) => `00000000-0000-0000-0002-${String(i).padStart(12, '0')}`
-const compactNode = (i: number) => `00000000-0000-0000-0003-${String(i).padStart(12, '0')}`
+// Version nibble = 4, variant nibble = 8 — valid RFC 4122 format.
+const fullNode = (i: number) => `00000000-0000-4000-8001-${String(i).padStart(12, '0')}`
+const emptyNode = (i: number) => `00000000-0000-4000-8002-${String(i).padStart(12, '0')}`
+const compactNode = (i: number) => `00000000-0000-4000-8003-${String(i).padStart(12, '0')}`
 
 // ─── Wipe ────────────────────────────────────────────────────────────────────
 
