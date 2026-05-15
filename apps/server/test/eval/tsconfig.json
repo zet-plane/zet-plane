@@ -5,10 +5,9 @@
     "noEmit": true,
     "module": "preserve",
     "moduleResolution": "bundler",
-    "baseUrl": "../..",
     "paths": {
-      "@generated/client": ["./src/prisma/gen/client/client"],
-      "@langchain/langgraph/prebuilt": ["./node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"]
+      "@generated/client": ["../../src/prisma/gen/client/client"],
+      "@langchain/langgraph/prebuilt": ["../../node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"]
     }
   },
   "include": ["./**/*.ts", "../../src/**/*.ts"]
