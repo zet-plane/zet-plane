@@ -69,6 +69,21 @@ describe('OpenAiCompatibleProvider', () => {
         expect.objectContaining({ temperature: 0.7, maxTokens: 1024 }),
       )
     })
+
+    it('disables DeepSeek thinking mode for chat models used in tool loops', () => {
+      const provider = new OpenAiCompatibleProvider({
+        provider: 'deepseek',
+        model: 'deepseek-v4-pro',
+        api_key: 'sk-ds-123',
+        base_url: 'https://api.deepseek.com/v1',
+      })
+      provider.createChatModel()
+      expect(mockChatOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          modelKwargs: { thinking: { type: 'disabled' } },
+        }),
+      )
+    })
   })
 
   describe('embed', () => {
