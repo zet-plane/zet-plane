@@ -73,5 +73,6 @@ describe('S-9: Skills Efficiency Comparison', () => {
       confidence: result.confidence,
     })
     expect(result.status).toBe('succeeded')
+    expect(result.nodeCreated).toBe(true)
   })
 })

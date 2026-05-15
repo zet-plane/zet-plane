@@ -102,9 +102,10 @@ export async function embedEntry(ctx: EvalApp, projectId: string, entryId: strin
     sourceId: entryId,
     input: { entryId },
   })
-  if (result.created) {
-    await ctx.runtime.execute(result.taskId)
+  if (!result.created) {
+    throw new Error(`embedEntry: idempotency collision — embedding already exists for entryId=${entryId}`)
   }
+  await ctx.runtime.execute(result.taskId)
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────

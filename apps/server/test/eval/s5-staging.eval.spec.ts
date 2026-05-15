@@ -56,7 +56,8 @@ describe('S-5: Staging Flow', () => {
 
     expect(onN1.length).toBeGreaterThanOrEqual(1)
     expect(onStaging.length).toBeGreaterThanOrEqual(1)
-    expect(entries.length).toBeLessThanOrEqual(3)
+    // knowledge point 3 (team building) is irrelevant and must be discarded — max 2 entries
+    expect(entries.length).toBeLessThanOrEqual(2)
     expect(onN2.length).toBe(0)
 
     const insight = parseInsight(task)
