@@ -1414,7 +1414,7 @@ git commit -m "feat(graph): replace card styles with pill silhouettes"
 
 The new GraphCanvas: uses `useCanvasNavigation` to read the focused node id; calls `canvasView()` and `breadcrumb()`; renders the breadcrumb + hero above the xyflow canvas; renders only the focused canvas's siblings (not the entire project graph) + their dependency edges + peripheral stubs + staging panel on top-level.
 
-- [ ] **Step 1: Replace GraphCanvas.tsx**
+- [x] **Step 1: Replace GraphCanvas.tsx**
 
 Overwrite `apps/web/src/features/graph/components/GraphCanvas.tsx`:
 
@@ -1617,17 +1617,17 @@ Notes embedded in code:
 - Dive-in trigger for v1 is **double-click on a pill** (simpler than wiring a click handler inside the Pill internals). The spec's `↳N` glyph remains a visual affordance only in v1; clicking the glyph dives in via the same double-click pattern users can also use. Promote the glyph to a real click target in a v1.1 follow-up if the UX warrants it.
 - The layout is computed over only the *visible sub-graph*, not the whole project graph. This is a behavior change from today's code and is the whole point of dive-in.
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Verify tests pass (excluding tests for deleted components)**
+- [x] **Step 3: Verify tests pass (excluding tests for deleted components)**
 
 Run: `cd apps/web && pnpm vitest run --reporter=verbose`
 Expected: Tests pass except for `NodeCard.test.tsx`, `CompositionEdge.test.tsx`, and any tests that import deleted symbols. Those are removed in Task 16.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/GraphCanvas.tsx
