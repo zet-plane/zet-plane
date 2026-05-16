@@ -940,7 +940,7 @@ git commit -m "feat(graph): add Breadcrumb component"
 
 Renders a faded margin pill for a cross-boundary node. Click → dive to it.
 
-- [ ] **Step 1: Implement `PeripheralStub.tsx`**
+- [x] **Step 1: Implement `PeripheralStub.tsx`**
 
 Create `apps/web/src/features/graph/components/PeripheralStub.tsx`:
 
@@ -974,12 +974,12 @@ export function PeripheralStub({ node, onJump }: Props) {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/PeripheralStub.tsx
