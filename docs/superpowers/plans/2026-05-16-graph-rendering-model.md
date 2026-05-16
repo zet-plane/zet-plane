@@ -1743,12 +1743,12 @@ git commit -m "feat(graph): update Legend for pill-based visual language"
 - Delete: `apps/web/src/features/graph/components/CompositionEdge.test.tsx`
 - Update: `apps/web/src/features/graph/components/status-classes.ts` (drop now-unused exports)
 
-- [ ] **Step 1: Search for any remaining references**
+- [x] **Step 1: Search for any remaining references**
 
 Run: `cd apps/web && grep -rn "NodeCard\|ContainerCard\|CompositionEdge\|nodeTypeClass\|containerStatusClass" src/`
 Expected: Only references should be in the files about to be deleted. If any others exist, fix them first.
 
-- [ ] **Step 2: Delete the files**
+- [x] **Step 2: Delete the files**
 
 ```bash
 cd /Volumes/Major/ai/zet-plane
@@ -1759,7 +1759,7 @@ rm apps/web/src/features/graph/components/CompositionEdge.tsx
 rm apps/web/src/features/graph/components/CompositionEdge.test.tsx
 ```
 
-- [ ] **Step 3: Trim `status-classes.ts`**
+- [x] **Step 3: Trim `status-classes.ts`**
 
 Replace `apps/web/src/features/graph/components/status-classes.ts` with:
 
@@ -1780,7 +1780,7 @@ export function edgeStatusClass(targetStatus: NodeStatus): string {
 }
 ```
 
-- [ ] **Step 4: Update `status-classes.test.ts`**
+- [x] **Step 4: Update `status-classes.test.ts`**
 
 Open `apps/web/src/features/graph/components/status-classes.test.ts` and remove any tests that reference deleted exports (`nodeTypeClass`, `containerStatusClass`). Keep tests for the remaining `nodeStatusClass` and `edgeStatusClass` exports.
 
@@ -1813,17 +1813,17 @@ describe("edgeStatusClass", () => {
 });
 ```
 
-- [ ] **Step 5: Run the full test suite**
+- [x] **Step 5: Run the full test suite**
 
 Run: `cd apps/web && pnpm vitest run`
 Expected: All remaining tests pass.
 
-- [ ] **Step 6: Type-check the whole web app**
+- [x] **Step 6: Type-check the whole web app**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A apps/web/src/features/graph/components/
