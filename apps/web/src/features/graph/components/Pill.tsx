@@ -48,8 +48,16 @@ export function Pill({ data }: NodeProps<PillNode>) {
 				dive();
 			}}
 		>
-			<Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
-			<Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
+			{/* Defaults for sibling edges: top-target / bottom-source */}
+			<Handle type="target" position={Position.Top} id="t-t" style={{ opacity: 0 }} />
+			<Handle type="source" position={Position.Bottom} id="b-s" style={{ opacity: 0 }} />
+			{/* Side handles for peripheral edges */}
+			<Handle type="source" position={Position.Right} id="r-s" style={{ opacity: 0 }} />
+			<Handle type="target" position={Position.Right} id="r-t" style={{ opacity: 0 }} />
+			<Handle type="source" position={Position.Left} id="l-s" style={{ opacity: 0 }} />
+			<Handle type="target" position={Position.Left} id="l-t" style={{ opacity: 0 }} />
+			<Handle type="source" position={Position.Top} id="t-s" style={{ opacity: 0 }} />
+			<Handle type="target" position={Position.Bottom} id="b-t" style={{ opacity: 0 }} />
 			{node.type === 'scaffold' && node.isCheckpoint && (
 				<span className="zp-pill__flag" aria-label="checkpoint">
 					<Flag size={9} />

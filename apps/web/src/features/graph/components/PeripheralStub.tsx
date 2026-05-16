@@ -8,7 +8,7 @@ export type PeripheralStubData = {
 	node: NodeResponse;
 	placement: PeripheralPlacement;
 	direction: 'incoming' | 'outgoing';
-	onJump?: (id: string) => void;
+	selected: boolean;
 };
 
 export type PeripheralStubNode = Node<PeripheralStubData>;
@@ -22,28 +22,31 @@ const HANDLE_POSITION: Record<PeripheralPlacement, Position> = {
 };
 
 export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
-	const { node, placement, direction, onJump } = data;
+	const { node, placement, direction, selected } = data;
 	const classes = [
 		'zp-pill',
 		'zp-pill--peripheral',
 		`zp-pill--${node.type}`,
 		`zp-pill--${node.status}`,
 	];
+	if (selected) classes.push('zp-pill--selected');
 	const handleType = direction === 'incoming' ? 'source' : 'target';
 	return (
-		<button
-			type="button"
+		<div
 			className={classes.join(' ')}
-			onClick={() => onJump?.(node.id)}
+			role="button"
+			tabIndex={0}
 			aria-label={`Open ${node.title}`}
+			aria-pressed={selected}
 		>
 			<Handle
 				type={handleType}
 				position={HANDLE_POSITION[placement]}
+				id="main"
 				style={{ opacity: 0 }}
 			/>
 			<span className="zp-pill__title">{node.title}</span>
 			<ArrowUpRight size={11} className="zp-pill__jump" aria-hidden />
-		</button>
+		</div>
 	);
 }

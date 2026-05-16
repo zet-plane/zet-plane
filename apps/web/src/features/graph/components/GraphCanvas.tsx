@@ -27,7 +27,7 @@ import { StagingPanel } from './StagingPanel';
 const nodeTypes = { pill: Pill, peripheral: PeripheralStub };
 const edgeTypes = { dependency: DependencyEdge };
 
-const PERIPHERAL_GAP = 80;
+const PERIPHERAL_GAP = 140;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
 const PERIPHERAL_V_SPACING = 16;
@@ -90,7 +90,6 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 
 	const onNodeClick = useCallback(
 		(_: unknown, n: Node) => {
-			if (n.type === 'peripheral') return;
 			onSelectNode(n.id);
 		},
 		[onSelectNode],
@@ -131,27 +130,40 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			{ x: n.position.x, y: n.position.y, width: n.width, height: n.height },
 		]),
 	);
-	const peripheralNodes = layoutPeripherals(view.peripheralStubs, childRects, diveInto);
+	const peripheralPlacements = layoutPeripherals(
+		view.peripheralStubs,
+		childRects,
+		selectedNodeId,
+	);
+	const peripheralNodes: Node[] = peripheralPlacements.map((p) => p.node);
+	const placementByStubId = new Map(peripheralPlacements.map((p) => [p.stubId, p.placement]));
 
-	const peripheralEdges: Edge[] = view.peripheralStubs.flatMap((stub) =>
-		stub.edges.map((e) => {
+	const peripheralEdges: Edge[] = view.peripheralStubs.flatMap((stub) => {
+		const placement = placementByStubId.get(stub.external.id);
+		if (!placement) return [];
+		const childHandle = childHandleFor(placement, stub.side);
+		const peripheralHandle = 'main';
+		return stub.edges.map((e) => {
 			const targetStatus =
 				stub.side === 'right'
 					? stub.external.status
 					: (layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active');
+			const childIsSource = stub.side === 'right';
 			return {
 				id: e.id,
 				source: e.fromId,
 				target: e.toId,
+				sourceHandle: childIsSource ? childHandle : peripheralHandle,
+				targetHandle: childIsSource ? peripheralHandle : childHandle,
 				type: 'dependency',
 				data: {
 					targetStatus,
 					dimmed: true,
-					variant: 'flow',
+					variant: 'peripheral',
 				} as Record<string, unknown>,
 			};
-		}),
-	);
+		});
+	});
 
 	const xyNodes: Node[] = [...pillNodes, ...peripheralNodes];
 
@@ -236,11 +248,17 @@ function pickPlacement(bbox: Bbox, cx: number, cy: number): Placement {
 	return ny >= 0 ? 'bottom' : 'top';
 }
 
+export type PeripheralLayout = {
+	stubId: string;
+	placement: Placement;
+	node: Node;
+};
+
 function layoutPeripherals(
 	stubs: PeripheralStubModel[],
 	childRects: Map<string, Rect>,
-	onJump: (id: string) => void,
-): Node[] {
+	selectedNodeId: string | null,
+): PeripheralLayout[] {
 	if (stubs.length === 0 || childRects.size === 0) return [];
 	const bbox = computeBbox(childRects.values());
 
@@ -307,18 +325,42 @@ function layoutPeripherals(
 	}
 
 	return placed.map((p) => ({
-		id: p.stub.external.id,
-		type: 'peripheral',
-		position: { x: p.x, y: p.y },
-		width: PERIPHERAL_WIDTH,
-		height: PERIPHERAL_HEIGHT,
-		data: {
-			node: p.stub.external,
-			placement: p.placement,
-			direction: p.stub.side === 'left' ? 'incoming' : 'outgoing',
-			onJump,
-		} as unknown as Record<string, unknown>,
-		selectable: false,
-		draggable: false,
+		stubId: p.stub.external.id,
+		placement: p.placement,
+		node: {
+			id: p.stub.external.id,
+			type: 'peripheral',
+			position: { x: p.x, y: p.y },
+			width: PERIPHERAL_WIDTH,
+			height: PERIPHERAL_HEIGHT,
+			data: {
+				node: p.stub.external,
+				placement: p.placement,
+				direction: p.stub.side === 'left' ? 'incoming' : 'outgoing',
+				selected: selectedNodeId === p.stub.external.id,
+			} as unknown as Record<string, unknown>,
+			selectable: true,
+			draggable: false,
+		},
 	}));
+}
+
+// Pick the child-side handle id based on the peripheral's perimeter placement
+// and the edge direction (stub.side carries the semantic: 'left' = incoming
+// to a child, 'right' = outgoing from a child).
+function childHandleFor(
+	placement: Placement,
+	stubSide: 'left' | 'right',
+): string {
+	const childIsSource = stubSide === 'right';
+	switch (placement) {
+		case 'left':
+			return childIsSource ? 'l-s' : 'l-t';
+		case 'right':
+			return childIsSource ? 'r-s' : 'r-t';
+		case 'top':
+			return childIsSource ? 't-s' : 't-t';
+		case 'bottom':
+			return childIsSource ? 'b-s' : 'b-t';
+	}
 }
