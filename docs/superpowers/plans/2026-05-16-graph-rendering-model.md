@@ -1906,23 +1906,23 @@ If everything passed without changes, skip the commit.
 **Files:**
 - Modify: any failing files under `apps/web/e2e/` that exercise the old canvas behavior.
 
-- [ ] **Step 1: Run the existing e2e suite**
+- [x] **Step 1: Run the existing e2e suite**
 
 Run: `cd apps/web && pnpm test:e2e`
 Expected: Tests that depended on `NodeCard`-class names or composition edges visible will fail.
 
-- [ ] **Step 2: Update failing selectors**
+- [x] **Step 2: Update failing selectors**
 
 Replace any `.zp-node--scaffold` / `.zp-container--*` selectors in tests with `.zp-pill--scaffold` / `.zp-pill--growth` etc. Replace any "click composition edge" assertions with "double-click pill to dive in" + breadcrumb / focus URL assertions.
 
 If multiple e2e files need to change, do them one at a time so the test failures stay scoped.
 
-- [ ] **Step 3: Re-run e2e**
+- [x] **Step 3: Re-run e2e**
 
 Run: `cd apps/web && pnpm test:e2e`
 Expected: Tests pass. If a test was exercising behavior that no longer exists (e.g., "verify composition edges are visible"), delete it — the new spec eliminates that surface.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add -A apps/web/e2e/
