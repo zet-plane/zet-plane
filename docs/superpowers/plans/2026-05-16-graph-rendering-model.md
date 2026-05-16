@@ -544,7 +544,7 @@ git commit -m "feat(graph): add useCanvasNavigation hook"
 **Files:**
 - Create: `apps/web/src/features/graph/hooks/use-knowledge-toggle.ts`
 
-- [ ] **Step 1: Implement the hook**
+- [x] **Step 1: Implement the hook**
 
 Create `apps/web/src/features/graph/hooks/use-knowledge-toggle.ts`:
 
@@ -589,12 +589,12 @@ export function useKnowledgeToggle(): {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/hooks/use-knowledge-toggle.ts
