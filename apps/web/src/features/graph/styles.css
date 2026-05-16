@@ -142,9 +142,22 @@
 }
 
 /* Peripheral stub */
-.zp-pill--peripheral { opacity: 0.6; cursor: pointer; min-width: 0; width: 100%; }
-.zp-pill--peripheral:hover { opacity: 0.95; }
+.zp-pill--peripheral { opacity: 0.7; cursor: pointer; min-width: 0; width: 100%; }
+.zp-pill--peripheral:hover { opacity: 1; }
 .zp-pill--peripheral .zp-pill__title { max-width: 140px; }
+.zp-pill__jump-btn {
+	margin-left: auto;
+	background: transparent;
+	border: 0;
+	padding: 2px 4px;
+	border-radius: 4px;
+	display: inline-flex;
+	align-items: center;
+	cursor: pointer;
+	color: inherit;
+	line-height: 1;
+}
+.zp-pill__jump-btn:hover { background: rgba(0, 0, 0, 0.08); color: #1a1a1a; }
 
 /* Hero */
 .zp-hero {

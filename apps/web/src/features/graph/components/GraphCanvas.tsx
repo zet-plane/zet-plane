@@ -27,10 +27,10 @@ import { StagingPanel } from './StagingPanel';
 const nodeTypes = { pill: Pill, peripheral: PeripheralStub };
 const edgeTypes = { dependency: DependencyEdge };
 
-const PERIPHERAL_GAP = 140;
+const PERIPHERAL_GAP = 60;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
-const PERIPHERAL_V_SPACING = 16;
+const PERIPHERAL_V_SPACING = 12;
 
 type Props = {
 	graph: ProjectGraph | undefined;
@@ -134,6 +134,7 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		view.peripheralStubs,
 		childRects,
 		selectedNodeId,
+		diveInto,
 	);
 	const peripheralNodes: Node[] = peripheralPlacements.map((p) => p.node);
 	const placementByStubId = new Map(peripheralPlacements.map((p) => [p.stubId, p.placement]));
@@ -237,15 +238,64 @@ function computeBbox(rects: Iterable<Rect>): Bbox {
 	return { minX, maxX, minY, maxY };
 }
 
-function pickPlacement(bbox: Bbox, cx: number, cy: number): Placement {
-	const midX = (bbox.minX + bbox.maxX) / 2;
-	const midY = (bbox.minY + bbox.maxY) / 2;
-	const halfW = Math.max(1, (bbox.maxX - bbox.minX) / 2);
-	const halfH = Math.max(1, (bbox.maxY - bbox.minY) / 2);
-	const nx = (cx - midX) / halfW;
-	const ny = (cy - midY) / halfH;
-	if (Math.abs(nx) >= Math.abs(ny)) return nx >= 0 ? 'right' : 'left';
-	return ny >= 0 ? 'bottom' : 'top';
+// Pick the side of the bbox the anchor rect is closest to.
+// This gives natural results regardless of the sub-graph's aspect:
+//   - in a vertical column, the head child is closest to the top edge -> 'top';
+//     the tail to 'bottom'; middle children's nearest edges are 'left' or 'right'.
+//   - in a horizontal row, head/tail go to 'left'/'right'; middle to 'top'/'bottom'.
+function pickPlacement(bbox: Bbox, anchor: Rect): Placement {
+	const d = [
+		{ d: anchor.y - bbox.minY, side: 'top' as Placement },
+		{ d: bbox.maxX - (anchor.x + anchor.width), side: 'right' as Placement },
+		{ d: bbox.maxY - (anchor.y + anchor.height), side: 'bottom' as Placement },
+		{ d: anchor.x - bbox.minX, side: 'left' as Placement },
+	];
+	d.sort((a, b) => a.d - b.d);
+	return d[0].side;
+}
+
+function rectsOverlap(a: Rect, b: Rect): boolean {
+	return !(
+		a.x + a.width <= b.x ||
+		b.x + b.width <= a.x ||
+		a.y + a.height <= b.y ||
+		b.y + b.height <= a.y
+	);
+}
+
+function slotAdjacentTo(anchor: Rect, placement: Placement): Rect {
+	const cx = anchor.x + anchor.width / 2;
+	const cy = anchor.y + anchor.height / 2;
+	switch (placement) {
+		case 'left':
+			return {
+				x: anchor.x - PERIPHERAL_GAP - PERIPHERAL_WIDTH,
+				y: cy - PERIPHERAL_HEIGHT / 2,
+				width: PERIPHERAL_WIDTH,
+				height: PERIPHERAL_HEIGHT,
+			};
+		case 'right':
+			return {
+				x: anchor.x + anchor.width + PERIPHERAL_GAP,
+				y: cy - PERIPHERAL_HEIGHT / 2,
+				width: PERIPHERAL_WIDTH,
+				height: PERIPHERAL_HEIGHT,
+			};
+		case 'top':
+			return {
+				x: cx - PERIPHERAL_WIDTH / 2,
+				y: anchor.y - PERIPHERAL_GAP - PERIPHERAL_HEIGHT,
+				width: PERIPHERAL_WIDTH,
+				height: PERIPHERAL_HEIGHT,
+			};
+		case 'bottom':
+			return {
+				x: cx - PERIPHERAL_WIDTH / 2,
+				y: anchor.y + anchor.height + PERIPHERAL_GAP,
+				width: PERIPHERAL_WIDTH,
+				height: PERIPHERAL_HEIGHT,
+			};
+	}
 }
 
 export type PeripheralLayout = {
@@ -258,6 +308,7 @@ function layoutPeripherals(
 	stubs: PeripheralStubModel[],
 	childRects: Map<string, Rect>,
 	selectedNodeId: string | null,
+	onJump: (id: string) => void,
 ): PeripheralLayout[] {
 	if (stubs.length === 0 || childRects.size === 0) return [];
 	const bbox = computeBbox(childRects.values());
@@ -270,6 +321,8 @@ function layoutPeripherals(
 	};
 
 	const placed: Placed[] = [];
+	const occupied: Rect[] = [...childRects.values()];
+
 	for (const stub of stubs) {
 		const connected: Rect[] = [];
 		for (const e of stub.edges) {
@@ -279,49 +332,34 @@ function layoutPeripherals(
 		}
 		if (connected.length === 0) continue;
 
-		const centroidX =
-			connected.reduce((s, r) => s + r.x + r.width / 2, 0) / connected.length;
-		const centroidY =
-			connected.reduce((s, r) => s + r.y + r.height / 2, 0) / connected.length;
-		const placement = pickPlacement(bbox, centroidX, centroidY);
+		// Anchor = bounding rect of all connected children.
+		const a = computeBbox(connected);
+		const anchor: Rect = {
+			x: a.minX,
+			y: a.minY,
+			width: a.maxX - a.minX,
+			height: a.maxY - a.minY,
+		};
 
-		let x: number;
-		let y: number;
-		switch (placement) {
-			case 'left':
-				x = bbox.minX - PERIPHERAL_GAP - PERIPHERAL_WIDTH;
-				y = centroidY - PERIPHERAL_HEIGHT / 2;
-				break;
-			case 'right':
-				x = bbox.maxX + PERIPHERAL_GAP;
-				y = centroidY - PERIPHERAL_HEIGHT / 2;
-				break;
-			case 'top':
-				x = centroidX - PERIPHERAL_WIDTH / 2;
-				y = bbox.minY - PERIPHERAL_GAP - PERIPHERAL_HEIGHT;
-				break;
-			case 'bottom':
-				x = centroidX - PERIPHERAL_WIDTH / 2;
-				y = bbox.maxY + PERIPHERAL_GAP;
-				break;
-		}
-		placed.push({ stub, placement, x, y });
-	}
+		const placement = pickPlacement(bbox, anchor);
+		const slot = slotAdjacentTo(anchor, placement);
 
-	// Per-side collision resolution along the side's parallel axis.
-	const minVGap = PERIPHERAL_HEIGHT + PERIPHERAL_V_SPACING;
-	const minHGap = PERIPHERAL_WIDTH + PERIPHERAL_V_SPACING;
-	for (const side of ['left', 'right'] as const) {
-		const row = placed.filter((p) => p.placement === side).sort((a, b) => a.y - b.y);
-		for (let i = 1; i < row.length; i++) {
-			if (row[i].y - row[i - 1].y < minVGap) row[i].y = row[i - 1].y + minVGap;
+		// Resolve collisions with previously-placed nodes by sliding perpendicular
+		// to the placement axis.
+		while (occupied.some((r) => rectsOverlap(r, slot))) {
+			switch (placement) {
+				case 'left':
+				case 'right':
+					slot.y += PERIPHERAL_HEIGHT + PERIPHERAL_V_SPACING;
+					break;
+				case 'top':
+				case 'bottom':
+					slot.x += PERIPHERAL_WIDTH + PERIPHERAL_V_SPACING;
+					break;
+			}
 		}
-	}
-	for (const side of ['top', 'bottom'] as const) {
-		const row = placed.filter((p) => p.placement === side).sort((a, b) => a.x - b.x);
-		for (let i = 1; i < row.length; i++) {
-			if (row[i].x - row[i - 1].x < minHGap) row[i].x = row[i - 1].x + minHGap;
-		}
+		occupied.push({ ...slot });
+		placed.push({ stub, placement, x: slot.x, y: slot.y });
 	}
 
 	return placed.map((p) => ({
@@ -338,6 +376,7 @@ function layoutPeripherals(
 				placement: p.placement,
 				direction: p.stub.side === 'left' ? 'incoming' : 'outgoing',
 				selected: selectedNodeId === p.stub.external.id,
+				onJump,
 			} as unknown as Record<string, unknown>,
 			selectable: true,
 			draggable: false,
