@@ -84,7 +84,7 @@ export type PeripheralStub = {
 };
 ```
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `apps/web/src/features/graph/domain/canvas-view.test.ts`:
 
@@ -204,12 +204,12 @@ describe('canvasView', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/domain/canvas-view.test.ts`
 Expected: FAIL with "Cannot find module './canvas-view'".
 
-- [ ] **Step 3: Implement `canvas-view.ts`**
+- [x] **Step 3: Implement `canvas-view.ts`**
 
 Create `apps/web/src/features/graph/domain/canvas-view.ts`:
 
@@ -291,12 +291,12 @@ export function canvasView(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/domain/canvas-view.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/domain/canvas-view.ts apps/web/src/features/graph/domain/canvas-view.test.ts
