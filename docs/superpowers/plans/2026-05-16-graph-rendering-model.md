@@ -446,7 +446,7 @@ git commit -m "feat(graph): add breadcrumb domain function"
 **Files:**
 - Modify: `apps/web/src/lib/schemas/graph-search.ts`
 
-- [ ] **Step 1: Update the schema**
+- [x] **Step 1: Update the schema**
 
 Replace the contents of `apps/web/src/lib/schemas/graph-search.ts` with:
 
@@ -463,12 +463,12 @@ export const graphSearchSchema = z
 export type GraphSearch = z.infer<typeof graphSearchSchema>;
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/lib/schemas/graph-search.ts
