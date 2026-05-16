@@ -1,25 +1,47 @@
+import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
 import type { NodeResponse } from '@zet-plane/contracts';
 import { ArrowUpRight } from 'lucide-react';
 
-type Props = {
+export type PeripheralPlacement = 'top' | 'right' | 'bottom' | 'left';
+
+export type PeripheralStubData = {
 	node: NodeResponse;
-	onJump: (id: string) => void;
+	placement: PeripheralPlacement;
+	direction: 'incoming' | 'outgoing';
+	onJump?: (id: string) => void;
 };
 
-export function PeripheralStub({ node, onJump }: Props) {
+export type PeripheralStubNode = Node<PeripheralStubData>;
+
+// Handle goes on the side facing the sub-graph interior.
+const HANDLE_POSITION: Record<PeripheralPlacement, Position> = {
+	left: Position.Right,
+	right: Position.Left,
+	top: Position.Bottom,
+	bottom: Position.Top,
+};
+
+export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
+	const { node, placement, direction, onJump } = data;
 	const classes = [
 		'zp-pill',
 		'zp-pill--peripheral',
 		`zp-pill--${node.type}`,
 		`zp-pill--${node.status}`,
 	];
+	const handleType = direction === 'incoming' ? 'source' : 'target';
 	return (
 		<button
 			type="button"
 			className={classes.join(' ')}
-			onClick={() => onJump(node.id)}
+			onClick={() => onJump?.(node.id)}
 			aria-label={`Open ${node.title}`}
 		>
+			<Handle
+				type={handleType}
+				position={HANDLE_POSITION[placement]}
+				style={{ opacity: 0 }}
+			/>
 			<span className="zp-pill__title">{node.title}</span>
 			<ArrowUpRight size={11} className="zp-pill__jump" aria-hidden />
 		</button>

@@ -142,8 +142,9 @@
 }
 
 /* Peripheral stub */
-.zp-pill--peripheral { opacity: 0.55; transform: scale(0.92); cursor: pointer; }
-.zp-pill--peripheral:hover { opacity: 0.9; }
+.zp-pill--peripheral { opacity: 0.6; cursor: pointer; min-width: 0; width: 100%; }
+.zp-pill--peripheral:hover { opacity: 0.95; }
+.zp-pill--peripheral .zp-pill__title { max-width: 140px; }
 
 /* Hero */
 .zp-hero {
