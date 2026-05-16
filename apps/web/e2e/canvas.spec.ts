@@ -25,7 +25,7 @@ test("graph canvas renders and selection updates URL", async ({
 	).toBeVisible();
 });
 
-test("graph canvas renders root and child as independent cards linked by a composition edge", async ({
+test("graph canvas renders project hero with child pills and supports dive-in", async ({
 	page,
 	baseURL,
 }) => {
@@ -33,31 +33,33 @@ test("graph canvas renders root and child as independent cards linked by a compo
 		`${baseURL ?? "http://localhost:3001"}/projects/${COMPACT_PROJECT_ID}/graph`,
 	);
 
-	const root = page.locator("#root");
-	await expect(root).toHaveJSProperty("clientWidth", 1280);
+	await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 
-	const appShell = page.locator("#root > div").first();
-	await expect(appShell).toHaveJSProperty("clientWidth", 1280);
-	await expect(appShell).toHaveJSProperty("clientHeight", 720);
+	// Project hero token is rendered above the canvas (not as an xyflow node).
+	const heroToken = page.locator(".zp-hero--project");
+	await expect(heroToken).toBeVisible({ timeout: 10000 });
 
-	const rootNode = page.locator(`[data-id="${ROOT_NODE_ID}"]`);
-	const taskA = page.locator(`[data-id="${TASK_A_NODE_ID}"]`);
-	await expect(rootNode).toBeVisible({ timeout: 10000 });
-	await expect(taskA).toBeVisible({ timeout: 10000 });
+	// Task A appears as a pill on the canvas.
+	const taskAPill = page.locator(`[data-id="${TASK_A_NODE_ID}"]`);
+	await expect(taskAPill).toBeVisible({ timeout: 10000 });
 
-	const rootBox = await rootNode.boundingBox();
-	const taskABox = await taskA.boundingBox();
-
-	expect(rootBox).not.toBeNull();
-	expect(taskABox).not.toBeNull();
-
-	// New model: root and child are independent cards (no containment).
-	// The child should sit below the root, not inside it.
-	expect(taskABox!.y).toBeGreaterThanOrEqual(
-		rootBox!.y + rootBox!.height,
+	// Root node is NOT rendered as an xyflow node — it is the hero token.
+	const rootXyflowNode = page.locator(
+		`.react-flow [data-id="${ROOT_NODE_ID}"]`,
 	);
+	await expect(rootXyflowNode).not.toBeAttached();
 
-	// Composition edge between root and Task A should be rendered in the SVG layer.
+	// Composition edges are no longer rendered.
 	const compositionEdge = page.locator("path.zp-edge--composition").first();
-	await expect(compositionEdge).toBeAttached();
+	await expect(compositionEdge).not.toBeAttached();
+
+	// Double-clicking Task A pill dives in: URL gains focus param.
+	await taskAPill.dblclick();
+	await expect(page).toHaveURL(new RegExp(`focus=${TASK_A_NODE_ID}`));
+
+	// Breadcrumb nav gains a second segment after diving in.
+	const breadcrumb = page.locator("nav.zp-breadcrumb");
+	await expect(breadcrumb).toBeVisible();
+	const breadcrumbButtons = breadcrumb.getByRole("button");
+	await expect(breadcrumbButtons).toHaveCount(2);
 });
