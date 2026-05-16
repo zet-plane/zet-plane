@@ -1124,11 +1124,11 @@ git commit -m "feat(graph): add KnowledgePill and KnowledgeToggle stubs"
 **Files:**
 - Modify: `apps/web/src/features/graph/components/DependencyEdge.tsx`
 
-- [ ] **Step 1: Read the existing file**
+- [x] **Step 1: Read the existing file**
 
 Run: `cd apps/web && cat src/features/graph/components/DependencyEdge.tsx`
 
-- [ ] **Step 2: Update it to support a `variant: 'flow' | 'knowledge'` data field**
+- [x] **Step 2: Update it to support a `variant: 'flow' | 'knowledge'` data field**
 
 Open `apps/web/src/features/graph/components/DependencyEdge.tsx`. Locate the `data` shape (currently `{ targetStatus, dimmed }`). Extend with `variant?: 'flow' | 'knowledge'` (default `'flow'`). When `variant === 'knowledge'`, render the SVG path with `strokeDasharray="4 4"` and a slightly thinner stroke.
 
@@ -1151,12 +1151,12 @@ return (
 
 (Keep existing imports, prop typings, and edge-path computation logic intact — only the rendered path attributes change.)
 
-- [ ] **Step 3: Verify type-check passes**
+- [x] **Step 3: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/DependencyEdge.tsx
