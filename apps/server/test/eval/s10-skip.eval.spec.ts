@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-10: Noise Filtering (Skip)', () => {
@@ -30,7 +30,11 @@ describe('S-10: Noise Filtering (Skip)', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s10-${label}-${Date.now()}`,
-      input: { text },
+      input: withEvalTrace({ text }, {
+        evalCase: `S-10-${label}`,
+        testName: `Noise Filtering input ${label}`,
+        specFile: 'test/eval/s10-skip.eval.spec.ts',
+      }),
     })
 
     const nodesAfter = await getUserNodes(ctx, projectId)

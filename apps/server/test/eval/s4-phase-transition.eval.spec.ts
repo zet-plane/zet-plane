@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, updateNodeStatus, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-4: Phase Transition + Autonomous Node Creation', () => {
@@ -39,9 +39,13 @@ describe('S-4: Phase Transition + Autonomous Node Creation', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s4-${Date.now()}`,
-      input: {
+      input: withEvalTrace({
         text: '第一阶段核心模块全部完成并稳定上线：数据库设计、认证系统、核心 API 均已通过生产验证。项目正式进入扩展阶段，下一步需要启动数据分析平台和用户运营系统的建设。',
-      },
+      }, {
+        evalCase: 'S-4',
+        testName: 'P1–P4: creates new node with second-phase semantics, no completed nodes modified',
+        specFile: 'test/eval/s4-phase-transition.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

@@ -3,7 +3,6 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
-    tsconfig: './tsconfig.test.json',
   },
   test: {
     globals: true,

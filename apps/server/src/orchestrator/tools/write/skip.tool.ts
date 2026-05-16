@@ -7,10 +7,21 @@ export class SkipSignal extends Error {
   }
 }
 
+export const SKIP_SIGNAL_KEY = '__zplane_signal'
+export const SKIP_SIGNAL_VALUE = 'skip'
+
 export const skipTool = (): StructuredToolInterface =>
   tool(
     async ({ reason }) => {
-      throw new SkipSignal(reason)
+      // Return a sentinel instead of throwing — LangGraph's ToolNode swallows exceptions.
+      // runAgentLoop detects this sentinel after graph.invoke() and throws SkipSignal.
+      return JSON.stringify({
+        [SKIP_SIGNAL_KEY]: {
+          kind: 'terminal',
+          type: SKIP_SIGNAL_VALUE,
+          payload: { reason },
+        },
+      })
     },
     {
       name: 'skip',

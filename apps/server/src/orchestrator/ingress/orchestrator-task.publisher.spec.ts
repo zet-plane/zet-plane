@@ -32,6 +32,14 @@ describe('OrchestratorTaskPublisher', () => {
     expect(mockQueue.add).toHaveBeenCalledOnce()
   })
 
+  it('creates task without enqueue when sync execution is requested', async () => {
+    const result = await publisher.publish(baseInput, { enqueue: false })
+    expect(result.created).toBe(true)
+    expect(result.taskId).toBe('task-1')
+    expect(mockRepo.create).toHaveBeenCalledOnce()
+    expect(mockQueue.add).not.toHaveBeenCalled()
+  })
+
   it('returns existing task without creating on duplicate key', async () => {
     mockRepo.findByIdempotencyKey.mockResolvedValue({
       id: 'task-existing',

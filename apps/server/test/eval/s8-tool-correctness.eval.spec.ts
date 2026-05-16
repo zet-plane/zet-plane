@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, getSystemNodes, createNode, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-8: Tool Call Correctness & Timing', () => {
@@ -29,9 +29,13 @@ describe('S-8: Tool Call Correctness & Timing', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s8-${Date.now()}`,
-      input: {
+      input: withEvalTrace({
         text: '数据库连接池优化已完成：最大连接数从 10 调整为 50，并增加了连接健康检查机制。这是一个重要的基础设施决策，请记录为知识并更新节点状态为 completed。同时需要为下一步的缓存层搭建创建一个新节点。',
-      },
+      }, {
+        evalCase: 'S-8',
+        testName: 'P1–P6: succeeds with valid node mutations and no DomainServiceError',
+        specFile: 'test/eval/s8-tool-correctness.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

@@ -29,12 +29,12 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module'
     GraphModule,
     KnowledgeModule,
     ProjectModule,
+    OrchestratorModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: GlobalValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: ZodSerializerInterceptor },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
-    OrchestratorModule,
   ],
 })
 export class AppModule implements NestModule {

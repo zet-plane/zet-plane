@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, createEdge, publishAndExecute,
-  printRecord, deleteProject,
+  printRecord, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-6: Cycle Detection + Human Confirmation', () => {
@@ -36,9 +36,13 @@ describe('S-6: Cycle Detection + Human Confirmation', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s6-${Date.now()}`,
-      input: {
+      input: withEvalTrace({
         text: `架构复盘发现会话管理模块（节点 ID: ${NC.id}）现在需要直接依赖认证模块（节点 ID: ${NA.id}）的核心接口，建议在两者之间建立依赖关系。`,
-      },
+      }, {
+        evalCase: 'S-6',
+        testName: 'P1–P4: waiting_for_approval, no NC→NA edge created',
+        specFile: 'test/eval/s6-cycle-detection.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('waiting_for_approval')

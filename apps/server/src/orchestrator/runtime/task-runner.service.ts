@@ -2,6 +2,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType } from '@generated/client'
 import type { OrchestratorTask, OrchestratorContext, AgentInsight } from '../types'
+import type { RunnableConfig } from '@langchain/core/runnables'
 import { ContextBuilderService } from '../context/context-builder.service'
 import { buildAgentGraph, runAgentLoop } from '../agent/agent-graph'
 import { LlmProviderRegistry } from '../llm/llm-provider.registry'
@@ -31,6 +32,7 @@ import { reviseKnowledgeEntryTool } from '../tools/write/revise-knowledge-entry.
 import { writeEmbeddingTool } from '../tools/write/write-embedding.tool'
 import { skipTool } from '../tools/write/skip.tool'
 import { notifyHumanTool } from '../tools/write/notify-human.tool'
+import { concludeTool } from '../tools/write/conclude.tool'
 import { toStagingTool } from '../tools/write/to-staging.tool'
 
 @Injectable()
@@ -84,7 +86,7 @@ export class TaskRunnerService {
     const { systemPrompt, userMessage } = this.promptBuilder.build(task, ctx)
     const tools = await this.buildTools(task)
     const graph = buildAgentGraph({ tools, systemPrompt, llm })
-    return runAgentLoop(graph, userMessage)
+    return runAgentLoop(graph, userMessage, this.getTraceConfig(task))
   }
 
   private async buildTools(task: OrchestratorTask) {
@@ -101,13 +103,35 @@ export class TaskRunnerService {
       createEdgeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       moveNodeTool({ edgeService: this.edgeService, projectId: task.projectId }),
       updateNodeStatusTool({ nodeService: this.nodeService }),
-      createKnowledgeEntryTool({ entryService: this.entryService, publisher: this.publisher, projectId: task.projectId }),
+      createKnowledgeEntryTool({ entryService: this.entryService, projectId: task.projectId }),
       reviseKnowledgeEntryTool({ revisionService: this.revisionService }),
       writeEmbeddingTool({ searchService: this.searchService }),
       skipTool(),
       notifyHumanTool(),
+      concludeTool(),
       toStagingTool({ entryService: this.entryService, projectId: task.projectId, stagingNodeId: root.id }),
     ]
+  }
+
+  private getTraceConfig(task: OrchestratorTask): RunnableConfig | undefined {
+    if (!task.input || typeof task.input !== 'object' || Array.isArray(task.input)) return undefined
+
+    const trace = (task.input as Record<string, unknown>).__trace
+    if (!trace || typeof trace !== 'object' || Array.isArray(trace)) return undefined
+
+    const runName = typeof trace.runName === 'string' ? trace.runName : undefined
+    const tags = Array.isArray(trace.tags) ? trace.tags.filter((tag): tag is string => typeof tag === 'string') : undefined
+    const metadata = trace.metadata && typeof trace.metadata === 'object' && !Array.isArray(trace.metadata)
+      ? trace.metadata as Record<string, unknown>
+      : undefined
+
+    if (!runName && !tags?.length && !metadata) return undefined
+
+    return {
+      ...(runName && { runName }),
+      ...(tags?.length && { tags }),
+      ...(metadata && { metadata }),
+    }
   }
 
 }

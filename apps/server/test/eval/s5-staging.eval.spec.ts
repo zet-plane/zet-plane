@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, getSystemNodes, createNode, publishAndExecute,
-  parseInsight, printRecord, deleteProject,
+  parseInsight, printRecord, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-5: Staging Flow', () => {
@@ -38,13 +38,17 @@ describe('S-5: Staging Flow', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s5-${Date.now()}`,
-      input: {
+      input: withEvalTrace({
         text: [
           '1. 支付系统中发现一个重要 pitfall：第三方支付回调存在重放风险，必须加幂等校验。（这条明确属于支付系统）',
           '2. 团队讨论了一个新想法：是否引入消息队列来解耦通知服务。目前还没有决定，需要进一步调研。（归属不明确）',
           '3. 今天团队建设活动很顺利，大家状态不错。（与项目无关）',
         ].join(' '),
-      },
+      }, {
+        evalCase: 'S-5',
+        testName: 'P1–P4: anchors, stages, and discards knowledge points correctly',
+        specFile: 'test/eval/s5-staging.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-2: Node Drive Rationality', () => {
@@ -31,7 +31,13 @@ describe('S-2: Node Drive Rationality', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s2a-${Date.now()}`,
-      input: { text: '架构评审结论：缓存层统一选用 Redis，不考虑 Memcached。原因是 Redis 支持更丰富的数据结构，且团队已有运维经验。' },
+      input: withEvalTrace({
+        text: '架构评审结论：缓存层统一选用 Redis，不考虑 Memcached。原因是 Redis 支持更丰富的数据结构，且团队已有运维经验。',
+      }, {
+        evalCase: 'S-2A',
+        testName: 'A (决策类): no new node, creates decision entry on N1',
+        specFile: 'test/eval/s2-node-drive.eval.spec.ts',
+      }),
     })
 
     const nodesAfter = await getUserNodes(ctx, projectId)
@@ -59,7 +65,13 @@ describe('S-2: Node Drive Rationality', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s2b-${Date.now()}`,
-      input: { text: '需要新增完整的用户权限管理模块，包含 RBAC 角色分配、权限继承树、操作审计日志三个子系统，预计独立开发周期 3 周。' },
+      input: withEvalTrace({
+        text: '需要新增完整的用户权限管理模块，包含 RBAC 角色分配、权限继承树、操作审计日志三个子系统，预计独立开发周期 3 周。',
+      }, {
+        evalCase: 'S-2B',
+        testName: 'B (新功能类): creates ≥1 new growth node',
+        specFile: 'test/eval/s2-node-drive.eval.spec.ts',
+      }),
     })
 
     const nodesAfter = await getUserNodes(ctx, projectId)
@@ -86,7 +98,13 @@ describe('S-2: Node Drive Rationality', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s2c-${Date.now()}`,
-      input: { text: '修复了 Redis TTL 设置过短（5分钟）导致延迟支付回调被误判为重复请求的 bug。已将 TTL 调整为 30 分钟并上线。' },
+      input: withEvalTrace({
+        text: '修复了 Redis TTL 设置过短（5分钟）导致延迟支付回调被误判为重复请求的 bug。已将 TTL 调整为 30 分钟并上线。',
+      }, {
+        evalCase: 'S-2C',
+        testName: 'C (bug修复类): no new node, creates pitfall or finding entry',
+        specFile: 'test/eval/s2-node-drive.eval.spec.ts',
+      }),
     })
 
     const nodesAfter = await getUserNodes(ctx, projectId)

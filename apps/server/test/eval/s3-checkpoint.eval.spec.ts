@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, setCheckpoint, updateNodeStatus,
-  publishAndExecute, parseInsight, printRecord, deleteProject,
+  publishAndExecute, parseInsight, printRecord, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-3: Checkpoint Phase Judgment', () => {
@@ -37,7 +37,15 @@ describe('S-3: Checkpoint Phase Judgment', () => {
       type: OrchestratorTaskType.checkpoint,
       sourceType: OrchestratorSourceType.graph_event,
       sourceId: `checkpoint-s3-${Date.now()}`,
-      input: { nodeId: N1.id, projectId, title: 'MVP 阶段' },
+      input: withEvalTrace({
+        nodeId: N1.id,
+        projectId,
+        title: 'MVP 阶段',
+      }, {
+        evalCase: 'S-3',
+        testName: 'P1–P4: checkpoint task → succeeded, decision/learning, confidence > 0.7, evidence references N1',
+        specFile: 'test/eval/s3-checkpoint.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

@@ -11,3 +11,6 @@ apps/server/src/prisma/gen/
 
 # Local AppConfig YAML (copy from config.yaml.example for local dev)
 apps/server/config.yaml
+
+# trace json files
+trace_export_*.json

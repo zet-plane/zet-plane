@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 const S1_INPUT = '和技术负责人确认了支付网关集成的拆解方案：需要实现三个独立子模块——签名验证服务、回调幂等处理器、对账任务调度器。每个子模块需要独立开发和测试，最终组合到网关集成节点下。'
@@ -24,7 +24,13 @@ async function runS1Baseline(ctx: EvalApp, label: string) {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s9-${label}-${Date.now()}`,
-      input: { text: S1_INPUT },
+      input: withEvalTrace({
+        text: S1_INPUT,
+      }, {
+        evalCase: `S-9-${label}`,
+        testName: `Skills Efficiency Comparison ${label}`,
+        specFile: 'test/eval/s9-skills-efficiency.eval.spec.ts',
+      }),
     })
 
     const nodesAfter = await getUserNodes(ctx, projectId)

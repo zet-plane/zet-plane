@@ -23,6 +23,11 @@ import { ProjectModule } from '../project/project.module'
     GraphEventWorker,
     GraphService,
   ],
-  exports: [GraphService],
+  exports: [
+    GraphService,
+    GraphRepository,
+    CycleDetectorService,
+    GraphEventPublisher,
+  ],
 })
 export class GraphModule {}

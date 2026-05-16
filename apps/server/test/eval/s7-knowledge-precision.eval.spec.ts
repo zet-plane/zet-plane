@@ -3,7 +3,7 @@ import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, createEntry, embedEntry,
-  publishAndExecute, parseInsight, printRecord, deleteProject,
+  publishAndExecute, parseInsight, printRecord, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-7: Knowledge Precision (Long Project)', () => {
@@ -50,7 +50,13 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s7a-${Date.now()}`,
-      input: { text: '我们再次遭遇了 Redis TTL 问题，这次是库存锁的过期时间设置不当。' },
+      input: withEvalTrace({
+        text: '我们再次遭遇了 Redis TTL 问题，这次是库存锁的过期时间设置不当。',
+      }, {
+        evalCase: 'S-7A',
+        testName: 'A: Redis TTL 描述 → anchors to N2 (库存系统)',
+        specFile: 'test/eval/s7-knowledge-precision.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')
@@ -70,7 +76,13 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s7b-${Date.now()}`,
-      input: { text: '用户密码存储方案已评审通过，维持现有的 bcrypt 方案。' },
+      input: withEvalTrace({
+        text: '用户密码存储方案已评审通过，维持现有的 bcrypt 方案。',
+      }, {
+        evalCase: 'S-7B',
+        testName: 'B: bcrypt 描述 → anchors to N3 (用户系统)',
+        specFile: 'test/eval/s7-knowledge-precision.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')
@@ -90,7 +102,13 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s7c-${Date.now()}`,
-      input: { text: '支付回调被第三方平台重放了两次，幸好幂等校验拦住了。' },
+      input: withEvalTrace({
+        text: '支付回调被第三方平台重放了两次，幸好幂等校验拦住了。',
+      }, {
+        evalCase: 'S-7C',
+        testName: 'C: 支付回调重放描述 → anchors to N1 (支付系统)',
+        specFile: 'test/eval/s7-knowledge-precision.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

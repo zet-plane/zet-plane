@@ -121,6 +121,41 @@ describe('TaskRunnerService', () => {
       expect(buildAgentGraph).toHaveBeenCalled()
       expect(runAgentLoop).toHaveBeenCalled()
     })
+
+    it('passes tracing config through to runAgentLoop when present', async () => {
+      const { runAgentLoop } = await import('../agent/agent-graph')
+      const task = makeTask({
+        type: OrchestratorTaskType.event_anchor,
+        input: {
+          text: 'hello',
+          __trace: {
+            runName: 'eval:s1',
+            tags: ['eval', 's1'],
+            metadata: {
+              evalCase: 'S-1',
+              testName: 'P1–P4',
+              specFile: 'test/eval/s1-growth-node.eval.spec.ts',
+            },
+          },
+        },
+      })
+
+      await service.run(task)
+
+      expect(runAgentLoop).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        {
+          runName: 'eval:s1',
+          tags: ['eval', 's1'],
+          metadata: {
+            evalCase: 'S-1',
+            testName: 'P1–P4',
+            specFile: 'test/eval/s1-growth-node.eval.spec.ts',
+          },
+        },
+      )
+    })
   })
 
   // ── model selection ────────────────────────────────────────────────────────

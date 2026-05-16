@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "seed": "prisma db seed",
     "seed:clean": "tsx prisma/seed.ts --clean"
+    "trace-export": "node --env-file=.env --experimental-strip-types scripts/langsmith-trace-export.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
@@ -36,6 +37,7 @@
     "@zet-plane/types": "workspace:*",
     "bullmq": "^5.4.0",
     "js-yaml": "^4.1.1",
+    "langsmith": "^0.7.1",
     "nestjs-zod": "^5.3.0",
     "openai": "^6.37.0",
     "pg": "8.20.0",
@@ -48,6 +50,7 @@
     "@nestjs/cli": "^11.0.21",
     "@nestjs/testing": "^11.1.19",
     "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.12.3",
     "@types/pg": "^8.20.0",
     "@zet-plane/tsconfig": "workspace:*",
     "esbuild": "0.28.0",

@@ -71,4 +71,31 @@ describe('AgentRuntimeService', () => {
       expect.objectContaining({ error: { reason: 'NODE_ARCHIVED' } }),
     )
   })
+
+  it('marks succeeded with noise signalType on SkipSignal', async () => {
+    const { SkipSignal } = await import('../tools/write/skip.tool')
+    mockRunner.run.mockRejectedValue(new SkipSignal('already anchored'))
+    await runtime.execute('task-1')
+    expect(mockRepo.updateStatus).toHaveBeenCalledWith(
+      'task-1',
+      OrchestratorTaskStatus.succeeded,
+      expect.objectContaining({
+        modelResult: expect.objectContaining({ signalType: 'noise' }),
+      }),
+    )
+  })
+
+  it('skips execution without touching status when task is already succeeded', async () => {
+    mockRepo.findById.mockResolvedValue(makeTask({ status: OrchestratorTaskStatus.succeeded }))
+    await runtime.execute('task-1')
+    expect(mockRepo.updateStatus).not.toHaveBeenCalled()
+    expect(mockRunner.run).not.toHaveBeenCalled()
+  })
+
+  it('skips execution without touching status when task is already waiting_for_approval', async () => {
+    mockRepo.findById.mockResolvedValue(makeTask({ status: OrchestratorTaskStatus.waiting_for_approval }))
+    await runtime.execute('task-1')
+    expect(mockRepo.updateStatus).not.toHaveBeenCalled()
+    expect(mockRunner.run).not.toHaveBeenCalled()
+  })
 })

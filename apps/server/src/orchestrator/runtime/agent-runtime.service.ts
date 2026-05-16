@@ -18,6 +18,14 @@ export class AgentRuntimeService {
     const task = await this.repo.findById(taskId)
     if (!task) throw new Error(`Task ${taskId} not found`)
 
+    // Guard against BullMQ stall re-delivery: do not re-run a task already in a terminal state
+    if (
+      task.status === OrchestratorTaskStatus.succeeded ||
+      task.status === OrchestratorTaskStatus.waiting_for_approval
+    ) {
+      return
+    }
+
     await this.repo.updateStatus(taskId, OrchestratorTaskStatus.running)
 
     try {

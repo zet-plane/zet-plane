@@ -1,9 +1,9 @@
-import { describe, it, beforeAll, afterAll, expect } from 'vitest'
+import { describe, it, beforeAll, expect } from 'vitest'
 import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
   createProject, createNode, publishAndExecute,
-  parseInsight, printRecord, getUserNodes, deleteProject,
+  parseInsight, printRecord, getUserNodes, deleteProject, withEvalTrace,
 } from './helpers'
 
 describe('S-1: Growth Node Autonomous Extension', () => {
@@ -22,9 +22,10 @@ describe('S-1: Growth Node Autonomous Extension', () => {
     })
   })
 
-  afterAll(async () => {
-    await deleteProject(ctx, projectId)
-  })
+  // afterAll(async () => {
+  //   if (!ctx || !projectId) return
+  //   await deleteProject(ctx, projectId)
+  // })
 
   it('P1–P4: creates ≥1 growth nodes with composition edges to N1', async () => {
     const nodesBefore = await getUserNodes(ctx, projectId)
@@ -34,9 +35,13 @@ describe('S-1: Growth Node Autonomous Extension', () => {
       type: OrchestratorTaskType.event_anchor,
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s1-${Date.now()}`,
-      input: {
+      input: withEvalTrace({
         text: '和技术负责人确认了支付网关集成的拆解方案：需要实现三个独立子模块——签名验证服务、回调幂等处理器、对账任务调度器。每个子模块需要独立开发和测试，最终组合到网关集成节点下。',
-      },
+      }, {
+        evalCase: 'S-1',
+        testName: 'P1–P4: creates ≥1 growth nodes with composition edges to N1',
+        specFile: 'test/eval/s1-growth-node.eval.spec.ts',
+      }),
     })
 
     expect(task.status).toBe('succeeded')

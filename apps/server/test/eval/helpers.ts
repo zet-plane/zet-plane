@@ -31,6 +31,13 @@ export async function deleteProject(ctx: EvalApp, projectId: string) {
   await prisma.project.delete({ where: { id: projectId } })
 }
 
+export async function deleteAllProjects(ctx: EvalApp) {
+  const projects = await ctx.prisma.project.findMany({ select: { id: true } })
+  for (const { id } of projects) {
+    await deleteProject(ctx, id)
+  }
+}
+
 // ── Nodes ─────────────────────────────────────────────────────────────────────
 
 export async function createNode(
@@ -119,9 +126,40 @@ export interface PublishInput {
   input: Prisma.JsonValue
 }
 
+export interface EvalTraceInfo {
+  specFile: string
+  testName: string
+  evalCase?: string
+}
+
+export function withEvalTrace<T extends Prisma.JsonObject>(
+  input: T,
+  trace: EvalTraceInfo,
+): T & {
+  __trace: {
+    runName: string
+    tags: string[]
+    metadata: Record<string, string>
+  }
+} {
+  const caseLabel = trace.evalCase ?? trace.testName
+  return {
+    ...input,
+    __trace: {
+      runName: `eval:${caseLabel}`,
+      tags: ['eval', caseLabel, trace.specFile],
+      metadata: {
+        evalCase: caseLabel,
+        testName: trace.testName,
+        specFile: trace.specFile,
+      },
+    },
+  }
+}
+
 /** Publish a task, execute it synchronously, and return the final OrchestratorTask record. */
 export async function publishAndExecute(ctx: EvalApp, input: PublishInput) {
-  const result = await ctx.publisher.publish(input)
+  const result = await ctx.publisher.publish(input, { enqueue: false })
   if (!result.created) {
     throw new Error(`publishAndExecute: idempotency collision — task already exists (taskId=${result.taskId}). Use a unique sourceId per test run.`)
   }

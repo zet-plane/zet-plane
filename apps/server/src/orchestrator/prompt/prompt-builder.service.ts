@@ -28,7 +28,7 @@ export class PromptBuilderService {
       `Recent task history: ${JSON.stringify(ctx.recentTaskHistory)}`,
       '',
       'Analyze the trigger event and take appropriate actions using the available tools.',
-      'When done, respond with a JSON object: { "summary": "...", "signalType": "...", "confidence": 0.0-1.0, "evidence": [] }',
+      'When done, call the `conclude` tool with your structured summary.',
     ].join('\n')
   }
 }

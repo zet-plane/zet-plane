@@ -19,6 +19,10 @@ export type PublishResult = {
   created: boolean
 }
 
+export type PublishOptions = {
+  enqueue?: boolean
+}
+
 @Injectable()
 export class OrchestratorTaskPublisher {
   constructor(
@@ -26,7 +30,7 @@ export class OrchestratorTaskPublisher {
     @InjectQueue(ORCHESTRATOR_TASKS_QUEUE) private readonly queue: Queue,
   ) {}
 
-  async publish(input: PublishInput): Promise<PublishResult> {
+  async publish(input: PublishInput, options: PublishOptions = {}): Promise<PublishResult> {
     const idempotencyKey = this.buildKey(input.sourceType, input.sourceId, input.type)
 
     const existing = await this.repo.findByIdempotencyKey(idempotencyKey)
@@ -43,8 +47,10 @@ export class OrchestratorTaskPublisher {
       input: input.input,
     })
 
-    // Enqueue after DB commit — never inside a transaction
-    await this.queue.add('run', { taskId: task.id })
+    if (options.enqueue !== false) {
+      // Enqueue after DB commit — never inside a transaction
+      await this.queue.add('run', { taskId: task.id })
+    }
 
     return { taskId: task.id, created: true }
   }
