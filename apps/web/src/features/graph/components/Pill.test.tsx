@@ -32,12 +32,15 @@ function renderPill(data: PillData) {
 		<ReactFlowProvider>
 			<Pill
 				id="n1"
-				data={data as unknown as Record<string, unknown>}
+				data={data}
 				type="pill"
 				selected={data.selected}
 				positionAbsoluteX={0}
 				positionAbsoluteY={0}
 				dragging={false}
+				draggable={false}
+				selectable={false}
+				deletable={false}
 				isConnectable={false}
 				zIndex={0}
 			/>
