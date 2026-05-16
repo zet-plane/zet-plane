@@ -70,11 +70,13 @@ type PrismaTx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 const PROJECT_FULL = '00000000-0000-4000-8000-000000000001'
 const PROJECT_EMPTY = '00000000-0000-4000-8000-000000000002'
 const PROJECT_COMPACT = '00000000-0000-4000-8000-000000000003'
+const PROJECT_DIVEIN = '00000000-0000-4000-8000-000000000004'
 
 // Version nibble = 4, variant nibble = 8 — valid RFC 4122 format.
 const fullNode = (i: number) => `00000000-0000-4000-8001-${String(i).padStart(12, '0')}`
 const emptyNode = (i: number) => `00000000-0000-4000-8002-${String(i).padStart(12, '0')}`
 const compactNode = (i: number) => `00000000-0000-4000-8003-${String(i).padStart(12, '0')}`
+const diveInNode = (i: number) => `00000000-0000-4000-8004-${String(i).padStart(12, '0')}`
 
 // ─── Wipe ────────────────────────────────────────────────────────────────────
 // Matches by name prefix rather than a hardcoded UUID list so that stale rows
@@ -359,6 +361,122 @@ async function seedFullCoverage(tx: PrismaTx): Promise<void> {
   })
 }
 
+// ─── Dive-in fixture ─────────────────────────────────────────────────────────
+// Tailored for the pill-idiom Graph Rendering Model (2026-05-16):
+//   - Two-level Scaffold hierarchy so dive-in changes the canvas non-trivially.
+//   - One cross-boundary dependency edge so a peripheral stub renders after
+//     diving into a child Scaffold whose sibling depends on a node outside.
+//   - Knowledge entries on a few anchors so the toggle has something to surface
+//     (when the data wiring lands; see plan §7).
+//   - Stable UUIDs so Playwright can target each node by data-id.
+//
+// IDs (all under the 8004 family):
+//   00 root
+//   10 Backend (scaffold, active)         ── top-level
+//   11 Frontend (scaffold, active)        ── top-level
+//   12 Telemetry (scaffold, completed)    ── top-level (read-only in canvas tests)
+//   20 Auth (scaffold, active)            ── child of Backend
+//   21 Database (scaffold, blocked)       ── child of Backend
+//   30 UI shell (growth, active)          ── child of Frontend
+//   31 Routing (growth, active)           ── child of Frontend
+//   40 Metrics (scaffold, completed)      ── child of Telemetry
+//
+// Dependency edges:
+//   Auth (20) → Database (21)       ── sibling dep inside Backend's canvas
+//   UI shell (30) → Auth (20)       ── cross-boundary: when focused on Frontend,
+//                                     Auth appears as a left-margin peripheral stub.
+async function seedDiveIn(tx: PrismaTx): Promise<void> {
+  const ROOT = diveInNode(0)
+  const BACKEND = diveInNode(10)
+  const FRONTEND = diveInNode(11)
+  const TELEMETRY = diveInNode(12)
+  const AUTH = diveInNode(20)
+  const DATABASE = diveInNode(21)
+  const UI_SHELL = diveInNode(30)
+  const ROUTING = diveInNode(31)
+  const METRICS = diveInNode(40)
+
+  await bootstrapProject(tx, {
+    id: PROJECT_DIVEIN,
+    name: '[demo] Dive-in fixture',
+    description:
+      'Two-level Scaffold hierarchy with one cross-boundary dependency, used by the dive-in Playwright canvas spec.',
+    rootId: ROOT,
+  })
+
+  const leaves: LeafSpec[] = [
+    { id: BACKEND, parentId: ROOT, title: 'Backend', type: NodeType.scaffold, status: NodeStatus.active },
+    { id: FRONTEND, parentId: ROOT, title: 'Frontend', type: NodeType.scaffold, status: NodeStatus.active },
+    { id: TELEMETRY, parentId: ROOT, title: 'Telemetry', type: NodeType.scaffold, status: NodeStatus.completed },
+
+    { id: AUTH, parentId: BACKEND, title: 'Auth', type: NodeType.scaffold, status: NodeStatus.active },
+    { id: DATABASE, parentId: BACKEND, title: 'Database', type: NodeType.scaffold, status: NodeStatus.blocked },
+
+    { id: UI_SHELL, parentId: FRONTEND, title: 'UI shell', type: NodeType.growth, status: NodeStatus.active },
+    { id: ROUTING, parentId: FRONTEND, title: 'Routing', type: NodeType.growth, status: NodeStatus.active },
+
+    { id: METRICS, parentId: TELEMETRY, title: 'Metrics', type: NodeType.scaffold, status: NodeStatus.completed },
+  ]
+
+  for (const spec of leaves) {
+    await tx.node.create({
+      data: {
+        id: spec.id,
+        projectId: PROJECT_DIVEIN,
+        type: spec.type,
+        status: spec.status,
+        title: spec.title,
+        isCheckpoint: spec.isCheckpoint ?? false,
+        checkpointResolution: spec.resolution ?? null,
+        createdBy: spec.createdBy ?? CreatedBy.human,
+        role: NodeRole.regular,
+      },
+    })
+    await tx.edge.create({
+      data: {
+        projectId: PROJECT_DIVEIN,
+        fromId: spec.parentId,
+        toId: spec.id,
+        type: EdgeType.composition,
+        createdBy: spec.createdBy ?? CreatedBy.human,
+      },
+    })
+  }
+
+  const deps: Array<{ fromId: string; toId: string }> = [
+    { fromId: AUTH, toId: DATABASE },    // sibling dep inside Backend canvas
+    { fromId: UI_SHELL, toId: AUTH },    // cross-boundary: Frontend → Backend
+  ]
+  for (const d of deps) {
+    await tx.edge.create({
+      data: {
+        projectId: PROJECT_DIVEIN,
+        fromId: d.fromId,
+        toId: d.toId,
+        type: EdgeType.dependency,
+        createdBy: CreatedBy.human,
+      },
+    })
+  }
+
+  await createEntry(tx, {
+    projectId: PROJECT_DIVEIN,
+    nodeId: AUTH,
+    category: EntryCategory.decision,
+    title: 'JWT in httpOnly cookie',
+    body: { summary: 'Auth uses JWT delivered via httpOnly+secure cookie.', details: 'CSRF mitigated by SameSite=strict.' },
+    status: EntryStatus.published,
+  })
+  await createEntry(tx, {
+    projectId: PROJECT_DIVEIN,
+    nodeId: DATABASE,
+    category: EntryCategory.pitfall,
+    title: 'No nullable foreign keys',
+    body: { summary: 'Avoid nullable FKs — they make joins ambiguous and break partial indexes.', details: 'Prefer link tables.' },
+    status: EntryStatus.draft,
+  })
+}
+
 // ─── Compact ─────────────────────────────────────────────────────────────────
 
 async function seedCompact(tx: PrismaTx): Promise<void> {
@@ -440,12 +558,14 @@ async function main(): Promise<void> {
     await seedFullCoverage(tx)
     await seedEmpty(tx)
     await seedCompact(tx)
+    await seedDiveIn(tx)
   })
 
   console.log('[seed] done. Projects:')
   console.log(`  /projects/${PROJECT_FULL}/graph  -> [demo] Full coverage`)
   console.log(`  /projects/${PROJECT_EMPTY}/graph  -> [demo] Empty project`)
   console.log(`  /projects/${PROJECT_COMPACT}/graph  -> [demo] Compact 3-node`)
+  console.log(`  /projects/${PROJECT_DIVEIN}/graph  -> [demo] Dive-in fixture`)
 }
 
 main()
