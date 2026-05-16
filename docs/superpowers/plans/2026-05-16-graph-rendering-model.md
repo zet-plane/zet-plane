@@ -1172,11 +1172,11 @@ git commit -m "feat(graph): add knowledge variant to DependencyEdge"
 
 Replace the existing `.zp-node--*` / `.zp-container--*` rules with the new pill/hero/staging/peripheral classes. Status tints stay driven by existing `--zp-status-*` variables.
 
-- [ ] **Step 1: Read the existing CSS to find the section to replace**
+- [x] **Step 1: Read the existing CSS to find the section to replace**
 
 Run: `cd apps/web && cat src/features/graph/styles.css`
 
-- [ ] **Step 2: Replace the file with the new pill-based styles**
+- [x] **Step 2: Replace the file with the new pill-based styles**
 
 Overwrite `apps/web/src/features/graph/styles.css` with:
 
@@ -1393,12 +1393,12 @@ Overwrite `apps/web/src/features/graph/styles.css` with:
    .zp-node--scaffold, .zp-node--growth, .zp-container--*, etc. */
 ```
 
-- [ ] **Step 3: Verify build succeeds**
+- [x] **Step 3: Verify build succeeds**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit && pnpm vitest run`
 Expected: All type-checks and existing tests pass (some old component tests may still reference dead components; those are handled in Task 16).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/web/src/features/graph/styles.css
