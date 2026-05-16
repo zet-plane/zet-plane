@@ -1641,7 +1641,7 @@ git commit -m "feat(graph): restructure GraphCanvas around canvas-view + dive-in
 **Files:**
 - Modify: `apps/web/src/features/graph/components/Legend.tsx`
 
-- [ ] **Step 1: Replace Legend.tsx contents**
+- [x] **Step 1: Replace Legend.tsx contents**
 
 Overwrite `apps/web/src/features/graph/components/Legend.tsx`:
 
@@ -1719,12 +1719,12 @@ function KnowledgeGlyph() {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/Legend.tsx
