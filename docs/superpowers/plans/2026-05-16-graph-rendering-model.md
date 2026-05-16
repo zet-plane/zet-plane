@@ -995,7 +995,7 @@ git commit -m "feat(graph): add PeripheralStub component"
 
 Right-side panel listing nodes whose `role === 'staging_root'` or whose ancestor is one. For v1 we filter on `role === 'staging_root'` only; deeper staging trees can be added later.
 
-- [ ] **Step 1: Implement `StagingPanel.tsx`**
+- [x] **Step 1: Implement `StagingPanel.tsx`**
 
 Create `apps/web/src/features/graph/components/StagingPanel.tsx`:
 
@@ -1037,12 +1037,12 @@ export function StagingPanel({ nodes, onSelect }: Props) {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/StagingPanel.tsx
