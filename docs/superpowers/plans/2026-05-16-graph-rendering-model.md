@@ -877,7 +877,7 @@ git commit -m "feat(graph): add HeroToken component"
 **Files:**
 - Create: `apps/web/src/features/graph/components/Breadcrumb.tsx`
 
-- [ ] **Step 1: Implement `Breadcrumb.tsx`**
+- [x] **Step 1: Implement `Breadcrumb.tsx`**
 
 Create `apps/web/src/features/graph/components/Breadcrumb.tsx`:
 
@@ -919,12 +919,12 @@ export function Breadcrumb({ segments, onSegmentClick }: Props) {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/Breadcrumb.tsx
