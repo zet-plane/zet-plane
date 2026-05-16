@@ -51,9 +51,14 @@
 	font-size: 11px;
 	color: #6b6b6b;
 	margin-left: auto;
-	padding-left: 6px;
+	padding: 1px 6px;
 	cursor: pointer;
+	background: transparent;
+	border: 0;
+	border-radius: 4px;
+	line-height: 1;
 }
+.zp-pill__dive:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
 .zp-pill__agg {
 	position: absolute;
 	bottom: 0;

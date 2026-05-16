@@ -11,12 +11,21 @@ export type PillData = {
 	childCount: number;
 	selected: boolean;
 	dimmed: boolean;
+	onDive?: (id: string) => void;
 };
 
 export type PillNode = Node<PillData>;
 
 export function Pill({ data }: NodeProps<PillNode>) {
-	const { node, aggregation, knowledgeCount, childCount, selected, dimmed } = data;
+	const {
+		node,
+		aggregation,
+		knowledgeCount,
+		childCount,
+		selected,
+		dimmed,
+		onDive,
+	} = data;
 	const displayStatus = effectiveNodeStatus(node.status, aggregation);
 
 	const classes = ['zp-pill', `zp-pill--${node.type}`, `zp-pill--${displayStatus}`];
@@ -27,8 +36,18 @@ export function Pill({ data }: NodeProps<PillNode>) {
 	const showAggBar = childCount > 0 && aggregation !== undefined;
 	const counts = aggregation?.counts ?? { active: 0, blocked: 0, completed: 0, archived: 0 };
 
+	const dive = () => {
+		if (childCount > 0) onDive?.(node.id);
+	};
+
 	return (
-		<div className={classes.join(' ')}>
+		<div
+			className={classes.join(' ')}
+			onDoubleClick={(e) => {
+				e.stopPropagation();
+				dive();
+			}}
+		>
 			<Handle type="target" position={Position.Top} style={{ opacity: 0 }} />
 			<Handle type="source" position={Position.Bottom} style={{ opacity: 0 }} />
 			{node.type === 'scaffold' && node.isCheckpoint && (
@@ -43,9 +62,17 @@ export function Pill({ data }: NodeProps<PillNode>) {
 				</span>
 			)}
 			{childCount > 0 && (
-				<span className="zp-pill__dive" aria-label={`${childCount} children, click to dive in`}>
+				<button
+					type="button"
+					className="zp-pill__dive"
+					aria-label={`Dive into ${node.title} (${childCount} children)`}
+					onClick={(e) => {
+						e.stopPropagation();
+						dive();
+					}}
+				>
 					↳{childCount}
-				</span>
+				</button>
 			)}
 			{showAggBar && (
 				<span className="zp-pill__agg" aria-hidden>

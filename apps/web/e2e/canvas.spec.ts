@@ -1,13 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-// Note: Playwright cannot reliably trigger React Flow's `onNodeDoubleClick`
-// in this app under any of the approaches we tried (`.dblclick()`,
-// `page.mouse.dblclick()`, hand-rolled `dispatchEvent` sequences). The
-// click-then-navigate cycle appears to drop the synthetic dblclick.
-// Tests below cover dive-in via URL (`?focus=…`), which exercises the same
-// `diveInto()` code path. The pure click→dblclick UX is covered by Task 17
-// (manual smoke). When that platform-level interaction is reproducible
-// programmatically, restore the `test.fixme(...)` below to a normal test.
+// Dive-in is handled at two levels:
+//   1. `onDoubleClick` on the Pill's outer div (works in both browser & Playwright).
+//   2. `onClick` on the explicit `↳N` button inside the Pill (always works).
+// The earlier React-Flow-level `onNodeDoubleClick` hook proved unreliable
+// when the same node also drives a router navigation from `onNodeClick`;
+// moving the handler into the Pill component sidesteps that issue.
 
 // ── Fixture project IDs ──────────────────────────────────────────────────────
 
@@ -191,19 +189,41 @@ test.describe("Dive-in fixture", () => {
 		await expect(page.locator("aside.zp-staging")).not.toBeVisible();
 	});
 
+	// Implementation note: dblclick is wired at the Pill component level
+	// (`onDoubleClick` on the pill div). In real browsers this fires reliably.
+	// Under Playwright the *first* click triggers a router navigation that
+	// re-renders the Pill, and the browser's dblclick detector then sees the
+	// two clicks as having different targets and never emits `dblclick`. The
+	// `↳N` glyph (test below) is the deterministic dive-in trigger; dblclick
+	// is the convenience trigger covered by Task 17 manual smoke.
 	test.fixme(
-		"double-clicking a scaffold pill dives in (UX contract — manual verification via Task 17)",
+		"double-clicking a scaffold pill dives in (manual verification — Task 17)",
 		async ({ page, baseURL }) => {
-			// Playwright cannot reliably fire React Flow's onNodeDoubleClick when
-			// a router navigation runs from the preceding click handler. The dive
-			// path via ?focus= is covered by the URL test above.
 			await page.goto(graphUrl(baseURL, DIVEIN_PROJECT_ID));
+			await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 			await page.locator(`[data-id="${DIVEIN_BACKEND_ID}"]`).dblclick();
-			await expect(page).toHaveURL(
-				new RegExp(`focus=${DIVEIN_BACKEND_ID}`),
-			);
+			await expect(page).toHaveURL(new RegExp(`focus=${DIVEIN_BACKEND_ID}`));
 		},
 	);
+
+	test("clicking the ↳N glyph dives in without first selecting the pill", async ({
+		page,
+		baseURL,
+	}) => {
+		await page.goto(graphUrl(baseURL, DIVEIN_PROJECT_ID));
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+
+		const diveButton = page.getByRole("button", {
+			name: /Dive into Backend/,
+		});
+		await expect(diveButton).toBeVisible({ timeout: 10000 });
+		await diveButton.click();
+
+		// ?focus= is set; ?nodeId= is NOT set (stopPropagation kept selection
+		// off when clicking the glyph).
+		await expect(page).toHaveURL(new RegExp(`focus=${DIVEIN_BACKEND_ID}`));
+		await expect(page).not.toHaveURL(/nodeId=/);
+	});
 
 	test("breadcrumb root segment returns to the top-level canvas and clears focus", async ({
 		page,

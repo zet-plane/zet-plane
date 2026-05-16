@@ -105,6 +105,7 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			childCount: compositionChildCount.get(n.id) ?? 0,
 			selected: selectedNodeId === n.id,
 			dimmed: false,
+			onDive: diveInto,
 		};
 		return {
 			id: n.id,
