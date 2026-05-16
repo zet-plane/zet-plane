@@ -1059,7 +1059,7 @@ git commit -m "feat(graph): add StagingPanel component"
 
 KnowledgePill is a stub component for v1 — rendered only when knowledge data is fetched (which is a follow-up). The toggle is wired now so the chrome is correct from day one.
 
-- [ ] **Step 1: Implement both components**
+- [x] **Step 1: Implement both components**
 
 Create `apps/web/src/features/graph/components/KnowledgePill.tsx`:
 
@@ -1105,12 +1105,12 @@ export function KnowledgeToggle({ visible, onToggle }: Props) {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/KnowledgePill.tsx apps/web/src/features/graph/components/KnowledgeToggle.tsx
