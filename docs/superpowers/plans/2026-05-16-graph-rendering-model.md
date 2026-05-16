@@ -313,7 +313,7 @@ git commit -m "feat(graph): add canvas-view domain function"
 
 Walks composition edges from project root toward the focused node and returns the ordered ancestor chain.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `apps/web/src/features/graph/domain/breadcrumb.test.ts`:
 
@@ -374,12 +374,12 @@ describe('breadcrumb', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/domain/breadcrumb.test.ts`
 Expected: FAIL with "Cannot find module './breadcrumb'".
 
-- [ ] **Step 3: Implement `breadcrumb.ts`**
+- [x] **Step 3: Implement `breadcrumb.ts`**
 
 Create `apps/web/src/features/graph/domain/breadcrumb.ts`:
 
@@ -427,12 +427,12 @@ export function breadcrumb(
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/domain/breadcrumb.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/domain/breadcrumb.ts apps/web/src/features/graph/domain/breadcrumb.test.ts
