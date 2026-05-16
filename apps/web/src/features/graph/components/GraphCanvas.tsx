@@ -2,26 +2,30 @@ import {
 	Background,
 	Controls,
 	type Edge,
-	MiniMap,
 	type Node,
 	ReactFlow,
 	ReactFlowProvider,
-	useReactFlow,
-} from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import "@xyflow/react/dist/style.css";
-import { useGraphViewStore } from "@/stores/graph-view.store";
-import { aggregateStatus } from "../domain/aggregate-status";
-import { effectiveNodeStatus } from "../domain/effective-status";
-import type { ProjectGraph } from "../domain/types";
-import { useLayoutedGraph } from "../layout/use-layouted-graph";
-import { CompositionEdge } from "./CompositionEdge";
-import { DependencyEdge } from "./DependencyEdge";
-import { EmptyState, ErrorState, LoadingState } from "./EmptyState";
-import { NodeCard, type NodeCardData } from "./NodeCard";
+} from '@xyflow/react';
+import { useCallback, useMemo } from 'react';
+import '@xyflow/react/dist/style.css';
+import { aggregateStatus } from '../domain/aggregate-status';
+import { breadcrumb } from '../domain/breadcrumb';
+import { canvasView } from '../domain/canvas-view';
+import type { ProjectGraph } from '../domain/types';
+import { useCanvasNavigation } from '../hooks/use-canvas-navigation';
+import { useKnowledgeToggle } from '../hooks/use-knowledge-toggle';
+import { useLayoutedGraph } from '../layout/use-layouted-graph';
+import { Breadcrumb } from './Breadcrumb';
+import { DependencyEdge } from './DependencyEdge';
+import { EmptyState, ErrorState, LoadingState } from './EmptyState';
+import { HeroToken } from './HeroToken';
+import { KnowledgeToggle } from './KnowledgeToggle';
+import { PeripheralStub } from './PeripheralStub';
+import { Pill, type PillData } from './Pill';
+import { StagingPanel } from './StagingPanel';
 
-const nodeTypes = { node: NodeCard };
-const edgeTypes = { composition: CompositionEdge, dependency: DependencyEdge };
+const nodeTypes = { pill: Pill };
+const edgeTypes = { dependency: DependencyEdge };
 
 type Props = {
 	graph: ProjectGraph | undefined;
@@ -40,167 +44,146 @@ export function GraphCanvas(props: Props) {
 	);
 }
 
-function CanvasInner({
-	graph,
-	isLoading,
-	error,
-	onRetry,
-	selectedNodeId,
-	onSelectNode,
-}: Props) {
-	const {
-		data: layouted,
-		isLayouting,
-		error: layoutErr,
-	} = useLayoutedGraph(graph);
-	const hoveredNodeId = useGraphViewStore((s) => s.hoveredNodeId);
-	const setHoveredNodeId = useGraphViewStore((s) => s.setHoveredNodeId);
-	const rfApi = useReactFlow();
-	const initialCenterDone = useRef(false);
+function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelectNode }: Props) {
+	const { focusedNodeId, diveInto, diveUpTo } = useCanvasNavigation();
+	const knowledge = useKnowledgeToggle();
+
 	const aggregation = useMemo(
 		() => (graph ? aggregateStatus(graph) : new Map()),
 		[graph],
 	);
-	const nodesWithCompositionChildren = useMemo(() => {
-		const ids = new Set<string>();
-		if (!graph) return ids;
-		for (const edge of graph.edges) {
-			if (edge.type === "composition") ids.add(edge.fromId);
+
+	const compositionChildCount = useMemo(() => {
+		const counts = new Map<string, number>();
+		if (!graph) return counts;
+		for (const e of graph.edges) {
+			if (e.type !== 'composition') continue;
+			counts.set(e.fromId, (counts.get(e.fromId) ?? 0) + 1);
 		}
-		return ids;
+		return counts;
 	}, [graph]);
 
-	const focusId = hoveredNodeId ?? selectedNodeId;
-	const focusEdgeIds = useMemo(() => {
-		if (!focusId || !graph) return new Set<string>();
-		const ids = new Set<string>();
-		for (const e of graph.edges) {
-			if (e.fromId === focusId || e.toId === focusId) ids.add(e.id);
-		}
-		return ids;
-	}, [focusId, graph]);
-
-	const nodesById = useMemo(
-		() => new Map(graph?.nodes.map((n) => [n.id, n]) ?? []),
-		[graph],
+	const view = useMemo(
+		() => (graph ? canvasView(graph, focusedNodeId) : null),
+		[graph, focusedNodeId],
 	);
 
+	const crumbs = useMemo(
+		() => (graph ? breadcrumb(graph, focusedNodeId) : []),
+		[graph, focusedNodeId],
+	);
+
+	const subGraphForLayout: ProjectGraph | undefined = useMemo(() => {
+		if (!view) return undefined;
+		return {
+			nodes: view.children,
+			edges: view.siblingDependencyEdges,
+		};
+	}, [view]);
+
+	const { data: layouted, isLayouting, error: layoutErr } = useLayoutedGraph(subGraphForLayout);
+
 	const onNodeClick = useCallback(
-		(_: unknown, n: Node) => onSelectNode(n.id),
+		(_: unknown, n: Node) => {
+			onSelectNode(n.id);
+		},
 		[onSelectNode],
 	);
 	const onPaneClick = useCallback(() => onSelectNode(null), [onSelectNode]);
-	const onNodeMouseEnter = useCallback(
-		(_: unknown, n: Node) => setHoveredNodeId(n.id),
-		[setHoveredNodeId],
-	);
-	const onNodeMouseLeave = useCallback(
-		() => setHoveredNodeId(null),
-		[setHoveredNodeId],
-	);
-
-	useEffect(() => {
-		if (initialCenterDone.current) return;
-		if (!layouted) return;
-		if (!selectedNodeId) {
-			rfApi.fitView({ padding: 0.1 });
-			initialCenterDone.current = true;
-			return;
-		}
-		const target = layouted.nodes.find((n) => n.id === selectedNodeId);
-		if (target) {
-			rfApi.setCenter(
-				target.position.x + target.width / 2,
-				target.position.y + target.height / 2,
-				{ zoom: 1.2, duration: 400 },
-			);
-			initialCenterDone.current = true;
-		}
-	}, [layouted, selectedNodeId, rfApi]);
 
 	if (isLoading) return <LoadingState message="Loading graph…" />;
 	if (error) return <ErrorState error={error} onRetry={onRetry} />;
 	if (layoutErr) return <ErrorState error={layoutErr} />;
+	if (!view) return <EmptyState rootOnly />;
 	if (isLayouting || !layouted) return <LoadingState message="Laying out…" />;
-	if (layouted.nodes.length <= 1) return <EmptyState rootOnly />;
 
 	const xyNodes: Node[] = layouted.nodes.map((n) => {
-		const data: NodeCardData = {
+		const data: PillData = {
 			node: n,
-			aggregation: nodesWithCompositionChildren.has(n.id)
-				? aggregation.get(n.id)
-				: undefined,
+			aggregation: aggregation.get(n.id),
 			knowledgeCount: 0,
+			childCount: compositionChildCount.get(n.id) ?? 0,
 			selected: selectedNodeId === n.id,
-			dimmed: focusId !== null && focusId !== n.id,
+			dimmed: false,
 		};
 		return {
 			id: n.id,
-			type: "node",
+			type: 'pill',
 			position: n.position,
 			width: n.width,
 			height: n.height,
-			data: data as Record<string, unknown>,
+			data: data as unknown as Record<string, unknown>,
 			selectable: true,
 			draggable: false,
 		};
 	});
 
-	const xyEdges: Edge[] = layouted.edges
-		.filter((e) => e.type === "composition" || e.type === "dependency")
-		.map((e) => {
-			const target = nodesById.get(e.toId);
-			const dimmed = focusId !== null && !focusEdgeIds.has(e.id);
-			if (e.type === "composition") {
-				return {
-					id: e.id,
-					source: e.fromId,
-					target: e.toId,
-					type: "composition",
-					data: { dimmed } as Record<string, unknown>,
-				};
-			}
-			return {
-				id: e.id,
-				source: e.fromId,
-				target: e.toId,
-				type: "dependency",
-				data: {
-					targetStatus: target?.status ?? "active",
-					dimmed,
-				} as Record<string, unknown>,
-			};
-		});
+	const xyEdges: Edge[] = layouted.edges.map((e) => ({
+		id: e.id,
+		source: e.fromId,
+		target: e.toId,
+		type: 'dependency',
+		data: {
+			targetStatus: layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active',
+			dimmed: false,
+			variant: 'flow',
+		} as Record<string, unknown>,
+	}));
+
+	const heroAggregation = aggregation.get(view.hero.id);
 
 	return (
-		<div className="relative h-full w-full">
-			<ReactFlow
-				nodes={xyNodes}
-				edges={xyEdges}
-				nodeTypes={nodeTypes}
-				edgeTypes={edgeTypes}
-				onNodeClick={onNodeClick}
-				onPaneClick={onPaneClick}
-				onNodeMouseEnter={onNodeMouseEnter}
-				onNodeMouseLeave={onNodeMouseLeave}
-				proOptions={{ hideAttribution: true }}
-			>
-				<Background />
-				<Controls />
-				<MiniMap
-					zoomable
-					pannable
-					nodeColor={(n) => {
-						const d = n.data as NodeCardData | undefined;
-						if (!d?.node) return "var(--zp-status-active)";
-						const s = effectiveNodeStatus(d.node.status, d.aggregation);
-						if (s === "blocked") return "var(--zp-status-blocked)";
-						if (s === "completed") return "var(--zp-status-completed)";
-						if (s === "archived") return "var(--zp-status-archived)";
-						return "var(--zp-status-active)";
-					}}
-				/>
-			</ReactFlow>
+		<div className="relative flex h-full w-full">
+			<div className="relative flex flex-1 flex-col">
+				<div className="flex items-center justify-between border-b border-border px-3 py-2">
+					<Breadcrumb segments={crumbs} onSegmentClick={(id) => diveUpTo(id)} />
+					<KnowledgeToggle visible={knowledge.visible} onToggle={knowledge.toggle} />
+				</div>
+				<div className="flex justify-center px-6 py-4">
+					<HeroToken node={view.hero} aggregation={heroAggregation} />
+				</div>
+				<div className="relative flex-1">
+					<ReactFlow
+						nodes={xyNodes}
+						edges={xyEdges}
+						nodeTypes={nodeTypes}
+						edgeTypes={edgeTypes}
+						onNodeClick={onNodeClick}
+						onPaneClick={onPaneClick}
+						onNodeDoubleClick={(_, n) => diveInto(n.id)}
+						proOptions={{ hideAttribution: true }}
+						fitView
+					>
+						<Background />
+						<Controls />
+					</ReactFlow>
+					{view.peripheralStubs.length > 0 && (
+						<div className="pointer-events-none absolute inset-y-0 right-2 flex flex-col justify-center gap-2">
+							{view.peripheralStubs
+								.filter((s) => s.side === 'right')
+								.map((s) => (
+									<div key={s.external.id} className="pointer-events-auto">
+										<PeripheralStub node={s.external} onJump={diveInto} />
+									</div>
+								))}
+						</div>
+					)}
+					{view.peripheralStubs.some((s) => s.side === 'left') && (
+						<div className="pointer-events-none absolute inset-y-0 left-2 flex flex-col justify-center gap-2">
+							{view.peripheralStubs
+								.filter((s) => s.side === 'left')
+								.map((s) => (
+									<div key={s.external.id} className="pointer-events-auto">
+										<PeripheralStub node={s.external} onJump={diveInto} />
+									</div>
+								))}
+						</div>
+					)}
+				</div>
+			</div>
+			{view.isTopLevel && graph && (
+				<StagingPanel nodes={graph.nodes} onSelect={(id) => diveInto(id)} />
+			)}
 		</div>
 	);
 }
