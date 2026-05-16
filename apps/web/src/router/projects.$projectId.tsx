@@ -18,7 +18,7 @@ function ProjectShell() {
 		<div
 			className="grid h-screen w-screen grid-rows-[48px_1fr] bg-background text-foreground"
 			style={{
-				gridTemplateColumns: sidebarOpen ? "220px 1fr" : "40px 1fr",
+				gridTemplateColumns: sidebarOpen ? "220px 1fr" : "0px 1fr",
 				transition: "grid-template-columns 180ms ease",
 			}}
 		>
@@ -45,8 +45,11 @@ function ProjectShell() {
 				<span className="text-muted-foreground">/</span>
 				<span className="text-muted-foreground">Graph</span>
 			</header>
-			<aside className="row-start-2 flex flex-col gap-3 overflow-hidden border-r border-border p-2 text-sm">
-				{sidebarOpen ? (
+			<aside
+				className="row-start-2 flex flex-col gap-3 overflow-hidden border-r border-border p-2 text-sm"
+				aria-hidden={!sidebarOpen}
+			>
+				{sidebarOpen && (
 					<>
 						<ProjectSwitcher activeProjectId={projectId} />
 						<nav className="flex flex-col gap-1">
@@ -62,16 +65,6 @@ function ProjectShell() {
 							</Link>
 						</nav>
 					</>
-				) : (
-					<button
-						type="button"
-						onClick={() => setSidebarOpen(true)}
-						className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-accent"
-						aria-label="Open project switcher"
-						title="Projects"
-					>
-						<PanelLeftOpen size={16} />
-					</button>
 				)}
 			</aside>
 			<main className="row-start-2 overflow-hidden">
