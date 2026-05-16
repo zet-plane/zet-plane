@@ -611,7 +611,7 @@ git commit -m "feat(graph): add useKnowledgeToggle hook"
 
 Renders the sibling pill as an xyflow custom node. Variant decided by `data.node.type`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `apps/web/src/features/graph/components/Pill.test.tsx`:
 
@@ -710,12 +710,12 @@ describe('Pill', () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/components/Pill.test.tsx`
 Expected: FAIL with "Cannot find module './Pill'".
 
-- [ ] **Step 3: Implement `Pill.tsx`**
+- [x] **Step 3: Implement `Pill.tsx`**
 
 Create `apps/web/src/features/graph/components/Pill.tsx`:
 
@@ -781,12 +781,12 @@ export function Pill({ data }: NodeProps<PillNode>) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd apps/web && pnpm vitest run src/features/graph/components/Pill.test.tsx`
 Expected: PASS (8 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/Pill.tsx apps/web/src/features/graph/components/Pill.test.tsx
