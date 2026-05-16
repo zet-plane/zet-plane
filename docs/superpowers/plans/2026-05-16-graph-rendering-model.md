@@ -484,7 +484,7 @@ git commit -m "feat(graph): add focus search param for dive-in navigation"
 
 Wraps TanStack Router search params to expose `focusedNodeId`, `diveInto(id)`, `diveUpTo(id)`, `diveToRoot()`.
 
-- [ ] **Step 1: Implement the hook**
+- [x] **Step 1: Implement the hook**
 
 Create `apps/web/src/features/graph/hooks/use-canvas-navigation.ts`:
 
@@ -525,12 +525,12 @@ export function useCanvasNavigation() {
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/hooks/use-canvas-navigation.ts
