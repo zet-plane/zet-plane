@@ -19,8 +19,16 @@ function GraphRoute() {
 		setSelectedNodeId,
 	} = useGraphPage(projectId);
 
+	const detailOpen = selectedNodeId !== null;
+
 	return (
-		<div className="grid h-full grid-cols-[1fr_360px]">
+		<div
+			className="grid h-full"
+			style={{
+				gridTemplateColumns: detailOpen ? "1fr 360px" : "1fr 0px",
+				transition: "grid-template-columns 180ms ease",
+			}}
+		>
 			<div className="relative h-full">
 				<GraphCanvas
 					graph={graph}
@@ -37,14 +45,34 @@ function GraphRoute() {
 					isFetching={isFetching}
 				/>
 			</div>
-			<aside className="border-l border-border bg-background">
-				<DetailPanel
-					projectId={projectId}
-					nodes={graph?.nodes ?? []}
-					edges={graph?.edges ?? []}
-					selectedNodeId={selectedNodeId}
-					onSelectNode={setSelectedNodeId}
-				/>
+			<aside
+				className="overflow-hidden border-l border-border bg-background"
+				aria-hidden={!detailOpen}
+			>
+				{detailOpen && (
+					<div className="flex h-full flex-col">
+						<div className="flex items-center justify-between border-b border-border px-3 py-2 text-xs text-muted-foreground">
+							<span>Details</span>
+							<button
+								type="button"
+								onClick={() => setSelectedNodeId(null)}
+								className="rounded p-1 hover:bg-accent"
+								aria-label="Close details"
+							>
+								✕
+							</button>
+						</div>
+						<div className="flex-1 overflow-hidden">
+							<DetailPanel
+								projectId={projectId}
+								nodes={graph?.nodes ?? []}
+								edges={graph?.edges ?? []}
+								selectedNodeId={selectedNodeId}
+								onSelectNode={setSelectedNodeId}
+							/>
+						</div>
+					</div>
+				)}
 			</aside>
 		</div>
 	);
