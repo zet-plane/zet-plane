@@ -802,7 +802,7 @@ git commit -m "feat(graph): add Pill component for sibling nodes"
 
 Renders the direct-parent presentation above the canvas. Two variants: `ProjectHero` (project root) and `ScaffoldHero` (dived-in scaffold). No aggregate bar in either variant.
 
-- [ ] **Step 1: Implement `HeroToken.tsx`**
+- [x] **Step 1: Implement `HeroToken.tsx`**
 
 Create `apps/web/src/features/graph/components/HeroToken.tsx`:
 
@@ -858,12 +858,12 @@ function ScaffoldHero({
 }
 ```
 
-- [ ] **Step 2: Verify type-check passes**
+- [x] **Step 2: Verify type-check passes**
 
 Run: `cd apps/web && pnpm tsc -b --noEmit`
 Expected: No type errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/HeroToken.tsx
