@@ -28,12 +28,20 @@ export class OrchestratorRouterService {
   async handleKnowledgeEvent(job: KnowledgeJob): Promise<void> {
     switch (job.type) {
       case 'knowledge.entry.created':
-      case 'knowledge.entry.body_revised':
         await this.publisher.publish({
           projectId: job.payload.projectId,
           type: OrchestratorTaskType.embedding,
           sourceType: OrchestratorSourceType.knowledge_event,
           sourceId: job.payload.entryId,
+          input: job.payload,
+        })
+        break
+      case 'knowledge.entry.body_revised':
+        await this.publisher.publish({
+          projectId: job.payload.projectId,
+          type: OrchestratorTaskType.embedding,
+          sourceType: OrchestratorSourceType.knowledge_event,
+          sourceId: `${job.payload.entryId}:v${job.payload.version}`,
           input: job.payload,
         })
         break

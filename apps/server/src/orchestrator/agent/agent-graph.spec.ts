@@ -57,6 +57,8 @@ describe('tool signal parsing', () => {
     expect(isTerminalSignalMessage(messages[0])).toBe(true)
     const signal = extractSignalFromMessages(messages)
     expect(signal).toBeInstanceOf(WaitingForApprovalSignal)
+    expect((signal as InstanceType<typeof WaitingForApprovalSignal>).reason).toBe('needs review')
+    expect((signal as InstanceType<typeof WaitingForApprovalSignal>).context).toBe('ctx')
   })
 
   it('returns null when no signal tool message is present', async () => {

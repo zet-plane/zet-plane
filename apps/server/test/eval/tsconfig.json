@@ -6,8 +6,7 @@
     "module": "preserve",
     "moduleResolution": "bundler",
     "paths": {
-      "@generated/client": ["../../src/prisma/gen/client/client"],
-      "@langchain/langgraph/prebuilt": ["../../node_modules/@langchain/langgraph/dist/prebuilt/index.d.ts"]
+      "@generated/client": ["../../src/prisma/gen/client/client"]
     }
   },
   "include": ["./**/*.ts", "../../src/**/*.ts"]

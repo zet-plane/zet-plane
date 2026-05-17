@@ -46,6 +46,7 @@ describe('OrchestratorRouterService', () => {
       expect.objectContaining({
         type: OrchestratorTaskType.embedding,
         sourceType: OrchestratorSourceType.knowledge_event,
+        sourceId: 'e2:v2',
       }),
     )
   })

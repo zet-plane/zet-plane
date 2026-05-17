@@ -10,6 +10,7 @@ export const getTaskHistoryTool = (taskRepo: OrchestratorTaskRepository): Struct
         id: t.id,
         type: t.type,
         status: t.status,
+        sourceType: t.sourceType,
         sourceId: t.sourceId,
         modelResult: t.modelResult,
         createdAt: t.createdAt,

@@ -8,17 +8,18 @@ export class KnowledgeContextReader {
 
   async getRelatedEntries(projectId: string, nodeIds: string[]): Promise<KnowledgeEntrySnapshot[]> {
     if (!nodeIds.length) return []
-    const entries = await this.knowledgeRepo.listEntries(projectId, {})
-    return entries
-      .filter((e) => nodeIds.includes(e.nodeId) && e.status !== 'deprecated')
-      .map((e) => ({
-        id: e.id,
-        projectId: e.projectId,
-        nodeId: e.nodeId,
-        category: e.category,
-        title: e.title,
-        body: e.body,
-        status: e.status,
-      }))
+    const entries = await this.knowledgeRepo.listEntries(projectId, {
+      nodeIds,
+      statusNot: 'deprecated',
+    })
+    return entries.map((e) => ({
+      id: e.id,
+      projectId: e.projectId,
+      nodeId: e.nodeId,
+      category: e.category,
+      title: e.title,
+      body: e.body,
+      status: e.status,
+    }))
   }
 }

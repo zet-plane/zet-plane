@@ -104,7 +104,13 @@ export function extractSignalFromMessages(
     const signal = parseToolSignalMessage(msg)
     if (!signal || signal.kind !== 'terminal') continue
     if (signal.type === SKIP_SIGNAL_VALUE) return new SkipSignal(String(signal.payload.reason ?? ''))
-    if (signal.type === NOTIFY_HUMAN_SIGNAL_VALUE) return new WaitingForApprovalSignal(String(signal.payload.reason ?? ''))
+    if (signal.type === NOTIFY_HUMAN_SIGNAL_VALUE) {
+      const context = signal.payload.context
+      return new WaitingForApprovalSignal(
+        String(signal.payload.reason ?? ''),
+        typeof context === 'string' ? context : undefined,
+      )
+    }
   }
   return null
 }

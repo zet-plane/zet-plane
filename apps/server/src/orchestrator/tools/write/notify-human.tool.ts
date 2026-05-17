@@ -2,7 +2,10 @@ import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 
 export class WaitingForApprovalSignal extends Error {
-  constructor(public readonly reason: string) {
+  constructor(
+    public readonly reason: string,
+    public readonly context?: string,
+  ) {
     super('WAITING_FOR_APPROVAL')
   }
 }

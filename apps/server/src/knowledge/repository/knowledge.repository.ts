@@ -22,6 +22,8 @@ export type EntryListFilters = {
   category?: EntryCategory
   status?: EntryStatus
   nodeId?: string
+  nodeIds?: string[]
+  statusNot?: EntryStatus
 }
 
 export type RevisionAppendData = {
@@ -96,7 +98,9 @@ export class KnowledgeRepository {
     const where: Record<string, unknown> = { projectId }
     if (filters.category !== undefined) where.category = filters.category
     if (filters.status !== undefined) where.status = filters.status
+    if (filters.statusNot !== undefined) where.status = { not: filters.statusNot }
     if (filters.nodeId !== undefined) where.nodeId = filters.nodeId
+    if (filters.nodeIds !== undefined) where.nodeId = { in: filters.nodeIds }
     return this.prisma.knowledgeEntry.findMany({ where })
   }
 

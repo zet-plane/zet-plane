@@ -14,7 +14,7 @@ integrations:
     appSecret: ""
 orchestrator:
   llm:
-    # provider: one of anthropic | openai | siliconflow
+    # provider: one of anthropic | openai | siliconflow | deepseek
     # For OpenAI-compatible endpoints (siliconflow, groq, etc.) add base_url.
     taskModels:
       default:
