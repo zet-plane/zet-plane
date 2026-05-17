@@ -25,3 +25,8 @@ src/routeTree.gen.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+**/playwright-report/
+**/test-results/
+**/playwright/.cache/
