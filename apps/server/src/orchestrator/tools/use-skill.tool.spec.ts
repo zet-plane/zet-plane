@@ -34,4 +34,15 @@ describe('useSkillTool', () => {
     const t = useSkillTool(registry as any)
     await expect(t.invoke({ name: 'ghost' })).resolves.not.toThrow()
   })
+
+  it('returns error message when readSkillBody throws', async () => {
+    const registry = {
+      readSkillBody: vi.fn().mockRejectedValue(new Error('ENOENT: no such file')),
+      listSkills: vi.fn().mockReturnValue([]),
+    }
+    const t = useSkillTool(registry as any)
+    const result = await t.invoke({ name: 'some-skill' })
+    expect(result).toContain("Failed to load skill 'some-skill'")
+    expect(result).toContain('ENOENT')
+  })
 })
