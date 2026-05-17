@@ -1,4 +1,4 @@
-import { describe, it, beforeAll, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, expect } from 'vitest'
 import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
@@ -22,10 +22,10 @@ describe('S-1: Growth Node Autonomous Extension', () => {
     })
   })
 
-  // afterAll(async () => {
-  //   if (!ctx || !projectId) return
-  //   await deleteProject(ctx, projectId)
-  // })
+  afterAll(async () => {
+    if (!ctx || !projectId) return
+    await deleteProject(ctx, projectId)
+  })
 
   it('P1–P4: creates ≥1 growth nodes with composition edges to N1', async () => {
     const nodesBefore = await getUserNodes(ctx, projectId)

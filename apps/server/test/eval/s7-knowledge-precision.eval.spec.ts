@@ -1,18 +1,29 @@
-import { describe, it, beforeAll, afterAll, expect } from 'vitest'
+import { describe, it, beforeAll, afterAll, expect, vi } from 'vitest'
 import { OrchestratorTaskType, OrchestratorSourceType } from '@generated/client'
 import { getEvalApp, type EvalApp } from './setup'
 import {
-  createProject, createNode, createEntry, embedEntry,
+  createProject, createNode, createEntry,
   publishAndExecute, parseInsight, printRecord, deleteProject, withEvalTrace,
 } from './helpers'
+
+type SeedEntry = {
+  nodeId: string
+  category: string
+  title: string
+}
 
 describe('S-7: Knowledge Precision (Long Project)', () => {
   let ctx: EvalApp
   let projectId: string
   let N1: { id: string }, N2: { id: string }, N3: { id: string }
+  let embedSpy: ReturnType<typeof vi.spyOn> | null = null
 
   beforeAll(async () => {
     ctx = await getEvalApp()
+    embedSpy = vi.spyOn(ctx.llm, 'embed').mockImplementation(async (text: string) => {
+      return keywordEmbedding(text)
+    })
+
     const project = await createProject(ctx.app, `eval-s7-${Date.now()}`)
     projectId = project.id
 
@@ -32,13 +43,11 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
       { nodeId: N3.id, category: 'context',  title: '会话 token 规范' },
     ]
 
-    for (const seed of seeds) {
-      const entry = await createEntry(ctx.app, projectId, seed)
-      await embedEntry(ctx, projectId, entry.id)
-    }
+    await seedKnowledgeEntries(ctx, projectId, seeds)
   }, 180_000)
 
   afterAll(async () => {
+    embedSpy?.mockRestore()
     await deleteProject(ctx, projectId)
   })
 
@@ -77,7 +86,7 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
       sourceType: OrchestratorSourceType.manual,
       sourceId: `manual-s7b-${Date.now()}`,
       input: withEvalTrace({
-        text: '用户密码存储方案已评审通过，维持现有的 bcrypt 方案。',
+        text: '用户登录接口压测发现 bcrypt 验证在 8 核机器上并发 50 时 P99 延迟达到 600ms，需要评估 cost factor 是否需要降低。',
       }, {
         evalCase: 'S-7B',
         testName: 'B: bcrypt 描述 → anchors to N3 (用户系统)',
@@ -120,3 +129,43 @@ describe('S-7: Knowledge Precision (Long Project)', () => {
     expect(correct, `Expected at least one new entry on N1(${N1.id})`).toBe(true)
   })
 })
+
+async function seedKnowledgeEntries(ctx: EvalApp, projectId: string, seeds: SeedEntry[]) {
+  for (const seed of seeds) {
+    await createEmbeddedEntry(ctx, projectId, seed)
+  }
+}
+
+async function createEmbeddedEntry(ctx: EvalApp, projectId: string, seed: SeedEntry) {
+  const entry = await createEntry(ctx.app, projectId, seed)
+  await ensureEntryEmbedded(ctx, projectId, entry.id)
+  return entry
+}
+
+async function ensureEntryEmbedded(ctx: EvalApp, projectId: string, entryId: string) {
+  const result = await ctx.publisher.publish({
+    projectId,
+    type: OrchestratorTaskType.embedding,
+    sourceType: OrchestratorSourceType.knowledge_event,
+    sourceId: entryId,
+    input: { entryId },
+  }, { enqueue: false })
+
+  await ctx.runtime.execute(result.taskId)
+}
+
+function keywordEmbedding(text: string): number[] {
+  const lower = text.toLowerCase()
+  const signal = [
+    score(lower, ['支付', '回调', '签名', '第三方', '幂等']),
+    score(lower, ['库存', 'sku', '超卖', '库存锁', '快照']),
+    score(lower, ['用户', '密码', 'bcrypt', 'token', '会话']),
+    score(lower, ['redis', 'ttl']),
+  ]
+
+  return Array.from({ length: 1536 }, (_, index) => signal[index] ?? 0)
+}
+
+function score(text: string, keywords: string[]): number {
+  return keywords.reduce((sum, keyword) => sum + (text.includes(keyword.toLowerCase()) ? 1 : 0), 0)
+}

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NotFoundException } from '@nestjs/common'
 import { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceType } from '@generated/client'
 import { TaskRunnerService } from './task-runner.service'
+import { OrchestratorTraceConfigService } from './orchestrator-trace-config.service'
 
 vi.mock('../agent/agent-graph', () => ({
   buildAgentGraph: vi.fn().mockReturnValue({}),
@@ -31,6 +32,7 @@ const makeTask = (overrides: Record<string, unknown> = {}) => ({
 })
 
 const fakeRoot = { id: 'root-node-id', projectId: 'proj-1', isProjectRoot: true }
+const fakeStaging = { id: 'staging-node-id', projectId: 'proj-1', isStagingRoot: true }
 const fakeLlm = { bindTools: vi.fn().mockReturnValue({ invoke: vi.fn() }) }
 
 describe('TaskRunnerService', () => {
@@ -47,6 +49,7 @@ describe('TaskRunnerService', () => {
   let mockTaskRepo: any
   let mockPublisher: any
   let mockLlmRegistry: any
+  let traceConfigService: OrchestratorTraceConfigService
 
   beforeEach(() => {
     mockContextBuilder = {
@@ -66,7 +69,10 @@ describe('TaskRunnerService', () => {
       }),
     }
     mockGraphReader = {}
-    mockGraphRepo = { findProjectRoot: vi.fn().mockResolvedValue(fakeRoot) }
+    mockGraphRepo = {
+      findProjectRoot: vi.fn().mockResolvedValue(fakeRoot),
+      findStagingNode: vi.fn().mockResolvedValue(fakeStaging),
+    }
     mockNodeService = {}
     mockEdgeService = {}
     mockEntryService = {
@@ -80,6 +86,7 @@ describe('TaskRunnerService', () => {
       getChatModelForTask: vi.fn().mockReturnValue(fakeLlm),
       embed: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
     }
+    traceConfigService = new OrchestratorTraceConfigService()
 
     service = new TaskRunnerService(
       mockContextBuilder,
@@ -94,6 +101,7 @@ describe('TaskRunnerService', () => {
       mockTaskRepo,
       mockPublisher,
       mockLlmRegistry,
+      traceConfigService,
     )
   })
 
@@ -183,10 +191,17 @@ describe('TaskRunnerService', () => {
       await expect(service.run(task)).rejects.toThrow(NotFoundException)
     })
 
+    it('throws NotFoundException when staging node is not found', async () => {
+      mockGraphRepo.findStagingNode = vi.fn().mockResolvedValue(null)
+      const task = makeTask({ type: OrchestratorTaskType.event_anchor })
+      await expect(service.run(task)).rejects.toThrow(NotFoundException)
+    })
+
     it('passes the real root node id to toStagingTool', async () => {
       const task = makeTask({ type: OrchestratorTaskType.event_anchor })
       await service.run(task)
       expect(mockGraphRepo.findProjectRoot).toHaveBeenCalledWith('proj-1')
+      expect(mockGraphRepo.findStagingNode).toHaveBeenCalledWith('proj-1')
     })
   })
 

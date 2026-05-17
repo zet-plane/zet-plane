@@ -28,6 +28,13 @@ Your job is to decide what this event means for the project graph.
 3. If no candidates: call `search_knowledge` to find related entries as clues
 4. Anchor to the most specific matching node; escalate to `to_staging` if uncertain
 
+### Graph update rules
+- If the event describes a confirmed structural change between existing nodes, update the graph directly instead of only writing knowledge.
+- When the event explicitly states that one existing node now depends on another existing node, call `create_edge` with `type: dependency`.
+- When the event describes a parent-child decomposition under an existing node, create or move nodes first, then connect them with `composition` edges.
+- If exact node IDs are present in the trigger, treat them as authoritative references and prefer updating those nodes over fuzzy matching.
+- Do not avoid a graph write merely because it may reveal a dependency cycle. Apply the confirmed structure; downstream checkpoint handling will deal with the cycle.
+
 ### Knowledge sedimentation trigger
 After anchoring: if the event contains a decision, risk, finding, or learning worth preserving,
 immediately call `create_knowledge_entry` in the same loop. Do not defer sedimentation to a later task.

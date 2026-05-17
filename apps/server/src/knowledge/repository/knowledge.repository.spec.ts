@@ -97,6 +97,36 @@ describe('KnowledgeRepository', () => {
       })
       expect(result).toEqual({ entry, revision })
     })
+
+    it('persists explicit status when provided', async () => {
+      const entry = makeEntry({ status: EntryStatus.published, createdBy: CreatedBy.agent })
+      const revision = makeRevision({ createdBy: CreatedBy.agent })
+      mockPrisma.$transaction.mockImplementation(async (fn: any) => fn(mockPrisma))
+      mockPrisma.knowledgeEntry.create.mockResolvedValue(entry)
+      mockPrisma.knowledgeRevision.create.mockResolvedValue(revision)
+
+      await repo.createEntryWithRevision({
+        projectId: 'p1',
+        nodeId: 'n1',
+        category: EntryCategory.decision,
+        title: 'Agent Entry',
+        body: { summary: 'test' },
+        createdBy: CreatedBy.agent,
+        status: EntryStatus.published,
+      })
+
+      expect(mockPrisma.knowledgeEntry.create).toHaveBeenCalledWith({
+        data: {
+          projectId: 'p1',
+          nodeId: 'n1',
+          category: EntryCategory.decision,
+          title: 'Agent Entry',
+          body: { summary: 'test' },
+          status: EntryStatus.published,
+          createdBy: CreatedBy.agent,
+        },
+      })
+    })
   })
 
   describe('findEntry', () => {

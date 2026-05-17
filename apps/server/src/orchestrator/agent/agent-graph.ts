@@ -127,10 +127,17 @@ export function extractConcludeInsight(messages: BaseMessage[]): AgentInsight | 
 // Flush both async trace layers so LangSmith marks the run as complete:
 // 1. @langchain/core's p-queue of pending callback invocations (onChainEnd etc.)
 // 2. langsmith Client's HTTP batch queue (the actual API requests)
+// Timeout guard: if LangSmith is unreachable, don't block the agent loop.
 async function flushTraces(): Promise<void> {
   if (process.env.LANGSMITH_TRACING !== 'true') return
-  await awaitAllCallbacks()
-  await new LangSmithClient().awaitPendingTraceBatches()
+  const flush = async () => {
+    await awaitAllCallbacks()
+    await new LangSmithClient().awaitPendingTraceBatches()
+  }
+  await Promise.race([
+    flush(),
+    new Promise<void>(resolve => setTimeout(resolve, 5_000)),
+  ])
 }
 
 export function interpretMessages(messages: BaseMessage[]): AgentInsight {

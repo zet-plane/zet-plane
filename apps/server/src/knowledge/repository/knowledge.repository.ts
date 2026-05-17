@@ -9,6 +9,7 @@ export type EntryCreateInput = {
   category: EntryCategory
   title: string
   body: unknown
+  status?: EntryStatus
   changeNote?: string
   createdBy: CreatedBy
 }
@@ -66,6 +67,7 @@ export class KnowledgeRepository {
           category: data.category,
           title: data.title,
           body: data.body as Prisma.InputJsonValue,
+          ...(data.status !== undefined && { status: data.status }),
           createdBy: data.createdBy,
         },
       })

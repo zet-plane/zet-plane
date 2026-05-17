@@ -16,6 +16,7 @@ import {
 import { TaskSchedulerService } from './ingress/task-scheduler.service'
 import { PromptBuilderService } from './prompt/prompt-builder.service'
 import { AgentRuntimeService } from './runtime/agent-runtime.service'
+import { OrchestratorTraceConfigService } from './runtime/orchestrator-trace-config.service'
 import { TaskRunnerService } from './runtime/task-runner.service'
 import { OrchestratorTaskWorker } from './runtime/orchestrator-task.worker'
 import { ContextBuilderService } from './context/context-builder.service'
@@ -52,6 +53,7 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
     TaskSchedulerService,
     PromptBuilderService,
     AgentRuntimeService,
+    OrchestratorTraceConfigService,
     TaskRunnerService,
     OrchestratorTaskWorker,
     ContextBuilderService,

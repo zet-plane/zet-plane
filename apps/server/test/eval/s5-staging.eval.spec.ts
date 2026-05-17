@@ -12,7 +12,7 @@ describe('S-5: Staging Flow', () => {
   let N1: { id: string }, N2: { id: string }
   let stagingNodeId: string
 
-  beforeAll(async () => {
+  beforeAll(async () => { 
     ctx = await getEvalApp()
     const project = await createProject(ctx.app, `eval-s5-${Date.now()}`)
     projectId = project.id

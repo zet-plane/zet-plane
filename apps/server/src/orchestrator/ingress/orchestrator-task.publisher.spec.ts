@@ -61,6 +61,18 @@ describe('OrchestratorTaskPublisher', () => {
     expect(key1).toHaveLength(64) // sha256 hex
   })
 
+  it('handles race condition: returns existing task when create fails with P2002', async () => {
+    const p2002 = Object.assign(new Error('Unique constraint failed'), { code: 'P2002' })
+    mockRepo.create.mockRejectedValue(p2002)
+    mockRepo.findByIdempotencyKey
+      .mockResolvedValueOnce(null) // first call: pre-check returns null
+      .mockResolvedValue({ id: 'task-raced', status: OrchestratorTaskStatus.pending }) // second call: recovery
+    const result = await publisher.publish(baseInput)
+    expect(result.created).toBe(false)
+    expect(result.taskId).toBe('task-raced')
+    expect(mockQueue.add).not.toHaveBeenCalled()
+  })
+
   it('generates different keys for different sourceIds', async () => {
     await publisher.publish(baseInput)
     await publisher.publish({ ...baseInput, sourceId: 'src-2' })

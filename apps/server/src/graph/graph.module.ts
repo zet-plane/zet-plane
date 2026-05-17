@@ -4,7 +4,6 @@ import { GraphController } from './graph.controller'
 import { GraphService } from './graph.service'
 import { CycleDetectorService } from './cycle/cycle-detector.service'
 import { GraphEventPublisher, GRAPH_EVENTS_QUEUE } from './events/graph-event.publisher'
-import { GraphEventWorker } from './events/graph-event.worker'
 import { GraphRepository } from './repository/graph.repository'
 import { PrismaService } from '../prisma/prisma.service'
 import { ProjectModule } from '../project/project.module'
@@ -20,7 +19,6 @@ import { ProjectModule } from '../project/project.module'
     GraphRepository,
     CycleDetectorService,
     GraphEventPublisher,
-    GraphEventWorker,
     GraphService,
   ],
   exports: [
