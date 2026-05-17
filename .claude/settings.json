@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk find *)",
+      "Bash(rtk tsc *)",
+      "Bash(rtk git *)",
+      "Bash(pnpm test *)",
+      "Bash(rtk grep *)",
+      "Bash(rtk read *)",
+      "Bash(rtk prisma *)",
+      "Bash(rtk pnpm *)",
+      "Bash(pnpm --version)",
+      "Bash(rtk vitest *)",
+      "Bash(pnpm build *)"
+    ]
+  }
+}

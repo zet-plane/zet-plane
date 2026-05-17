@@ -21,10 +21,11 @@ export class EntryService {
     const stagingNode = data.nodeId ? null : await this.graphService.findStagingNode(data.projectId)
     if (!data.nodeId && !stagingNode) throw new ConflictException('PROJECT_STAGING_NOT_INITIALIZED')
     const nodeId = data.nodeId ?? stagingNode!.id
+    const status = data.status ?? (data.createdBy === 'agent' ? EntryStatus.published : EntryStatus.draft)
     if (data.nodeId) {
       await this.assertNodeInProject(data.nodeId, data.projectId)
     }
-    const { entry } = await this.repo.createEntryWithRevision({ ...data, nodeId })
+    const { entry } = await this.repo.createEntryWithRevision({ ...data, nodeId, status })
     await this.publisher.publish({
       type: 'knowledge.entry.created',
       payload: { entryId: entry.id, projectId: entry.projectId, nodeId: entry.nodeId, category: entry.category },

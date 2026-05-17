@@ -37,8 +37,6 @@ redis:
 auth:
   jwtSecret: jwt-123
 integrations:
-  anthropic:
-    apiKey: sk-ant-x
   github:
     webhookSecret: gh-x
   feishu:
@@ -53,7 +51,6 @@ integrations:
     expect(cfg.database.url).toBe('postgresql://u:p@localhost:5432/db')
     expect(cfg.redis.url).toBe('redis://localhost:6379')
     expect(cfg.auth.jwtSecret).toBe('jwt-123')
-    expect(cfg.integrations.anthropic.apiKey).toBe('sk-ant-x')
     expect(cfg.integrations.github.webhookSecret).toBe('gh-x')
     expect(cfg.integrations.feishu.appId).toBe('fs-id')
     expect(cfg.integrations.feishu.appSecret).toBe('fs-secret')
@@ -73,7 +70,6 @@ redis:
 
     expect(cfg.server.port).toBe(3000)
     expect(cfg.auth.jwtSecret).toBeUndefined()
-    expect(cfg.integrations.anthropic.apiKey).toBeUndefined()
     expect(cfg.integrations.github.webhookSecret).toBeUndefined()
     expect(cfg.integrations.feishu.appId).toBeUndefined()
   })

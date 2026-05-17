@@ -60,6 +60,50 @@ describe('EntryService', () => {
       })
     })
 
+    it('defaults human-created entries to draft', async () => {
+      const entry = makeEntry({ status: EntryStatus.draft, createdBy: CreatedBy.human })
+      const revision = { id: 'r1', entryId: 'e1', version: 1, body: {}, changeNote: null, createdBy: CreatedBy.human, createdAt: new Date() }
+      mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'p1' })
+      mockRepo.createEntryWithRevision.mockResolvedValue({ entry, revision })
+
+      await service.createEntry({
+        projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision,
+        title: 'Test', body: {}, createdBy: CreatedBy.human,
+      })
+
+      expect(mockRepo.createEntryWithRevision).toHaveBeenCalledWith({
+        projectId: 'p1',
+        nodeId: 'n1',
+        category: EntryCategory.decision,
+        title: 'Test',
+        body: {},
+        createdBy: CreatedBy.human,
+        status: EntryStatus.draft,
+      })
+    })
+
+    it('defaults agent-created entries to published', async () => {
+      const entry = makeEntry({ status: EntryStatus.published, createdBy: CreatedBy.agent })
+      const revision = { id: 'r1', entryId: 'e1', version: 1, body: {}, changeNote: null, createdBy: CreatedBy.agent, createdAt: new Date() }
+      mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'p1' })
+      mockRepo.createEntryWithRevision.mockResolvedValue({ entry, revision })
+
+      await service.createEntry({
+        projectId: 'p1', nodeId: 'n1', category: EntryCategory.decision,
+        title: 'Agent entry', body: {}, createdBy: CreatedBy.agent,
+      })
+
+      expect(mockRepo.createEntryWithRevision).toHaveBeenCalledWith({
+        projectId: 'p1',
+        nodeId: 'n1',
+        category: EntryCategory.decision,
+        title: 'Agent entry',
+        body: {},
+        createdBy: CreatedBy.agent,
+        status: EntryStatus.published,
+      })
+    })
+
     it('throws NotFoundException when node is not in the project', async () => {
       mockRepo.findNode.mockResolvedValue({ id: 'n1', projectId: 'other-project' })
 
@@ -92,6 +136,7 @@ describe('EntryService', () => {
         title: 'Loose note',
         body: {},
         createdBy: CreatedBy.human,
+        status: EntryStatus.draft,
       })
     })
 

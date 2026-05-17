@@ -25,5 +25,12 @@ import { GraphModule } from '../graph/graph.module'
     RevisionService,
     SearchService,
   ],
+  exports: [
+    KnowledgeRepository,
+    KnowledgeEventPublisher,
+    EntryService,
+    RevisionService,
+    SearchService,
+  ],
 })
 export class KnowledgeModule {}

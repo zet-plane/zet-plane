@@ -4,6 +4,7 @@ import { ZodSerializerInterceptor } from 'nestjs-zod'
 import { HttpLoggerMiddleware } from './common/http-logger.middleware'
 import { ConfigModule } from '@nestjs/config'
 import { BullModule } from '@nestjs/bullmq'
+import { ScheduleModule } from '@nestjs/schedule'
 import { GraphModule } from './graph/graph.module'
 import { AppConfigModule } from './config/app-config.module'
 import { AppConfig } from './config/app-config'
@@ -11,10 +12,12 @@ import { KnowledgeModule } from './knowledge/knowledge.module'
 import { ProjectModule } from './project/project.module'
 import { DomainExceptionFilter } from './common/exceptions'
 import { GlobalValidationPipe } from './common/validation/global-validation.pipe'
+import { OrchestratorModule } from './orchestrator/orchestrator.module'
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     AppConfigModule,
     BullModule.forRootAsync({
       inject: [AppConfig],
@@ -26,6 +29,7 @@ import { GlobalValidationPipe } from './common/validation/global-validation.pipe
     GraphModule,
     KnowledgeModule,
     ProjectModule,
+    OrchestratorModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: GlobalValidationPipe },

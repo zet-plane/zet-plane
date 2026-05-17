@@ -1,5 +1,34 @@
 import { z } from 'zod'
 
+const llmModelConfigSchema = z.object({
+  provider: z.enum(['anthropic', 'openai', 'siliconflow', 'deepseek']),
+  model: z.string().min(1),
+  api_key: z.string().default(''),
+  base_url: z.string().url().optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  max_tokens: z.number().int().positive().optional(),
+})
+
+export type LlmModelConfig = z.infer<typeof llmModelConfigSchema>
+export type ProviderType = LlmModelConfig['provider']
+
+const orchestratorLlmSchema = z.object({
+  taskModels: z
+    .record(z.string(), llmModelConfigSchema)
+    .refine((v) => 'default' in v, {
+      message: 'orchestrator.llm.taskModels must contain a "default" entry',
+    })
+    .default({
+      default: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', api_key: '' },
+      checkpoint: { provider: 'anthropic', model: 'claude-sonnet-4-6', api_key: '' },
+    }),
+  embeddingModel: llmModelConfigSchema.default({
+    provider: 'openai',
+    model: 'text-embedding-3-small',
+    api_key: '',
+  }),
+})
+
 export const configSchema = z.object({
   server: z
     .object({
@@ -19,7 +48,6 @@ export const configSchema = z.object({
     .default(() => ({})),
   integrations: z
     .object({
-      anthropic: z.object({ apiKey: z.string().optional() }).default(() => ({})),
       github: z.object({ webhookSecret: z.string().optional() }).default(() => ({})),
       feishu: z
         .object({
@@ -28,7 +56,12 @@ export const configSchema = z.object({
         })
         .default(() => ({})),
     })
-    .default(() => ({ anthropic: {}, github: {}, feishu: {} })),
+    .default(() => ({ github: {}, feishu: {} })),
+  orchestrator: z
+    .object({
+      llm: orchestratorLlmSchema.default(() => orchestratorLlmSchema.parse({})),
+    })
+    .default(() => ({ llm: orchestratorLlmSchema.parse({}) })),
 })
 
 export type Config = z.infer<typeof configSchema>

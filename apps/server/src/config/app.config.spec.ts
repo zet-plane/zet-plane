@@ -41,16 +41,70 @@ describe('configSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('accepts optional integrations', () => {
+  it('accepts integrations without anthropic key', () => {
     const result = configSchema.safeParse({
       ...VALID_CONFIG,
       integrations: {
-        anthropic: { apiKey: 'sk-ant-123' },
         github: { webhookSecret: 'gh-secret' },
         feishu: { appId: 'feishu-id', appSecret: 'feishu-secret' },
       },
     })
     expect(result.success).toBe(true)
+  })
+
+  it('applies orchestrator.llm defaults when omitted', () => {
+    const result = configSchema.safeParse(VALID_CONFIG)
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.orchestrator.llm.taskModels.default.provider).toBe('anthropic')
+      expect(result.data.orchestrator.llm.taskModels.default.model).toBe('claude-haiku-4-5-20251001')
+      expect(result.data.orchestrator.llm.embeddingModel.provider).toBe('openai')
+    }
+  })
+
+  it('accepts explicit orchestrator.llm config', () => {
+    const result = configSchema.safeParse({
+      ...VALID_CONFIG,
+      orchestrator: {
+        llm: {
+          taskModels: {
+            default: { provider: 'anthropic', model: 'claude-sonnet-4-6', api_key: 'sk-ant-123' },
+          },
+          embeddingModel: { provider: 'openai', model: 'text-embedding-3-small', api_key: 'sk-oai-123' },
+        },
+      },
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('rejects orchestrator.llm.taskModels without a default entry', () => {
+    const result = configSchema.safeParse({
+      ...VALID_CONFIG,
+      orchestrator: {
+        llm: {
+          taskModels: {
+            checkpoint: { provider: 'anthropic', model: 'claude-sonnet-4-6', api_key: '' },
+          },
+          embeddingModel: { provider: 'openai', model: 'text-embedding-3-small', api_key: '' },
+        },
+      },
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects unknown provider value', () => {
+    const result = configSchema.safeParse({
+      ...VALID_CONFIG,
+      orchestrator: {
+        llm: {
+          taskModels: {
+            default: { provider: 'unknown-llm', model: 'some-model', api_key: '' },
+          },
+          embeddingModel: { provider: 'openai', model: 'text-embedding-3-small', api_key: '' },
+        },
+      },
+    })
+    expect(result.success).toBe(false)
   })
 
   it('coerces string port to number', () => {

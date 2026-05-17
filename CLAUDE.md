@@ -69,6 +69,44 @@ Non-obvious rules enforced in code:
 - **Errors at service boundary use Nest exceptions** (`NotFoundException`, `ConflictException`). Repository throws plain typed errors with `instanceof`-checkable shapes; service catches and rethrows as Nest exceptions.
 - **Plans + specs under `docs/superpowers/`** are the source of truth for in-flight features. When implementing from a plan, follow its task order and commit per task.
 
+## Database / SQL naming conventions
+
+**These rules govern the database layer only** — i.e. the actual table names, column names, index names, and constraint names that land in PostgreSQL. They do **not** apply to TypeScript/application code: Prisma model names stay `PascalCase`, field names stay `camelCase`, and class/variable names follow TypeScript conventions as normal.
+
+In practice: use Prisma's `@@map` / `@map` directives to bridge the two naming worlds — TypeScript code uses its own conventions, the database sees `snake_case`.
+
+### General
+- All identifiers (database, table, column) **must use lowercase `snake_case`**. No camelCase, PascalCase, kebab-case, or spaces.
+- Names must be self-explanatory. No pinyin, unexplained abbreviations, or meaningless names (`a`, `b`, `id1`, `tmp`).
+- Do not use reserved SQL keywords as identifiers: `order`, `status`, `desc`, `group`, `key`, `index`, `type`, `name`, `date`, `datetime`, etc.
+
+### Database names
+- Format: `business_module` — e.g. `user_center`, `order_system`, `product_warehouse`.
+- No meaningless suffixes like `_db` or `_database`.
+
+### Table names
+- **Plural nouns** only — tables represent collections: `users`, `user_roles`, `orders`, `order_items`.
+- Use a module prefix to namespace by domain.
+- ❌ `user`, `UserInfo`, `user-item` (singular / wrong case / kebab)
+
+### Column names
+- `snake_case` only. No camelCase (`userId`, `createTime`).
+- Primary key: always `id` (`BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`).
+- Foreign keys: `<referenced_table_singular>_id` — e.g. `user_id`, `order_id`.
+- Timestamps: `created_at`, `updated_at`, `deleted_at` (soft delete — prefer over `is_deleted`).
+- Boolean / flag fields: `is_xxx` or `has_xxx` prefix — e.g. `is_enabled`, `has_password`. Do not use bare `status` for boolean state; use an enum with explicit values instead.
+- Monetary amounts: `DECIMAL(10,2)` only — no `FLOAT` or `DOUBLE`.
+- All `VARCHAR` columns must specify length — e.g. `VARCHAR(255)`, never bare `VARCHAR`.
+- Every column must have a `COMMENT` describing its business meaning. Preserve comments when generating or modifying SQL.
+
+### Index and constraint names
+- Regular index: `idx_<column>` — e.g. `idx_user_id`
+- Unique index: `uk_<column>` — e.g. `uk_phone`
+- Foreign key constraint: `fk_<current_table>_<referenced_table>` — e.g. `fk_orders_user_id`
+
+### Soft delete
+- Use `deleted_at TIMESTAMP NULL DEFAULT NULL`, not `is_deleted TINYINT`.
+
 ## Dependency hygiene
 
 **Always prefer the latest stable major** when adding a new dependency or starting a new module. Do **not** copy version strings from older docs, plan files, or training-data memory — they go stale fast.

@@ -7,10 +7,25 @@ redis:
 auth:
   jwtSecret: ""
 integrations:
-  anthropic:
-    apiKey: ""
   github:
     webhookSecret: ""
   feishu:
     appId: ""
     appSecret: ""
+orchestrator:
+  llm:
+    # provider: one of anthropic | openai | siliconflow | deepseek
+    # For OpenAI-compatible endpoints (siliconflow, groq, etc.) add base_url.
+    taskModels:
+      default:
+        provider: anthropic
+        model: claude-haiku-4-5-20251001
+        api_key: ""
+      checkpoint:
+        provider: anthropic
+        model: claude-sonnet-4-6
+        api_key: ""
+    embeddingModel:
+      provider: openai
+      model: text-embedding-3-small
+      api_key: ""

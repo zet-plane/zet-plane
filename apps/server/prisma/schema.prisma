@@ -10,7 +10,7 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(uuid())
+  id          String   @id(map: "projects_pkey") @default(uuid())
   name        String
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
@@ -20,55 +20,45 @@ model Project {
 }
 
 model Node {
-  id                   String                @id @default(uuid())
+  id                   String                @id(map: "nodes_pkey") @default(uuid())
   projectId            String                @map("project_id")
   isProjectRoot        Boolean               @default(false) @map("is_project_root")
-  role                 NodeRole              @default(regular)
-  type                 NodeType
+  isStagingRoot        Boolean               @default(false) @map("is_staging_root")
+  type                 NodeType              @map("node_type")
   title                String
   description          String?
-  status               NodeStatus            @default(active)
+  status               NodeStatus            @default(active) @map("node_status")
   isCheckpoint         Boolean               @default(false) @map("is_checkpoint")
   checkpointResolution CheckpointResolution? @map("checkpoint_resolution")
   createdBy            CreatedBy             @map("created_by")
   createdAt            DateTime              @default(now()) @map("created_at")
   updatedAt            DateTime              @updatedAt @map("updated_at")
 
-  @@index([projectId], map: "nodes_project_id_idx")
-  @@index([projectId, role], map: "nodes_project_id_role_idx")
+  @@index([projectId], map: "idx_nodes_project_id")
   @@map("nodes")
 }
 
 model Edge {
-  id        String    @id @default(uuid())
+  id        String    @id(map: "edges_pkey") @default(uuid())
   projectId String    @map("project_id")
   fromId    String    @map("from_id")
   toId      String    @map("to_id")
-  type      EdgeType
-  createdBy CreatedBy  @map("created_by")
-  createdAt DateTime   @default(now()) @map("created_at")
+  type      EdgeType  @map("edge_type")
+  createdBy CreatedBy @map("created_by")
+  createdAt DateTime  @default(now()) @map("created_at")
 
-  @@unique([fromId, toId, type], map: "edges_from_id_to_id_type_key")
-  @@index([projectId], map: "edges_project_id_idx")
-  @@index([fromId], map: "edges_from_id_idx")
-  @@index([toId], map: "edges_to_id_idx")
+  @@unique([fromId, toId, type], map: "uk_edges_from_to_type")
+  @@index([projectId], map: "idx_edges_project_id")
+  @@index([fromId], map: "idx_edges_from_id")
+  @@index([toId], map: "idx_edges_to_id")
   @@map("edges")
 }
 
 enum NodeType {
   scaffold
   growth
-  staging
 
   @@map("node_type")
-}
-
-enum NodeRole {
-  regular
-  project_root
-  staging_root
-
-  @@map("node_role")
 }
 
 enum NodeStatus {
@@ -102,26 +92,26 @@ enum CreatedBy {
 }
 
 model KnowledgeEntry {
-  id              String          @id @default(uuid())
+  id              String          @id(map: "knowledge_entries_pkey") @default(uuid())
   projectId       String          @map("project_id")
   nodeId          String          @map("node_id")
-  category        EntryCategory
+  category        EntryCategory   @map("entry_category")
   title           String
   body            Json
-  status          EntryStatus     @default(draft)
+  status          EntryStatus     @default(draft) @map("entry_status")
   embeddingStatus EmbeddingStatus @default(unindexed) @map("embedding_status")
   embedding       Unsupported("vector(1536)")?
   createdBy       CreatedBy       @map("created_by")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
-  @@index([projectId], map: "knowledge_entries_project_id_idx")
-  @@index([nodeId], map: "knowledge_entries_node_id_idx")
+  @@index([projectId], map: "idx_knowledge_entries_project_id")
+  @@index([nodeId], map: "idx_knowledge_entries_node_id")
   @@map("knowledge_entries")
 }
 
 model KnowledgeRevision {
-  id         String    @id @default(uuid())
+  id         String    @id(map: "knowledge_revisions_pkey") @default(uuid())
   entryId    String    @map("entry_id")
   version    Int
   body       Json
@@ -129,8 +119,8 @@ model KnowledgeRevision {
   createdBy  CreatedBy @map("created_by")
   createdAt  DateTime  @default(now()) @map("created_at")
 
-  @@unique([entryId, version], map: "knowledge_revisions_entry_id_version_key")
-  @@index([entryId], map: "knowledge_revisions_entry_id_idx")
+  @@unique([entryId, version], map: "uk_knowledge_revisions_entry_version")
+  @@index([entryId], map: "idx_knowledge_revisions_entry_id")
   @@map("knowledge_revisions")
 }
 
@@ -156,4 +146,52 @@ enum EmbeddingStatus {
   indexed
 
   @@map("embedding_status")
+}
+
+enum OrchestratorTaskType {
+  event_anchor
+  graph_growth
+  checkpoint
+  embedding
+
+  @@map("orchestrator_task_type")
+}
+
+enum OrchestratorTaskStatus {
+  pending
+  running
+  succeeded
+  failed
+  skipped
+  waiting_for_approval
+
+  @@map("orchestrator_task_status")
+}
+
+enum OrchestratorSourceType {
+  graph_event
+  knowledge_event
+  schedule
+  manual
+
+  @@map("orchestrator_source_type")
+}
+
+model OrchestratorTask {
+  id             String                 @id(map: "orchestrator_tasks_pkey") @default(uuid())
+  projectId      String                 @map("project_id")
+  type           OrchestratorTaskType   @map("task_type")
+  sourceType     OrchestratorSourceType @map("source_type")
+  sourceId       String                 @map("source_id")
+  status         OrchestratorTaskStatus @default(pending) @map("task_status")
+  idempotencyKey String                 @unique(map: "uk_orchestrator_tasks_idempotency_key") @map("idempotency_key")
+  input          Json
+  modelResult    Json?                  @map("model_result")
+  error          Json?
+  createdAt      DateTime               @default(now()) @map("created_at")
+  updatedAt      DateTime               @updatedAt @map("updated_at")
+
+  @@index([projectId], map: "idx_orchestrator_tasks_project_id")
+  @@index([status], map: "idx_orchestrator_tasks_task_status")
+  @@map("orchestrator_tasks")
 }
