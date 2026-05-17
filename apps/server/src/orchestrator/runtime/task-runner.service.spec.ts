@@ -49,6 +49,7 @@ describe('TaskRunnerService', () => {
   let mockTaskRepo: any
   let mockPublisher: any
   let mockLlmRegistry: any
+  let mockSkillRegistry: any
   let traceConfigService: OrchestratorTraceConfigService
 
   beforeEach(() => {
@@ -86,6 +87,10 @@ describe('TaskRunnerService', () => {
       getChatModelForTask: vi.fn().mockReturnValue(fakeLlm),
       embed: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
     }
+    mockSkillRegistry = {
+      readSkillBody: vi.fn().mockResolvedValue('skill content'),
+      listSkills: vi.fn().mockReturnValue([]),
+    }
     traceConfigService = new OrchestratorTraceConfigService()
 
     service = new TaskRunnerService(
@@ -102,6 +107,7 @@ describe('TaskRunnerService', () => {
       mockPublisher,
       mockLlmRegistry,
       traceConfigService,
+      mockSkillRegistry,
     )
   })
 
@@ -202,6 +208,17 @@ describe('TaskRunnerService', () => {
       await service.run(task)
       expect(mockGraphRepo.findProjectRoot).toHaveBeenCalledWith('proj-1')
       expect(mockGraphRepo.findStagingNode).toHaveBeenCalledWith('proj-1')
+    })
+  })
+
+  // ── tools ──────────────────────────────────────────────────────────────────
+
+  describe('buildTools', () => {
+    it('buildTools includes the use_skill tool', async () => {
+      const task = makeTask()
+      const tools = await (service as any).buildTools(task)
+      const toolNames = tools.map((t: any) => t.name)
+      expect(toolNames).toContain('use_skill')
     })
   })
 
