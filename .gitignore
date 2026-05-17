@@ -14,3 +14,5 @@ apps/server/config.yaml
 
 # trace json files
 trace_export_*.json
+
+docs/.DS_Store
