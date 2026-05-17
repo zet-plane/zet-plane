@@ -143,7 +143,7 @@ export class GraphRepository {
   }
 
   async listProjectNodes(projectId: string): Promise<Node[]> {
-    return this.prisma.node.findMany({ where: { projectId, isProjectRoot: false } })
+    return this.prisma.node.findMany({ where: { projectId } })
   }
 
   async getSubgraph(nodeId: string): Promise<{ nodes: Node[]; edges: Edge[] }> {

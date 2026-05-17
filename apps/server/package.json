@@ -9,7 +9,9 @@
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "test:all": "pnpm test && pnpm test:e2e",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed": "prisma db seed",
+    "seed:clean": "tsx prisma/seed.ts --clean"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
@@ -43,6 +45,7 @@
     "esbuild": "0.28.0",
     "prisma": "^7.8.0",
     "tsc-alias": "1.8.17",
+    "tsx": "^4.22.0",
     "typescript": "^6.0.3",
     "vite": "8.0.10",
     "vitest": "^4.1.5"
