@@ -13,7 +13,7 @@ export class PromptBuilderService {
 
   build(task: OrchestratorTask, ctx: OrchestratorContext): AgentPrompt {
     return {
-      systemPrompt: this.skillRegistry.getSystemPrompt(task.type),
+      systemPrompt: this.skillRegistry.getBaseContent(),
       userMessage: this.buildUserMessage(task, ctx),
     }
   }
@@ -26,8 +26,9 @@ export class PromptBuilderService {
       `Candidate nodes: ${JSON.stringify(ctx.candidateNodes)}`,
       `Related knowledge: ${JSON.stringify(ctx.relatedEntries)}`,
       `Recent task history: ${JSON.stringify(ctx.recentTaskHistory)}`,
+      `Available skills: ${JSON.stringify(ctx.availableSkills)}`,
       '',
-      'Analyze the trigger event and take appropriate actions using the available tools.',
+      'Call use_skill first to load your operating instructions, then act.',
       'When done, call the `conclude` tool with your structured summary.',
     ].join('\n')
   }

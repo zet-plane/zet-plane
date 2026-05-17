@@ -79,15 +79,4 @@ export class SkillRegistry implements OnModuleInit {
     if (!match) return null
     return match[2].trim()
   }
-
-  // Backward-compat stub — body intentionally omitted (readSkillBody is async).
-  // Removed in Task 4 when PromptBuilderService switches to getBaseContent().
-  getSystemPrompt(taskType: OrchestratorTaskType): string {
-    const base = this.baseContent ? `## Skill: agent-base\n\n${this.baseContent}` : ''
-    const applicable = this.manifests
-      .filter((s) => s.applicableTasks.includes(taskType))
-      .map((s) => `## Skill: ${s.name}\n\n`)
-    const sections = [base, ...applicable].filter(Boolean)
-    return sections.join('\n\n---\n\n')
-  }
 }

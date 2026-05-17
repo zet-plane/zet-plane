@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceType } from '@generated/client'
+import {
+  OrchestratorTaskType,
+  OrchestratorTaskStatus,
+  OrchestratorSourceType,
+} from '@generated/client'
 import { PromptBuilderService } from './prompt-builder.service'
 
 const makeTask = (type = OrchestratorTaskType.event_anchor) => ({
@@ -23,19 +27,22 @@ const makeCtx = () => ({
   candidateNodes: [{ id: 'node-1' }],
   relatedEntries: [{ id: 'entry-1' }],
   recentTaskHistory: [],
+  availableSkills: [
+    { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
+  ],
   constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
 })
 
 describe('PromptBuilderService', () => {
   const mockSkillRegistry = {
-    getSystemPrompt: vi.fn().mockReturnValue('system prompt content'),
+    getBaseContent: vi.fn().mockReturnValue('base system prompt content'),
   }
   const service = new PromptBuilderService(mockSkillRegistry as any)
 
-  it('delegates systemPrompt to SkillRegistry with task type', () => {
+  it('system prompt comes from skillRegistry.getBaseContent()', () => {
     const { systemPrompt } = service.build(makeTask(), makeCtx() as any)
-    expect(mockSkillRegistry.getSystemPrompt).toHaveBeenCalledWith(OrchestratorTaskType.event_anchor)
-    expect(systemPrompt).toBe('system prompt content')
+    expect(mockSkillRegistry.getBaseContent).toHaveBeenCalled()
+    expect(systemPrompt).toBe('base system prompt content')
   })
 
   it('userMessage contains task type, project id, and trigger', () => {
@@ -49,5 +56,16 @@ describe('PromptBuilderService', () => {
     const { userMessage } = service.build(makeTask(), makeCtx() as any)
     expect(userMessage).toContain('node-1')
     expect(userMessage).toContain('entry-1')
+  })
+
+  it('userMessage includes availableSkills as JSON', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx() as any)
+    expect(userMessage).toContain('event-anchoring')
+    expect(userMessage).toContain('Available skills')
+  })
+
+  it('userMessage instructs agent to call use_skill before acting', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx() as any)
+    expect(userMessage).toContain('use_skill')
   })
 })
