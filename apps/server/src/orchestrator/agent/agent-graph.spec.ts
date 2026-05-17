@@ -40,7 +40,7 @@ describe('tool signal parsing', () => {
     })
     const signal = extractSignalFromMessages(messages)
     expect(signal).toBeInstanceOf(SkipSignal)
-    expect((signal as SkipSignal).reason).toBe('duplicate event')
+    expect((signal as InstanceType<typeof SkipSignal>).reason).toBe('duplicate event')
   })
 
   it('returns WaitingForApprovalSignal when a tool message contains a terminal notify_human signal', async () => {

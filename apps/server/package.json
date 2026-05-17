@@ -12,7 +12,7 @@
     "test:all": "pnpm test && pnpm test:e2e",
     "test:watch": "vitest",
     "seed": "prisma db seed",
-    "seed:clean": "tsx prisma/seed.ts --clean"
+    "seed:clean": "tsx prisma/seed.ts --clean",
     "trace-export": "node --env-file=.env --experimental-strip-types scripts/langsmith-trace-export.ts"
   },
   "dependencies": {
