@@ -295,7 +295,7 @@ git commit -m "feat(web): load project graph knowledge entries"
 - Create: `apps/web/src/features/graph/components/GraphInspector.tsx`
 - Modify: `apps/web/src/router/projects.$projectId.graph.tsx`
 
-- [ ] **Step 1: Add components with minimal behavior**
+- [x] **Step 1: Add components with minimal behavior**
 
 `GraphWorkbench` props:
 
@@ -367,7 +367,7 @@ return (
 );
 ```
 
-- [ ] **Step 2: Implement top bar**
+- [x] **Step 2: Implement top bar**
 
 Include:
 
@@ -391,7 +391,7 @@ Include:
 </div>
 ```
 
-- [ ] **Step 3: Implement left rail**
+- [x] **Step 3: Implement left rail**
 
 Use local state for collapse:
 
@@ -406,7 +406,7 @@ return (
 );
 ```
 
-- [ ] **Step 4: Implement persistent inspector**
+- [x] **Step 4: Implement persistent inspector**
 
 For v1, render:
 
@@ -433,17 +433,17 @@ return (
 );
 ```
 
-- [ ] **Step 5: Replace route layout**
+- [x] **Step 5: Replace route layout**
 
 `projects.$projectId.graph.tsx` should call `useProjectEntries(projectId)` and pass state into `GraphWorkbench`. Remove the route-level split grid and old inline Details header.
 
-- [ ] **Step 6: Run build-level tests**
+- [x] **Step 6: Run build-level tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/lib/schemas/graph-search.test.ts src/features/graph/domain/graph-workbench.test.ts`
 
 Expected: all tests pass.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/GraphWorkbench.tsx apps/web/src/features/graph/components/GraphTopBar.tsx apps/web/src/features/graph/components/GraphLeftRail.tsx apps/web/src/features/graph/components/GraphInspector.tsx apps/web/src/router/projects.\$projectId.graph.tsx
@@ -459,7 +459,7 @@ git commit -m "feat(web): add graph workbench shell"
 - Modify: `apps/web/src/features/graph/components/Pill.tsx`
 - Modify: `apps/web/e2e/canvas.spec.ts`
 
-- [ ] **Step 1: Update E2E expectations**
+- [x] **Step 1: Update E2E expectations**
 
 Replace hero/breadcrumb canvas expectations:
 
@@ -476,11 +476,11 @@ await expect(page.locator(".zp-hero--scaffold")).not.toBeAttached();
 await expect(page.locator(".zp-topbar__crumbs")).toContainText("PRD 与项目排期");
 ```
 
-- [ ] **Step 2: Remove canvas hero and breadcrumb**
+- [x] **Step 2: Remove canvas hero and breadcrumb**
 
 In `GraphCanvas`, remove imports and JSX for `Breadcrumb`, `HeroToken`, `KnowledgeToggle`, and `StagingPanel`. Keep only the React Flow canvas surface.
 
-- [ ] **Step 3: Keep leaf nodes from exposing dive affordances**
+- [x] **Step 3: Keep leaf nodes from exposing dive affordances**
 
 `Pill` already hides dive when `childCount === 0`. Ensure double-click does nothing unless `childCount > 0`:
 
@@ -505,7 +505,7 @@ Run: `pnpm --filter @zet-plane/web exec playwright test e2e/canvas.spec.ts --pro
 
 Expected: updated tests pass when the dev server and seeded backend are available.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/GraphCanvas.tsx apps/web/src/features/graph/components/Pill.tsx apps/web/e2e/canvas.spec.ts
@@ -522,7 +522,7 @@ git commit -m "feat(web): move graph context into workbench chrome"
 - Modify: `apps/web/src/features/graph/styles.css`
 - Modify: `apps/web/e2e/canvas.spec.ts`
 
-- [ ] **Step 1: Add staging lane component**
+- [x] **Step 1: Add staging lane component**
 
 Create a custom React Flow node:
 
@@ -567,7 +567,7 @@ export function StagingLane({ data }: NodeProps<StagingLaneNode>) {
 }
 ```
 
-- [ ] **Step 2: Add lane node in `GraphCanvas` only at top level**
+- [x] **Step 2: Add lane node in `GraphCanvas` only at top level**
 
 Add `stagingLane` to `nodeTypes`. Compute lane position from layouted child bbox:
 
@@ -590,7 +590,7 @@ const stagingLaneNode: Node | null =
 
 Append it to `xyNodes` when present.
 
-- [ ] **Step 3: Update E2E**
+- [x] **Step 3: Update E2E**
 
 Replace old `aside.zp-staging` checks with:
 
@@ -612,7 +612,7 @@ Run: `pnpm --filter @zet-plane/web exec playwright test e2e/canvas.spec.ts --pro
 
 Expected: staging lane tests pass when services are running.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/StagingLane.tsx apps/web/src/features/graph/components/GraphCanvas.tsx apps/web/src/features/graph/styles.css apps/web/e2e/canvas.spec.ts

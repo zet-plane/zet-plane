@@ -49,17 +49,14 @@ test.describe("Semantic demo canvas", () => {
 		).toBeVisible();
 	});
 
-	test("project root is rendered as the hero token, not as an xyflow node", async ({
+	test("project root is not rendered as canvas chrome or as an xyflow node", async ({
 		page,
 		baseURL,
 	}) => {
 		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
-		await expect(page.locator(".zp-hero--project")).toBeVisible({
-			timeout: 10000,
-		});
-		await expect(page.locator(".zp-hero--project")).toContainText(
-			"Zet Plane 项目开发流程",
-		);
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+		await expect(page.locator(".zp-hero--project")).not.toBeAttached();
+		await expect(page.locator("nav.zp-breadcrumb")).not.toBeAttached();
 
 		const rootInCanvas = page.locator(`.react-flow [data-id="${ROOT_ID}"]`);
 		await expect(rootInCanvas).not.toBeAttached();
@@ -67,7 +64,7 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page.locator("path.zp-edge--composition").first()).not.toBeAttached();
 	});
 
-	test("top-level canvas shows only direct process flows and an empty staging panel", async ({
+	test("top-level canvas shows only direct process flows and an empty staging lane", async ({
 		page,
 		baseURL,
 	}) => {
@@ -96,17 +93,9 @@ test.describe("Semantic demo canvas", () => {
 		await expect(edges.first()).toBeVisible();
 		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 
-		const breadcrumbButtons = page.locator("nav.zp-breadcrumb button");
-		await expect(breadcrumbButtons).toHaveCount(1);
-
-		const staging = page.locator("aside.zp-staging");
+		const staging = page.getByLabel("Staging lane");
 		await expect(staging).toBeVisible();
-		await expect(staging.locator(".zp-staging__empty")).toHaveText(
-			"No unanchored nodes",
-		);
-
-		const toggle = page.getByRole("button", { name: /Knowledge/ });
-		await expect(toggle).toHaveAttribute("aria-pressed", "false");
+		await expect(staging).toContainText("No unanchored nodes");
 	});
 
 	test("Scaffold pills show a flag-tab silhouette and dive glyph; Growth pills don't", async ({
@@ -146,17 +135,12 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page).not.toHaveURL(/focus=/);
 	});
 
-	test("?focus=<scaffold> URL renders that scaffold's children and breadcrumb", async ({
+	test("?focus=<scaffold> URL renders that scaffold's children without canvas chrome", async ({
 		page,
 		baseURL,
 	}) => {
 		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-
-		const breadcrumbButtons = page.locator("nav.zp-breadcrumb button");
-		await expect(breadcrumbButtons).toHaveCount(2);
-		await expect(breadcrumbButtons.nth(1)).toHaveText("PRD 与项目排期");
-		await expect(breadcrumbButtons.nth(1)).toBeDisabled();
 
 		await expect(page.locator(`[data-id="${PRD_USER_STORIES_ID}"]`)).toBeVisible();
 		await expect(page.locator(`[data-id="${PRD_SCOPE_ID}"]`)).toBeVisible();
@@ -170,11 +154,10 @@ test.describe("Semantic demo canvas", () => {
 			page.locator(`.react-flow [data-id="${ROOT_ID}"]`),
 		).not.toBeAttached();
 
-		const scaffoldHero = page.locator(".zp-hero--scaffold");
-		await expect(scaffoldHero).toBeVisible();
-		await expect(scaffoldHero).toContainText("PRD 与项目排期");
+		await expect(page.locator(".zp-hero--scaffold")).not.toBeAttached();
+		await expect(page.locator("nav.zp-breadcrumb")).not.toBeAttached();
 
-		await expect(page.locator("aside.zp-staging")).not.toBeVisible();
+		await expect(page.getByLabel("Staging lane")).not.toBeVisible();
 	});
 
 	test("clicking the ↳N glyph dives in without first selecting the pill", async ({
@@ -194,25 +177,20 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page).not.toHaveURL(/nodeId=/);
 	});
 
-	test("breadcrumb root segment returns to the top-level canvas and clears focus", async ({
+	test("double-clicking a leaf node does not dive into it", async ({
 		page,
 		baseURL,
 	}) => {
 		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 
-		await expect(
-			page.locator(".zp-hero--scaffold").filter({ hasText: "PRD 与项目排期" }),
-		).toBeVisible();
+		const leaf = page.locator(`[data-id="${PRD_MVP_BOUNDARY_ID}"]`);
+		await expect(leaf).toBeVisible({ timeout: 10000 });
+		await leaf.dblclick();
 
-		const breadcrumbButtons = page.locator("nav.zp-breadcrumb button");
-		await expect(breadcrumbButtons).toHaveCount(2);
-
-		await breadcrumbButtons.first().click();
-		await expect(page).not.toHaveURL(/focus=/);
-
-		await expect(page.locator(".zp-hero--project")).toBeVisible();
-		await expect(page.locator("aside.zp-staging")).toBeVisible();
+		await expect(page).toHaveURL(new RegExp(`focus=${PRD_ID}`));
+		await expect(page).not.toHaveURL(new RegExp(`focus=${PRD_MVP_BOUNDARY_ID}`));
+		await expect(page.getByLabel("Staging lane")).not.toBeVisible();
 	});
 
 	test("diving into Scaffold Graph shows a sibling dependency edge and a cross-flow peripheral stub", async ({
@@ -248,33 +226,6 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page).toHaveURL(
 			new RegExp(`focus=${REQ_BOUNDARIES_ID}`),
 		);
-	});
-
-	test("knowledge toggle flips aria-pressed and persists across reloads via localStorage", async ({
-		page,
-		baseURL,
-	}) => {
-		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
-		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-
-		const toggle = page.getByRole("button", { name: /Knowledge/ });
-		await expect(toggle).toHaveAttribute("aria-pressed", "false");
-
-		await toggle.click();
-		await expect(toggle).toHaveAttribute("aria-pressed", "true");
-
-		await page.reload();
-		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-		const toggleAfterReload = page.getByRole("button", { name: /Knowledge/ });
-		await expect(toggleAfterReload).toHaveAttribute("aria-pressed", "true");
-
-		await toggleAfterReload.click();
-		await expect(toggleAfterReload).toHaveAttribute("aria-pressed", "false");
-		await page.reload();
-		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-		await expect(
-			page.getByRole("button", { name: /Knowledge/ }),
-		).toHaveAttribute("aria-pressed", "false");
 	});
 
 	test("legend toggles open/closed and shows the pill-idiom entries", async ({

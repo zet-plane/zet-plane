@@ -11,22 +11,17 @@ import type { NodeResponse } from '@zet-plane/contracts';
 import { useCallback, useMemo } from 'react';
 import '@xyflow/react/dist/style.css';
 import { aggregateStatus } from '../domain/aggregate-status';
-import { breadcrumb } from '../domain/breadcrumb';
 import { canvasView, type PeripheralStub as PeripheralStubModel } from '../domain/canvas-view';
 import type { ProjectGraph } from '../domain/types';
 import { useCanvasNavigation } from '../hooks/use-canvas-navigation';
-import { useKnowledgeToggle } from '../hooks/use-knowledge-toggle';
 import { useLayoutedGraph } from '../layout/use-layouted-graph';
-import { Breadcrumb } from './Breadcrumb';
 import { DependencyEdge } from './DependencyEdge';
 import { EmptyState, ErrorState, LoadingState } from './EmptyState';
-import { HeroToken } from './HeroToken';
-import { KnowledgeToggle } from './KnowledgeToggle';
 import { PeripheralStub } from './PeripheralStub';
 import { Pill, type PillData } from './Pill';
-import { StagingPanel } from './StagingPanel';
+import { StagingLane, type StagingLaneData } from './StagingLane';
 
-const nodeTypes = { pill: Pill, peripheral: PeripheralStub };
+const nodeTypes = { pill: Pill, peripheral: PeripheralStub, stagingLane: StagingLane };
 const edgeTypes = { dependency: DependencyEdge };
 
 const PERIPHERAL_GAP = 60;
@@ -58,8 +53,7 @@ export function GraphCanvas(props: Props) {
 }
 
 function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelectNode }: Props) {
-	const { focusedNodeId, diveInto, diveUpTo } = useCanvasNavigation();
-	const knowledge = useKnowledgeToggle();
+	const { focusedNodeId, diveInto } = useCanvasNavigation();
 
 	const aggregation = useMemo(
 		() => (graph ? aggregateStatus(graph) : new Map()),
@@ -81,11 +75,6 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		[graph, focusedNodeId],
 	);
 
-	const crumbs = useMemo(
-		() => (graph ? breadcrumb(graph, focusedNodeId) : []),
-		[graph, focusedNodeId],
-	);
-
 	const subGraphForLayout: ProjectGraph | undefined = useMemo(() => {
 		if (!view) return undefined;
 		return {
@@ -98,6 +87,7 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 
 	const onNodeClick = useCallback(
 		(_: unknown, n: Node) => {
+			if (n.type === 'stagingLane') return;
 			onSelectNode(n.id);
 		},
 		[onSelectNode],
@@ -138,6 +128,7 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			{ x: n.position.x, y: n.position.y, width: n.width, height: n.height },
 		]),
 	);
+	const childBbox = computeBbox(childRects.values());
 	const peripheralPlacements = layoutPeripherals(
 		view.peripheralStubs,
 		childRects,
@@ -175,7 +166,30 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		});
 	});
 
+	const stagingNodes =
+		graph?.nodes.filter((node) => node.role === 'staging_root' || node.type === 'staging') ??
+		[];
+	const stagingLaneData: StagingLaneData = {
+		nodes: stagingNodes,
+		selectedNodeId,
+		onSelect: onSelectNode,
+	};
+	const stagingLaneNode: Node | null =
+		view.isTopLevel && graph
+			? {
+					id: '__staging_lane__',
+					type: 'stagingLane',
+					position: { x: childBbox.maxX + 96, y: childBbox.minY },
+					width: 280,
+					height: Math.max(220, childBbox.maxY - childBbox.minY),
+					data: stagingLaneData as unknown as Record<string, unknown>,
+					selectable: false,
+					draggable: false,
+				}
+			: null;
+
 	const xyNodes: Node[] = [...pillNodes, ...peripheralNodes];
+	if (stagingLaneNode) xyNodes.push(stagingLaneNode);
 
 	const xyEdges: Edge[] = [
 		...layouted.edges.map((e) => {
@@ -196,38 +210,25 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		...peripheralEdges,
 	];
 
-	const heroAggregation = aggregation.get(view.hero.id);
-
 	return (
-		<div className="relative flex h-full w-full">
-			<div className="relative flex flex-1 flex-col">
-				<div className="flex items-center justify-between border-b border-border px-3 py-2">
-					<Breadcrumb segments={crumbs} onSegmentClick={(id) => diveUpTo(id)} />
-					<KnowledgeToggle visible={knowledge.visible} onToggle={knowledge.toggle} />
-				</div>
-				<div className="flex justify-center px-6 py-4">
-					<HeroToken node={view.hero} aggregation={heroAggregation} />
-				</div>
-				<div className="relative flex-1">
-					<ReactFlow
-						nodes={xyNodes}
-						edges={xyEdges}
-						nodeTypes={nodeTypes}
-						edgeTypes={edgeTypes}
-						onNodeClick={onNodeClick}
-						onPaneClick={onPaneClick}
-						onNodeDoubleClick={(_, n) => diveInto(n.id)}
-						proOptions={{ hideAttribution: true }}
-						fitView
-					>
-						<Background />
-						<Controls />
-					</ReactFlow>
-				</div>
-			</div>
-			{view.isTopLevel && graph && (
-				<StagingPanel nodes={graph.nodes} onSelect={(id) => diveInto(id)} />
-			)}
+		<div className="relative h-full w-full">
+			<ReactFlow
+				nodes={xyNodes}
+				edges={xyEdges}
+				nodeTypes={nodeTypes}
+				edgeTypes={edgeTypes}
+				onNodeClick={onNodeClick}
+				onPaneClick={onPaneClick}
+				onNodeDoubleClick={(_, n) => {
+					const childCount = compositionChildCount.get(n.id) ?? 0;
+					if (childCount > 0) diveInto(n.id);
+				}}
+				proOptions={{ hideAttribution: true }}
+				fitView
+			>
+				<Background />
+				<Controls />
+			</ReactFlow>
 		</div>
 	);
 }
