@@ -70,6 +70,31 @@ describe('OpenAiCompatibleProvider', () => {
       )
     })
 
+    it('passes timeout when request_timeout_ms is set', () => {
+      const provider = new OpenAiCompatibleProvider({
+        provider: 'openai',
+        model: 'gpt-4o',
+        api_key: '',
+        request_timeout_ms: 30_000,
+      })
+      provider.createChatModel()
+      expect(mockChatOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({ timeout: 30_000 }),
+      )
+    })
+
+    it('defaults timeout to 60s when request_timeout_ms is absent', () => {
+      const provider = new OpenAiCompatibleProvider({
+        provider: 'openai',
+        model: 'gpt-4o',
+        api_key: '',
+      })
+      provider.createChatModel()
+      expect(mockChatOpenAI).toHaveBeenCalledWith(
+        expect.objectContaining({ timeout: 60_000 }),
+      )
+    })
+
     it('disables DeepSeek thinking mode for chat models used in tool loops', () => {
       const provider = new OpenAiCompatibleProvider({
         provider: 'deepseek',

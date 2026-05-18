@@ -21,6 +21,7 @@ export class OpenAiCompatibleProvider implements IChatProvider, IEmbeddingProvid
       ...(this.config.base_url && { configuration: { baseURL: this.config.base_url } }),
       ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
       ...(this.config.max_tokens !== undefined && { maxTokens: this.config.max_tokens }),
+      timeout: this.config.request_timeout_ms ?? 60_000,
       ...(this.config.provider === 'deepseek' && {
         // DeepSeek thinking mode requires reasoning_content round-tripping across tool calls.
         // LangChain's generic OpenAI-compatible adapter does not preserve that state yet,

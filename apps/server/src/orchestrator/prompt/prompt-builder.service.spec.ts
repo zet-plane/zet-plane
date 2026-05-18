@@ -6,7 +6,7 @@ import {
 } from '@generated/client'
 import { PromptBuilderService } from './prompt-builder.service'
 
-const makeTask = (type = OrchestratorTaskType.event_anchor) => ({
+const makeTask = (type: OrchestratorTaskType = OrchestratorTaskType.event_anchor) => ({
   id: 'task-1',
   projectId: 'proj-1',
   type,
@@ -21,7 +21,7 @@ const makeTask = (type = OrchestratorTaskType.event_anchor) => ({
   updatedAt: new Date(),
 })
 
-const makeCtx = () => ({
+const makeCtx = (requiresHumanApproval = false) => ({
   project: { id: 'proj-1', name: 'Test', status: 'active' },
   trigger: { sourceType: 'graph_event', sourceId: 'src-1', raw: { foo: 'bar' } },
   candidateNodes: [{ id: 'node-1' }],
@@ -30,7 +30,7 @@ const makeCtx = () => ({
   availableSkills: [
     { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
   ],
-  constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
+  constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval },
 })
 
 describe('PromptBuilderService', () => {
@@ -67,5 +67,19 @@ describe('PromptBuilderService', () => {
   it('userMessage instructs agent to call use_skill before acting', () => {
     const { userMessage } = service.build(makeTask(), makeCtx() as any)
     expect(userMessage).toContain('use_skill')
+  })
+
+  it('instructs non-checkpoint tasks to conclude when work is done', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx(false) as any)
+    expect(userMessage).toContain('call the `conclude` tool')
+  })
+
+  it('instructs checkpoint tasks to notify_human instead of conclude', () => {
+    const { userMessage } = service.build(
+      makeTask(OrchestratorTaskType.checkpoint),
+      makeCtx(true) as any,
+    )
+    expect(userMessage).toContain('requires human approval')
+    expect(userMessage).toContain('call `notify_human` instead of `conclude`')
   })
 })

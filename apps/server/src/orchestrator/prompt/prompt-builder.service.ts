@@ -19,17 +19,50 @@ export class PromptBuilderService {
   }
 
   private buildUserMessage(task: OrchestratorTask, ctx: OrchestratorContext): string {
-    return [
-      `Task type: ${task.type}`,
-      `Project: ${ctx.project.id}`,
-      `Trigger: ${JSON.stringify(ctx.trigger)}`,
-      `Candidate nodes: ${JSON.stringify(ctx.candidateNodes)}`,
-      `Related knowledge: ${JSON.stringify(ctx.relatedEntries)}`,
-      `Recent task history: ${JSON.stringify(ctx.recentTaskHistory)}`,
-      `Available skills: ${JSON.stringify(ctx.availableSkills)}`,
-      '',
-      'Call use_skill first to load your operating instructions, then act.',
-      'When done, call the `conclude` tool with your structured summary.',
-    ].join('\n')
+    const completionInstruction = ctx.constraints.requiresHumanApproval
+      ? 'This task requires human approval. After preparing the required draft/package, call `notify_human` instead of `conclude`.'
+      : 'When done, call the `conclude` tool with your structured summary.'
+
+    const sections: string[] = []
+
+    sections.push(`## Task\nTask type: ${task.type}\nProject: ${ctx.project.id}`)
+
+    const raw = ctx.trigger.raw as Record<string, unknown> | undefined
+    const rawText = raw?.text
+    const sourceDesc = `${ctx.trigger.sourceType}/${ctx.trigger.sourceId}`
+    const eventContent = rawText ? `Content: ${rawText}` : `Raw: ${JSON.stringify(ctx.trigger.raw)}`
+    sections.push(`## Event\nSource: ${sourceDesc}\n${eventContent}`)
+
+    if (ctx.candidateNodes.length) {
+      const nodeLines = ctx.candidateNodes.map(
+        n => `- [${n.title ?? n.id}] id=${n.id} type=${n.type} status=${n.status}`,
+      )
+      sections.push(`## Candidate nodes\n${nodeLines.join('\n')}`)
+    }
+
+    if (ctx.relatedEntries.length) {
+      const entryLines = ctx.relatedEntries.map(
+        e => `- [${e.title ?? e.id}] id=${e.id} nodeId=${e.nodeId} category=${e.category} status=${e.status}`,
+      )
+      sections.push(`## Related knowledge\n${entryLines.join('\n')}`)
+    }
+
+    if (ctx.recentTaskHistory.length) {
+      const historyLines = ctx.recentTaskHistory.map(
+        h => `- ${h.type} ${h.status} (${h.createdAt})`,
+      )
+      sections.push(`## Recent tasks\n${historyLines.join('\n')}`)
+    }
+
+    if (ctx.availableSkills.length) {
+      const skillLines = ctx.availableSkills.map(
+        s => `- ${s.name}: ${s.description} [tasks: ${s.applicableTasks.join(', ')}]`,
+      )
+      sections.push(`## Available skills\n${skillLines.join('\n')}`)
+    }
+
+    sections.push(`Call use_skill first to load your operating instructions, then act.\n${completionInstruction}`)
+
+    return sections.join('\n\n')
   }
 }

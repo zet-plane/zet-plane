@@ -41,6 +41,7 @@ describe('OrchestratorTraceConfigService', () => {
       metadata: {
         evalCase: 'S-1',
         testName: 'P1–P4',
+        taskId: 'task-1',
       },
     })
   })
@@ -52,6 +53,10 @@ describe('OrchestratorTraceConfigService', () => {
         tags: 'eval',
         metadata: ['bad'],
       },
-    }) as any)).toBeUndefined()
+    }) as any)).toEqual({
+      metadata: {
+        taskId: 'task-1',
+      },
+    })
   })
 })

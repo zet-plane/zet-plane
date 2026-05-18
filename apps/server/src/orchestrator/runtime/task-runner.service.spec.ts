@@ -166,6 +166,7 @@ describe('TaskRunnerService', () => {
             evalCase: 'S-1',
             testName: 'P1–P4',
             specFile: 'test/eval/s1-growth-node.eval.spec.ts',
+            taskId: 'task-1',
           },
         },
       )

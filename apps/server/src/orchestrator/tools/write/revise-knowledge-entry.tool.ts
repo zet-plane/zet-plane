@@ -15,7 +15,7 @@ export const reviseKnowledgeEntryTool = (deps: { revisionService: RevisionServic
     },
     {
       name: 'revise_knowledge_entry',
-      description: 'Append a new revision to an existing KnowledgeEntry',
+      description: 'Append a new revision to an existing KnowledgeEntry. On success, immediately call conclude with the entryId as evidence.',
       schema: z.object({
         entryId: z.string(),
         body: z.string().describe('Updated full content'),

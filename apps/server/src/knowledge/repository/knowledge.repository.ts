@@ -168,10 +168,10 @@ export class KnowledgeRepository {
       Prisma.sql`(1 - (embedding <=> ${vectorStr}::vector)) >= ${threshold}`,
     ]
     if (filters.category?.length) {
-      conditions.push(Prisma.sql`category::text = ANY(ARRAY[${Prisma.join(filters.category.map(c => Prisma.sql`${c}`), ',')}]::text[])`)
+      conditions.push(Prisma.sql`entry_category::text = ANY(ARRAY[${Prisma.join(filters.category.map(c => Prisma.sql`${c}`), ',')}]::text[])`)
     }
     if (filters.status?.length) {
-      conditions.push(Prisma.sql`status::text = ANY(ARRAY[${Prisma.join(filters.status.map(s => Prisma.sql`${s}`), ',')}]::text[])`)
+      conditions.push(Prisma.sql`entry_status::text = ANY(ARRAY[${Prisma.join(filters.status.map(s => Prisma.sql`${s}`), ',')}]::text[])`)
     }
     if (filters.nodeId?.length) {
       conditions.push(Prisma.sql`node_id = ANY(ARRAY[${Prisma.join(filters.nodeId.map(n => Prisma.sql`${n}`), ',')}]::text[])`)
@@ -183,10 +183,10 @@ export class KnowledgeRepository {
       SELECT id,
              project_id AS "projectId",
              node_id AS "nodeId",
-             category,
+             entry_category AS "category",
              title,
              body,
-             status,
+             entry_status AS "status",
              embedding_status AS "embeddingStatus",
              created_by AS "createdBy",
              created_at AS "createdAt",

@@ -121,3 +121,16 @@ describe('tool signal parsing', () => {
     })
   })
 })
+
+describe('trace flush gating', () => {
+  it('enables trace flushing for any supported tracing env var', async () => {
+    const { isTraceFlushEnabled } = await import('./agent-graph')
+
+    expect(isTraceFlushEnabled({ LANGSMITH_TRACING: 'true' } as NodeJS.ProcessEnv)).toBe(true)
+    expect(isTraceFlushEnabled({ LANGCHAIN_TRACING: 'true' } as NodeJS.ProcessEnv)).toBe(true)
+    expect(isTraceFlushEnabled({ LANGSMITH_TRACING_V2: 'true' } as NodeJS.ProcessEnv)).toBe(true)
+    expect(isTraceFlushEnabled({ LANGCHAIN_TRACING_V2: 'true' } as NodeJS.ProcessEnv)).toBe(true)
+    expect(isTraceFlushEnabled({ LANGSMITH_TRACING: 'false' } as NodeJS.ProcessEnv)).toBe(false)
+    expect(isTraceFlushEnabled({} as NodeJS.ProcessEnv)).toBe(false)
+  })
+})

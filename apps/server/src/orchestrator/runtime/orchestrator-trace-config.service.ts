@@ -21,12 +21,16 @@ export class OrchestratorTraceConfigService {
     if (!isRecord(trace)) return undefined
 
     const { runName, tags, metadata } = this.normalizeTrace(trace)
-    if (!runName && !tags?.length && !metadata) return undefined
+    const mergedMetadata = {
+      ...(metadata ?? {}),
+      taskId: task.id,
+    }
+    if (!runName && !tags?.length && !Object.keys(mergedMetadata).length) return undefined
 
     return {
       ...(runName && { runName }),
       ...(tags?.length && { tags }),
-      ...(metadata && { metadata }),
+      metadata: mergedMetadata,
     }
   }
 

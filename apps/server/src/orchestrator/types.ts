@@ -1,6 +1,12 @@
 // apps/server/src/orchestrator/types.ts
 import { z } from 'zod'
-import type { Prisma, OrchestratorTask as PrismaTask } from '@generated/client'
+import type {
+  Prisma,
+  OrchestratorTask as PrismaTask,
+  OrchestratorTaskType,
+  OrchestratorTaskStatus,
+  OrchestratorSourceType,
+} from '@generated/client'
 
 type JsonValue = Prisma.JsonValue
 

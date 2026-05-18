@@ -8,7 +8,6 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import type { StructuredToolInterface } from '@langchain/core/tools'
 import type { RunnableConfig } from '@langchain/core/runnables'
 import { awaitAllCallbacks } from '@langchain/core/callbacks/promises'
-import { Client as LangSmithClient } from 'langsmith'
 import type { AgentInsight } from '../types'
 import { AgentInsightSchema, MAX_ITERATIONS } from '../types'
 import { SkipSignal, SKIP_SIGNAL_KEY, SKIP_SIGNAL_VALUE } from '../tools/write/skip.tool'
@@ -24,13 +23,25 @@ type BuildOptions = {
   llm: BaseChatModel
 }
 
+
 type ToolSignal =
   | { kind: 'terminal'; type: typeof SKIP_SIGNAL_VALUE; payload: { reason: string } }
   | { kind: 'terminal'; type: typeof NOTIFY_HUMAN_SIGNAL_VALUE; payload: { reason: string; context?: string } }
   | { kind: 'terminal'; type: typeof CONCLUDE_SIGNAL_VALUE; payload: { summary: string; signalType: string; confidence: number; evidence?: unknown[] } }
 
+const TRACING_ENV_VARS = [
+  'LANGSMITH_TRACING_V2',
+  'LANGCHAIN_TRACING_V2',
+  'LANGSMITH_TRACING',
+  'LANGCHAIN_TRACING',
+] as const
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function isTraceFlushEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return TRACING_ENV_VARS.some((envVar) => env[envVar] === 'true')
 }
 
 export function parseToolSignalMessage(message: BaseMessage): ToolSignal | null {
@@ -78,7 +89,8 @@ export function buildAgentGraph(options: BuildOptions): AgentGraph {
 
   function shouldContinueAfterTools(state: typeof MessagesAnnotation.State): 'agent' | typeof END {
     const last = state.messages.at(-1)
-    if (last && isTerminalSignalMessage(last)) return END
+    if (!last || !last.content) return END
+    if (isTerminalSignalMessage(last)) return END
     return 'agent'
   }
 
@@ -130,15 +142,21 @@ export function extractConcludeInsight(messages: BaseMessage[]): AgentInsight | 
   return null
 }
 
-// Flush both async trace layers so LangSmith marks the run as complete:
-// 1. @langchain/core's p-queue of pending callback invocations (onChainEnd etc.)
-// 2. langsmith Client's HTTP batch queue (the actual API requests)
-// Timeout guard: if LangSmith is unreachable, don't block the agent loop.
+// Two-pass flush to close LangSmith traces reliably.
+//
+// awaitAllCallbacks() runs queue.onIdle() and awaitPendingTraceBatches() *concurrently*
+// (Promise.allSettled). This means the HTTP-batch snapshot is taken before callbacks
+// (onChainEnd, patchRun, etc.) have had a chance to push items to autoBatchQueue.
+// Pass 1: drains the p-queue (all callbacks complete; each fires void processRunOperation
+//         which synchronously pushes its item to autoBatchQueue before returning).
+// Pass 2: awaitPendingTraceBatches() now sees all those items and waits for the
+//         250 ms autoBatch drain timer to fire and the HTTP batch to land in LangSmith.
 async function flushTraces(): Promise<void> {
-  if (process.env.LANGSMITH_TRACING !== 'true') return
+  if (!isTraceFlushEnabled()) return
   const flush = async () => {
-    await awaitAllCallbacks()
-    await new LangSmithClient().awaitPendingTraceBatches()
+    await awaitAllCallbacks() // pass 1: drains p-queue; callbacks push to autoBatchQueue
+    await new Promise(resolve => setTimeout(resolve, 300)) // let autoBatch 250ms timer fire
+    await awaitAllCallbacks() // pass 2: awaitPendingTraceBatches sees the queued items
   }
   await Promise.race([
     flush(),
@@ -173,11 +191,16 @@ export async function runAgentLoop(
   userMessage: string,
   config?: RunnableConfig,
 ): Promise<AgentInsight> {
-  const { messages } = await graph.invoke(
-    { messages: [new HumanMessage(userMessage)] },
-    { recursionLimit: MAX_ITERATIONS, ...config },
-  ) as { messages: BaseMessage[] }
-
-  await flushTraces()
-  return interpretMessages(messages)
+  try {
+    const { messages } = await graph.invoke(
+      { messages: [new HumanMessage(userMessage)] },
+      { recursionLimit: MAX_ITERATIONS, ...config },
+    ) as { messages: BaseMessage[] }
+    return interpretMessages(messages)
+  } finally {
+    // Always flush traces — even when graph.invoke() throws (recursion limit,
+    // LLM API error, etc.) — so LangSmith marks the run as ended rather than
+    // leaving it as permanently "pending".
+    await flushTraces()
+  }
 }
