@@ -19,7 +19,7 @@ export const updateNodeStatusTool = (deps: { nodeService: NodeService }): Struct
     {
       name: 'update_node_status',
       description:
-        'Update a node status. Cannot be used to set resolution on checkpoints — use notify_human instead.',
+        'Update a node status. Cannot be used to set resolution on checkpoints — resolution is a human action via `resolveCheckpoint`.',
       schema: z.object({
         nodeId: z.string(),
         newStatus: z
