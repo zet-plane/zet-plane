@@ -60,12 +60,12 @@ describe('ContextBuilderService', () => {
     expect(ctx.trigger.sourceId).toBe('src-1')
   })
 
-  it('sets requiresHumanApproval=true for checkpoint tasks', async () => {
+  it('[deprecated] sets requiresHumanApproval=true for checkpoint tasks (field is deprecated; use task.type check instead)', async () => {
     const ctx = await builder.build(makeTask(OrchestratorTaskType.checkpoint))
     expect(ctx.constraints.requiresHumanApproval).toBe(true)
   })
 
-  it('sets requiresHumanApproval=false for non-checkpoint tasks', async () => {
+  it('[deprecated] sets requiresHumanApproval=false for non-checkpoint tasks (field is deprecated)', async () => {
     const ctx = await builder.build(makeTask(OrchestratorTaskType.event_anchor))
     expect(ctx.constraints.requiresHumanApproval).toBe(false)
   })

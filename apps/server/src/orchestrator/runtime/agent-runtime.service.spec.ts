@@ -44,7 +44,7 @@ describe('AgentRuntimeService', () => {
     )
   })
 
-  it('transitions to waiting_for_approval on WaitingForApprovalSignal', async () => {
+  it('[deprecated] transitions to waiting_for_approval on WaitingForApprovalSignal (deprecated path; checkpoint tasks no longer use this)', async () => {
     const { WaitingForApprovalSignal } = await import('../tools/write/notify-human.tool')
     mockRunner.run.mockRejectedValue(new WaitingForApprovalSignal('needs review'))
     await runtime.execute('task-1')
@@ -92,7 +92,7 @@ describe('AgentRuntimeService', () => {
     expect(mockRunner.run).not.toHaveBeenCalled()
   })
 
-  it('skips execution without touching status when task is already waiting_for_approval', async () => {
+  it('[deprecated] skips re-execution when task is already waiting_for_approval (deprecated status retained for backward compat)', async () => {
     mockRepo.findById.mockResolvedValue(makeTask({ status: OrchestratorTaskStatus.waiting_for_approval }))
     await runtime.execute('task-1')
     expect(mockRepo.updateStatus).not.toHaveBeenCalled()
