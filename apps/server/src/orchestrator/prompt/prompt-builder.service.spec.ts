@@ -74,12 +74,12 @@ describe('PromptBuilderService', () => {
     expect(userMessage).toContain('call the `conclude` tool')
   })
 
-  it('instructs checkpoint tasks to notify_human instead of conclude', () => {
+  it('instructs checkpoint tasks to conclude with decision signalType and evidence', () => {
     const { userMessage } = service.build(
       makeTask(OrchestratorTaskType.checkpoint),
-      makeCtx(true) as any,
+      makeCtx() as any,
     )
-    expect(userMessage).toContain('requires human approval')
-    expect(userMessage).toContain('call `notify_human` instead of `conclude`')
+    expect(userMessage).toContain('signalType: decision')
+    expect(userMessage).toContain('Do NOT call `notify_human`')
   })
 })
