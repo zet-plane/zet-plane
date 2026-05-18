@@ -15,16 +15,19 @@ integrations:
 orchestrator:
   llm:
     # provider: one of anthropic | openai | siliconflow | deepseek
-    # For OpenAI-compatible endpoints (siliconflow, groq, etc.) add base_url.
+    # For OpenAI-compatible endpoints (siliconflow, deepseek, groq, etc.) add base_url.
+    # request_timeout_ms defaults to 60000 in code; set explicitly here to override per model.
     taskModels:
       default:
         provider: anthropic
         model: claude-haiku-4-5-20251001
         api_key: ""
+        request_timeout_ms: 60000
       checkpoint:
         provider: anthropic
         model: claude-sonnet-4-6
         api_key: ""
+        request_timeout_ms: 60000
     embeddingModel:
       provider: openai
       model: text-embedding-3-small

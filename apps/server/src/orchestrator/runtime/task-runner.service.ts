@@ -33,7 +33,9 @@ import { skipTool } from '../tools/write/skip.tool'
 import { notifyHumanTool } from '../tools/write/notify-human.tool'
 import { concludeTool } from '../tools/write/conclude.tool'
 import { toStagingTool } from '../tools/write/to-staging.tool'
+import { useSkillTool } from '../tools/use-skill.tool'
 import { OrchestratorTraceConfigService } from './orchestrator-trace-config.service'
+import { SkillRegistry } from '../skill/skill-registry'
 
 @Injectable()
 export class TaskRunnerService {
@@ -51,6 +53,7 @@ export class TaskRunnerService {
     private readonly publisher: OrchestratorTaskPublisher,
     private readonly llmRegistry: LlmProviderRegistry,
     private readonly traceConfigService: OrchestratorTraceConfigService,
+    private readonly skillRegistry: SkillRegistry,
   ) {}
 
   async run(task: OrchestratorTask): Promise<AgentInsight> {
@@ -111,6 +114,7 @@ export class TaskRunnerService {
       createKnowledgeEntryTool({ entryService: this.entryService, projectId: task.projectId }),
       reviseKnowledgeEntryTool({ revisionService: this.revisionService }),
       writeEmbeddingTool({ searchService: this.searchService }),
+      useSkillTool(this.skillRegistry),
       skipTool(),
       notifyHumanTool(),
       concludeTool(),

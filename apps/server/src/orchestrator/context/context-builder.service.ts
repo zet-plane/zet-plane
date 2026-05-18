@@ -4,6 +4,7 @@ import type { OrchestratorTask, OrchestratorContext, TaskHistorySnapshot } from 
 import { GraphContextReader } from './graph-context.reader'
 import { KnowledgeContextReader } from './knowledge-context.reader'
 import { OrchestratorTaskRepository } from '../repository/orchestrator-task.repository'
+import { SkillRegistry } from '../skill/skill-registry'
 
 @Injectable()
 export class ContextBuilderService {
@@ -11,6 +12,7 @@ export class ContextBuilderService {
     private readonly graphReader: GraphContextReader,
     private readonly knowledgeReader: KnowledgeContextReader,
     private readonly taskRepo: OrchestratorTaskRepository,
+    private readonly skillRegistry: SkillRegistry,
   ) {}
 
   async build(task: OrchestratorTask): Promise<OrchestratorContext> {
@@ -47,6 +49,7 @@ export class ContextBuilderService {
       candidateNodes,
       relatedEntries,
       recentTaskHistory: taskHistory,
+      availableSkills: this.skillRegistry.listSkills(),
       constraints: {
         mayWriteGraph: true,
         mayWriteKnowledge: true,

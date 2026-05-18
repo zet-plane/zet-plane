@@ -7,6 +7,7 @@ const llmModelConfigSchema = z.object({
   base_url: z.string().url().optional(),
   temperature: z.number().min(0).max(2).optional(),
   max_tokens: z.number().int().positive().optional(),
+  request_timeout_ms: z.number().int().positive().optional(),
 })
 
 export type LlmModelConfig = z.infer<typeof llmModelConfigSchema>
@@ -19,8 +20,8 @@ const orchestratorLlmSchema = z.object({
       message: 'orchestrator.llm.taskModels must contain a "default" entry',
     })
     .default({
-      default: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', api_key: '' },
-      checkpoint: { provider: 'anthropic', model: 'claude-sonnet-4-6', api_key: '' },
+      default: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001', api_key: '', request_timeout_ms: 60_000 },
+      checkpoint: { provider: 'anthropic', model: 'claude-sonnet-4-6', api_key: '', request_timeout_ms: 60_000 },
     }),
   embeddingModel: llmModelConfigSchema.default({
     provider: 'openai',

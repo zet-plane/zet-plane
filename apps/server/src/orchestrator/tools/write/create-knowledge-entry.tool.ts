@@ -55,7 +55,7 @@ export const createKnowledgeEntryTool = (deps: {
     },
     {
       name: 'create_knowledge_entry',
-      description: 'Create a new KnowledgeEntry anchored to a node.',
+      description: 'Create a new KnowledgeEntry anchored to a node. On success, immediately call conclude with the entryId as evidence.',
       schema: z.object({
         nodeId: z.string(),
         category: z.enum(['decision', 'pitfall', 'finding', 'context']),

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ContextBuilderService } from './context-builder.service'
-import { OrchestratorTaskType, OrchestratorSourceType, OrchestratorTaskStatus, type Prisma } from '@generated/client'
+import {
+  OrchestratorTaskType,
+  OrchestratorSourceType,
+  OrchestratorTaskStatus,
+  type Prisma,
+} from '@generated/client'
 
 const makeTask = (type: OrchestratorTaskType, input: Prisma.JsonValue = {}) => ({
   id: 'task-1',
@@ -22,6 +27,7 @@ describe('ContextBuilderService', () => {
   let mockGraphReader: any
   let mockKnowledgeReader: any
   let mockTaskRepo: any
+  let mockSkillRegistry: any
 
   beforeEach(() => {
     mockGraphReader = {
@@ -34,7 +40,17 @@ describe('ContextBuilderService', () => {
     mockTaskRepo = {
       findRecentByProject: vi.fn().mockResolvedValue([]),
     }
-    builder = new ContextBuilderService(mockGraphReader, mockKnowledgeReader, mockTaskRepo)
+    mockSkillRegistry = {
+      listSkills: vi.fn().mockReturnValue([
+        { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
+      ]),
+    }
+    builder = new ContextBuilderService(
+      mockGraphReader,
+      mockKnowledgeReader,
+      mockTaskRepo,
+      mockSkillRegistry,
+    )
   })
 
   it('builds context with project and trigger fields', async () => {
@@ -62,5 +78,13 @@ describe('ContextBuilderService', () => {
   it('skips graph reader for embedding tasks', async () => {
     await builder.build(makeTask(OrchestratorTaskType.embedding))
     expect(mockGraphReader.getCandidateNodes).not.toHaveBeenCalled()
+  })
+
+  it('populates availableSkills from skillRegistry.listSkills', async () => {
+    const ctx = await builder.build(makeTask(OrchestratorTaskType.event_anchor))
+    expect(mockSkillRegistry.listSkills).toHaveBeenCalled()
+    expect(ctx.availableSkills).toEqual([
+      { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
+    ])
   })
 })

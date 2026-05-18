@@ -2,64 +2,81 @@ import { Injectable, OnModuleInit } from '@nestjs/common'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { parse as parseFrontmatter } from 'yaml'
-import type { OrchestratorTaskType } from '../types'
+import type { OrchestratorTaskType, SkillManifestEntry } from '../types'
 
-type SkillEntry = {
-  name: string
-  applicableTasks: OrchestratorTaskType[]
-  content: string
-  base?: boolean
-}
+type InternalEntry = SkillManifestEntry & { filePath: string }
+
+const FRONTMATTER_RE = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/
 
 @Injectable()
 export class SkillRegistry implements OnModuleInit {
-  private skills: SkillEntry[] = []
+  private manifests: InternalEntry[] = []
+  private baseContent: string = ''
 
   constructor(private readonly skillsDir: string) {}
 
   async onModuleInit(): Promise<void> {
-    await this.loadSkills()
+    await this.loadManifest()
   }
 
-  private async loadSkills(): Promise<void> {
+  async loadManifest(): Promise<void> {
     const dirs = await readdir(this.skillsDir, { withFileTypes: true })
-    const entries: SkillEntry[] = []
+    const entries: InternalEntry[] = []
+    let baseContent = ''
 
     for (const dir of dirs) {
       if (!dir.isDirectory()) continue
-      const indexPath = join(this.skillsDir, dir.name, 'index.md')
+      const filePath = join(this.skillsDir, dir.name, 'index.md')
       let raw: string
       try {
-        raw = await readFile(indexPath, 'utf-8')
+        raw = await readFile(filePath, 'utf-8')
       } catch {
         continue
       }
 
-      const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
+      const match = raw.match(FRONTMATTER_RE)
       if (!match) continue
 
-      const frontmatter = parseFrontmatter(match[1]) as {
+      const fm = parseFrontmatter(match[1]) as {
         name: string
+        description?: string
         applicable_tasks?: string[]
         base?: boolean
       }
       const body = match[2].trim()
 
+      if (fm.base === true) {
+        baseContent = body
+        continue
+      }
+
       entries.push({
-        name: frontmatter.name,
-        applicableTasks: (frontmatter.applicable_tasks ?? []) as OrchestratorTaskType[],
-        content: body,
-        base: frontmatter.base ?? false,
+        name: fm.name,
+        description: fm.description ?? '',
+        applicableTasks: (fm.applicable_tasks ?? []) as OrchestratorTaskType[],
+        filePath,
       })
     }
 
-    this.skills = entries
+    this.manifests = entries
+    this.baseContent = baseContent
   }
 
-  getSystemPrompt(taskType: OrchestratorTaskType): string {
-    const base = this.skills.filter((s) => s.base)
-    const applicable = this.skills.filter((s) => !s.base && s.applicableTasks.includes(taskType))
-    const sections = [...base, ...applicable].map((s) => `## Skill: ${s.name}\n\n${s.content}`)
-    return sections.join('\n\n---\n\n')
+  listSkills(): SkillManifestEntry[] {
+    return this.manifests.map(({ filePath: _filePath, ...entry }) => entry)
+  }
+
+  getBaseContent(): string {
+    return this.baseContent
+  }
+
+  async readSkillBody(name: string): Promise<string | null> {
+    const entry = this.manifests.find((m) => m.name === name)
+    if (!entry) return null
+
+    const raw = await readFile(entry.filePath, 'utf-8')
+    const match = raw.match(FRONTMATTER_RE)
+    if (!match) return null
+    return match[2].trim()
   }
 }

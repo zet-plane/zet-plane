@@ -28,3 +28,9 @@ If it does, call `revise_knowledge_entry` with the `existingId` instead.
 ### Body format
 Write the body as a concise, self-contained explanation. Avoid references like "as mentioned above".
 The entry must make sense read in isolation, weeks later.
+
+### Completion
+After `create_knowledge_entry` or `revise_knowledge_entry` returns, call `conclude` immediately:
+- `signalType`: `"learning"`
+- `confidence`: 0.9 if entry was clearly warranted, lower if borderline
+- `evidence`: include the `entryId` returned by the tool with a brief note

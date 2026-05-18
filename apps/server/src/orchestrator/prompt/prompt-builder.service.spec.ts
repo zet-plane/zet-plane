@@ -1,8 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
-import { OrchestratorTaskType, OrchestratorTaskStatus, OrchestratorSourceType } from '@generated/client'
+import {
+  OrchestratorTaskType,
+  OrchestratorTaskStatus,
+  OrchestratorSourceType,
+} from '@generated/client'
 import { PromptBuilderService } from './prompt-builder.service'
 
-const makeTask = (type = OrchestratorTaskType.event_anchor) => ({
+const makeTask = (type: OrchestratorTaskType = OrchestratorTaskType.event_anchor) => ({
   id: 'task-1',
   projectId: 'proj-1',
   type,
@@ -17,25 +21,28 @@ const makeTask = (type = OrchestratorTaskType.event_anchor) => ({
   updatedAt: new Date(),
 })
 
-const makeCtx = () => ({
+const makeCtx = (requiresHumanApproval = false) => ({
   project: { id: 'proj-1', name: 'Test', status: 'active' },
   trigger: { sourceType: 'graph_event', sourceId: 'src-1', raw: { foo: 'bar' } },
   candidateNodes: [{ id: 'node-1' }],
   relatedEntries: [{ id: 'entry-1' }],
   recentTaskHistory: [],
-  constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
+  availableSkills: [
+    { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
+  ],
+  constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval },
 })
 
 describe('PromptBuilderService', () => {
   const mockSkillRegistry = {
-    getSystemPrompt: vi.fn().mockReturnValue('system prompt content'),
+    getBaseContent: vi.fn().mockReturnValue('base system prompt content'),
   }
   const service = new PromptBuilderService(mockSkillRegistry as any)
 
-  it('delegates systemPrompt to SkillRegistry with task type', () => {
+  it('system prompt comes from skillRegistry.getBaseContent()', () => {
     const { systemPrompt } = service.build(makeTask(), makeCtx() as any)
-    expect(mockSkillRegistry.getSystemPrompt).toHaveBeenCalledWith(OrchestratorTaskType.event_anchor)
-    expect(systemPrompt).toBe('system prompt content')
+    expect(mockSkillRegistry.getBaseContent).toHaveBeenCalled()
+    expect(systemPrompt).toBe('base system prompt content')
   })
 
   it('userMessage contains task type, project id, and trigger', () => {
@@ -49,5 +56,30 @@ describe('PromptBuilderService', () => {
     const { userMessage } = service.build(makeTask(), makeCtx() as any)
     expect(userMessage).toContain('node-1')
     expect(userMessage).toContain('entry-1')
+  })
+
+  it('userMessage includes availableSkills as JSON', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx() as any)
+    expect(userMessage).toContain('event-anchoring')
+    expect(userMessage).toContain('Available skills')
+  })
+
+  it('userMessage instructs agent to call use_skill before acting', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx() as any)
+    expect(userMessage).toContain('use_skill')
+  })
+
+  it('instructs non-checkpoint tasks to conclude when work is done', () => {
+    const { userMessage } = service.build(makeTask(), makeCtx(false) as any)
+    expect(userMessage).toContain('call the `conclude` tool')
+  })
+
+  it('instructs checkpoint tasks to notify_human instead of conclude', () => {
+    const { userMessage } = service.build(
+      makeTask(OrchestratorTaskType.checkpoint),
+      makeCtx(true) as any,
+    )
+    expect(userMessage).toContain('requires human approval')
+    expect(userMessage).toContain('call `notify_human` instead of `conclude`')
   })
 })

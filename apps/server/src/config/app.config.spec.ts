@@ -58,6 +58,8 @@ describe('configSchema', () => {
     if (result.success) {
       expect(result.data.orchestrator.llm.taskModels.default.provider).toBe('anthropic')
       expect(result.data.orchestrator.llm.taskModels.default.model).toBe('claude-haiku-4-5-20251001')
+      expect(result.data.orchestrator.llm.taskModels.default.request_timeout_ms).toBe(60_000)
+      expect(result.data.orchestrator.llm.taskModels.checkpoint.request_timeout_ms).toBe(60_000)
       expect(result.data.orchestrator.llm.embeddingModel.provider).toBe('openai')
     }
   })

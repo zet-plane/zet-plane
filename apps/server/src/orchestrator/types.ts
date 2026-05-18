@@ -1,6 +1,10 @@
 // apps/server/src/orchestrator/types.ts
 import { z } from 'zod'
-import type { Prisma, OrchestratorTask as PrismaTask } from '@generated/client'
+import type {
+  Prisma,
+  OrchestratorTask as PrismaTask,
+  OrchestratorTaskType,
+} from '@generated/client'
 
 type JsonValue = Prisma.JsonValue
 
@@ -78,6 +82,12 @@ export interface GraphSnapshot {
   edges: Array<{ id: string; fromId: string; toId: string; type: string }>
 }
 
+export interface SkillManifestEntry {
+  name: string
+  description: string
+  applicableTasks: OrchestratorTaskType[]
+}
+
 export interface OrchestratorContext {
   project: { id: string; name: string; status: string }
   trigger: { sourceType: string; sourceId: string; raw: JsonValue }
@@ -85,6 +95,7 @@ export interface OrchestratorContext {
   relatedEntries: KnowledgeEntrySnapshot[]
   recentTaskHistory: TaskHistorySnapshot[]
   subgraph?: GraphSnapshot
+  availableSkills: SkillManifestEntry[]
   constraints: {
     mayWriteGraph: boolean
     mayWriteKnowledge: boolean

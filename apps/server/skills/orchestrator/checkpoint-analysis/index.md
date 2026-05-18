@@ -18,9 +18,12 @@ a decision package for human review. You CANNOT resolve the checkpoint — only 
    - Background: what led to this cycle
    - Risk analysis: what happens with `continue` vs `loop`
    - Your recommendation (clearly labeled as a draft for human review)
-6. Call `notify_human` with the `entryId` of the decision draft
+6. Call `notify_human` with:
+   - `reason`: a concise statement that this checkpoint needs human resolution
+   - `context`: a summary that references the decision draft and explains the recommended next step
 
 ### Hard constraints
 - NEVER call `update_node_status` — resolution is exclusively a human action
-- NEVER call `skip` — checkpoints always require human notification
-- The `notify_human` call ends this task; do not attempt further actions after it
+- NEVER call `conclude` for unresolved checkpoints — the task is not complete until a human reviews it
+- `notify_human` must be called AFTER `create_knowledge_entry`; calling `notify_human` without a decision draft is a skill violation
+- `skip` is only permitted if the checkpoint node was already resolved before this task ran; prefer `notify_human` in all other cases
