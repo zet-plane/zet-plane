@@ -42,7 +42,7 @@
 - Modify: `apps/web/src/lib/schemas/graph-search.test.ts`
 - Modify: `apps/web/src/features/graph/hooks/use-graph-page.ts`
 
-- [ ] **Step 1: Write failing schema tests**
+- [x] **Step 1: Write failing schema tests**
 
 Add tests:
 
@@ -82,13 +82,13 @@ it("strips unknown knowledge values by returning summary mode", () => {
 });
 ```
 
-- [ ] **Step 2: Run schema tests and verify they fail**
+- [x] **Step 2: Run schema tests and verify they fail**
 
 Run: `pnpm --filter @zet-plane/web test -- src/lib/schemas/graph-search.test.ts`
 
 Expected: failures showing `view`, `query`, or `knowledge` are not yet parsed as required.
 
-- [ ] **Step 3: Implement schema**
+- [x] **Step 3: Implement schema**
 
 Change `graph-search.ts` to:
 
@@ -111,7 +111,7 @@ export const graphSearchSchema = z
 export type GraphSearch = z.infer<typeof graphSearchSchema>;
 ```
 
-- [ ] **Step 4: Expose setters from `useGraphPage`**
+- [x] **Step 4: Expose setters from `useGraphPage`**
 
 Add returned values and setters:
 
@@ -132,13 +132,13 @@ const setKnowledgeNodesVisible = (visible: boolean) =>
 
 Return `view`, `query`, `knowledgeNodesVisible`, `setView`, `setQuery`, and `setKnowledgeNodesVisible`.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/lib/schemas/graph-search.test.ts`
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/lib/schemas/graph-search.ts apps/web/src/lib/schemas/graph-search.test.ts apps/web/src/features/graph/hooks/use-graph-page.ts
@@ -153,7 +153,7 @@ git commit -m "feat(web): add graph workbench URL state"
 - Create: `apps/web/src/features/graph/domain/graph-workbench.ts`
 - Create: `apps/web/src/features/graph/domain/graph-workbench.test.ts`
 
-- [ ] **Step 1: Write failing helper tests**
+- [x] **Step 1: Write failing helper tests**
 
 Create tests for:
 
@@ -172,13 +172,13 @@ expect(getOneHopEdgeIds(graph.edges, "n1")).toEqual(new Set(["e-in", "e-out"]));
 
 Use local `node`, `edge`, and `entry` builders mirroring the existing test style in `canvas-view.test.ts`.
 
-- [ ] **Step 2: Run helper tests and verify they fail**
+- [x] **Step 2: Run helper tests and verify they fail**
 
 Run: `pnpm --filter @zet-plane/web test -- src/features/graph/domain/graph-workbench.test.ts`
 
 Expected: fails because the module does not exist.
 
-- [ ] **Step 3: Implement helpers**
+- [x] **Step 3: Implement helpers**
 
 Create exported helpers:
 
@@ -230,13 +230,13 @@ export function getNodeById(nodes: NodeResponse[], nodeId: string | null | undef
 }
 ```
 
-- [ ] **Step 4: Run helper tests**
+- [x] **Step 4: Run helper tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/features/graph/domain/graph-workbench.test.ts`
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/domain/graph-workbench.ts apps/web/src/features/graph/domain/graph-workbench.test.ts
@@ -251,7 +251,7 @@ git commit -m "feat(web): add graph workbench helpers"
 - Create: `apps/web/src/features/graph/hooks/use-project-entries.ts`
 - Test: `apps/web/src/features/graph/hooks/use-node-entries.test.tsx` can remain unchanged unless shared query behavior breaks.
 
-- [ ] **Step 1: Add hook**
+- [x] **Step 1: Add hook**
 
 Create:
 
@@ -271,13 +271,13 @@ export function useProjectEntries(projectId: string) {
 }
 ```
 
-- [ ] **Step 2: Run hook-adjacent tests**
+- [x] **Step 2: Run hook-adjacent tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/features/graph/hooks/use-node-entries.test.tsx`
 
 Expected: existing tests still pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/src/features/graph/hooks/use-project-entries.ts
