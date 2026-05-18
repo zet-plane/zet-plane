@@ -32,6 +32,28 @@ const graphUrl = (baseURL: string | undefined, projectId: string) =>
 	`${baseURL ?? "http://localhost:3001"}/projects/${projectId}/graph`;
 
 test.describe("Semantic demo canvas", () => {
+	test.beforeAll(async ({ request, baseURL }) => {
+		const url = `${baseURL ?? "http://localhost:3001"}/api/projects/${DEMO_PROJECT_ID}`;
+		let status: number;
+		try {
+			const res = await request.get(url);
+			status = res.status();
+		} catch (e) {
+			throw new Error(
+				`Demo precheck: cannot reach ${url}. Is the backend running on :3000? (${(e as Error).message})`,
+			);
+		}
+		if (status === 404) {
+			console.warn(
+				"\n[canvas.spec] Demo seed missing. Run:\n  cd apps/server && pnpm prisma db seed\n",
+			);
+			test.skip(true, "Demo seed missing — see console for fix command");
+		}
+		if (status !== 200) {
+			throw new Error(`Demo precheck: unexpected ${status} from ${url}`);
+		}
+	});
+
 	test("selecting a pill updates the nodeId URL param and opens the detail panel", async ({
 		page,
 		baseURL,
@@ -190,12 +212,12 @@ test.describe("Semantic demo canvas", () => {
 		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 
-		const leaf = page.locator(`[data-id="${PRD_MVP_BOUNDARY_ID}"]`);
+		const leaf = page.locator(`[data-id="${PRD_USER_STORIES_ID}"]`);
 		await expect(leaf).toBeVisible({ timeout: 10000 });
 		await leaf.dblclick();
 
 		await expect(page).toHaveURL(new RegExp(`focus=${PRD_ID}`));
-		await expect(page).not.toHaveURL(new RegExp(`focus=${PRD_MVP_BOUNDARY_ID}`));
+		await expect(page).not.toHaveURL(new RegExp(`focus=${PRD_USER_STORIES_ID}`));
 		await expect(page.getByLabel("Staging lane")).not.toBeVisible();
 	});
 
