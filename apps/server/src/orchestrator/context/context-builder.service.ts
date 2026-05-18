@@ -53,6 +53,10 @@ export class ContextBuilderService {
       constraints: {
         mayWriteGraph: true,
         mayWriteKnowledge: true,
+        // DEPRECATED: requiresHumanApproval / notify_human is no longer used by checkpoint tasks.
+        // Checkpoint tasks now conclude via `conclude` after producing a decision draft;
+        // the gate (blocked node) carries the wait semantics. This flag should be removed
+        // once PromptBuilderService no longer references it.
         requiresHumanApproval: task.type === OrchestratorTaskType.checkpoint,
       },
     }
