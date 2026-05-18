@@ -1,6 +1,6 @@
 ---
 name: checkpoint-analysis
-description: Guides checkpoint analysis and human-approval preparation
+description: Guides checkpoint analysis and decision draft creation for human review
 applicable_tasks: [checkpoint]
 ---
 
