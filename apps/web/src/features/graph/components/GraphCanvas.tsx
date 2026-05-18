@@ -7,11 +7,12 @@ import {
 	ReactFlow,
 	ReactFlowProvider,
 } from '@xyflow/react';
-import type { NodeResponse } from '@zet-plane/contracts';
+import type { KnowledgeEntryResponse, NodeResponse } from '@zet-plane/contracts';
 import { useCallback, useMemo } from 'react';
 import '@xyflow/react/dist/style.css';
 import { aggregateStatus } from '../domain/aggregate-status';
 import { canvasView, type PeripheralStub as PeripheralStubModel } from '../domain/canvas-view';
+import { getKnowledgeSummary, getOneHopEdgeIds } from '../domain/graph-workbench';
 import type { ProjectGraph } from '../domain/types';
 import { useCanvasNavigation } from '../hooks/use-canvas-navigation';
 import { useLayoutedGraph } from '../layout/use-layouted-graph';
@@ -28,15 +29,10 @@ const PERIPHERAL_GAP = 60;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
 const PERIPHERAL_V_SPACING = 12;
-const EDGE_MARKER_COLOR: Record<NodeResponse['status'], string> = {
-	active: 'var(--zp-status-active)',
-	blocked: 'var(--zp-status-blocked)',
-	completed: 'var(--zp-status-completed)',
-	archived: 'var(--zp-status-archived)',
-};
 
 type Props = {
 	graph: ProjectGraph | undefined;
+	entries?: KnowledgeEntryResponse[];
 	isLoading: boolean;
 	error: Error | null;
 	onRetry?: () => void;
@@ -52,7 +48,15 @@ export function GraphCanvas(props: Props) {
 	);
 }
 
-function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelectNode }: Props) {
+function CanvasInner({
+	graph,
+	entries = [],
+	isLoading,
+	error,
+	onRetry,
+	selectedNodeId,
+	onSelectNode,
+}: Props) {
 	const { focusedNodeId, diveInto } = useCanvasNavigation();
 
 	const aggregation = useMemo(
@@ -69,6 +73,15 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		}
 		return counts;
 	}, [graph]);
+
+	const selectedOneHopEdgeIds = useMemo(
+		() =>
+			graph && selectedNodeId
+				? getOneHopEdgeIds(graph.edges, selectedNodeId)
+				: new Set<string>(),
+		[graph, selectedNodeId],
+	);
+	const hasSelectedNode = selectedNodeId !== null;
 
 	const view = useMemo(
 		() => (graph ? canvasView(graph, focusedNodeId) : null),
@@ -101,10 +114,12 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 	if (isLayouting || !layouted) return <LoadingState message="Laying out…" />;
 
 	const pillNodes: Node[] = layouted.nodes.map((n) => {
+		const knowledgeSummary = getKnowledgeSummary(entries, n.id);
 		const data: PillData = {
 			node: n,
 			aggregation: aggregation.get(n.id),
-			knowledgeCount: 0,
+			knowledgeCount: knowledgeSummary.count,
+			knowledgeCategories: knowledgeSummary.categories,
 			childCount: compositionChildCount.get(n.id) ?? 0,
 			selected: selectedNodeId === n.id,
 			dimmed: false,
@@ -149,17 +164,20 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 					? stub.external.status
 					: (layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active');
 			const childIsSource = stub.side === 'right';
+			const selected = selectedOneHopEdgeIds.has(e.id);
+			const dimmed = hasSelectedNode && !selected;
 			return {
 				id: e.id,
 				source: e.fromId,
 				target: e.toId,
 				sourceHandle: childIsSource ? childHandle : peripheralHandle,
 				targetHandle: childIsSource ? peripheralHandle : childHandle,
-				markerEnd: directedMarker(targetStatus),
+				markerEnd: directedMarker(targetStatus, selected, dimmed),
 				type: 'dependency',
 				data: {
 					targetStatus,
-					dimmed: true,
+					selected,
+					dimmed,
 					variant: 'peripheral',
 				} as Record<string, unknown>,
 			};
@@ -194,15 +212,18 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 	const xyEdges: Edge[] = [
 		...layouted.edges.map((e) => {
 			const targetStatus = layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active';
+			const selected = selectedOneHopEdgeIds.has(e.id);
+			const dimmed = hasSelectedNode && !selected;
 			return {
 				id: e.id,
 				source: e.fromId,
 				target: e.toId,
-				markerEnd: directedMarker(targetStatus),
+				markerEnd: directedMarker(targetStatus, selected, dimmed),
 				type: 'dependency',
 				data: {
 					targetStatus,
-					dimmed: false,
+					selected,
+					dimmed,
 					variant: 'flow',
 				} as Record<string, unknown>,
 			};
@@ -233,12 +254,23 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 	);
 }
 
-function directedMarker(targetStatus: NodeResponse['status']) {
+function directedMarker(
+	targetStatus: NodeResponse['status'],
+	selected: boolean,
+	dimmed: boolean,
+) {
+	const color = selected
+		? 'var(--zp-edge-selected)'
+		: dimmed
+			? 'var(--zp-edge-dim)'
+			: targetStatus === 'blocked'
+				? 'var(--zp-status-blocked)'
+				: 'var(--zp-edge-neutral)';
 	return {
 		type: MarkerType.ArrowClosed,
 		width: 14,
 		height: 14,
-		color: EDGE_MARKER_COLOR[targetStatus],
+		color,
 	};
 }
 

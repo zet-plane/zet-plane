@@ -57,6 +57,9 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 		await expect(page.locator(".zp-hero--project")).not.toBeAttached();
 		await expect(page.locator("nav.zp-breadcrumb")).not.toBeAttached();
+		await expect(page.locator(".zp-topbar__crumbs")).toContainText(
+			"Zet Plane 项目开发流程",
+		);
 
 		const rootInCanvas = page.locator(`.react-flow [data-id="${ROOT_ID}"]`);
 		await expect(rootInCanvas).not.toBeAttached();
@@ -156,6 +159,9 @@ test.describe("Semantic demo canvas", () => {
 
 		await expect(page.locator(".zp-hero--scaffold")).not.toBeAttached();
 		await expect(page.locator("nav.zp-breadcrumb")).not.toBeAttached();
+		await expect(page.locator(".zp-topbar__crumbs")).toContainText(
+			"PRD 与项目排期",
+		);
 
 		await expect(page.getByLabel("Staging lane")).not.toBeVisible();
 	});
@@ -245,6 +251,34 @@ test.describe("Semantic demo canvas", () => {
 
 		await legend.click();
 		await expect(page.getByText("Scaffold (flag-tab)")).not.toBeVisible();
+	});
+
+	test("knowledge toggle is backed by the URL", async ({ page, baseURL }) => {
+		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+
+		const toggle = page.getByRole("button", { name: /Knowledge nodes/ });
+		await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+		await toggle.click();
+		await expect(page).toHaveURL(/knowledge=nodes/);
+		await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+		await toggle.click();
+		await expect(page).not.toHaveURL(/knowledge=nodes/);
+		await expect(toggle).toHaveAttribute("aria-pressed", "false");
+	});
+
+	test("view switch is backed by the URL", async ({ page, baseURL }) => {
+		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+
+		await page.getByRole("button", { name: "Explore" }).click();
+		await expect(page).toHaveURL(/view=explore/);
+		await expect(page.getByRole("searchbox", { name: /Search/ })).toBeVisible();
+
+		await page.getByRole("button", { name: "Diagnose" }).click();
+		await expect(page).toHaveURL(/view=diagnose/);
 	});
 
 	test("composition edges are never rendered on the semantic demo", async ({

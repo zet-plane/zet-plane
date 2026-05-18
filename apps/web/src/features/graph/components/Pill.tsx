@@ -1,5 +1,5 @@
 import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
-import type { NodeResponse } from '@zet-plane/contracts';
+import type { KnowledgeEntryResponse, NodeResponse } from '@zet-plane/contracts';
 import { Flag } from 'lucide-react';
 import { effectiveNodeStatus } from '../domain/effective-status';
 import type { AggregatedStatus } from '../domain/types';
@@ -8,6 +8,7 @@ export type PillData = {
 	node: NodeResponse;
 	aggregation: AggregatedStatus | undefined;
 	knowledgeCount: number;
+	knowledgeCategories: KnowledgeEntryResponse['category'][];
 	childCount: number;
 	selected: boolean;
 	dimmed: boolean;
@@ -21,6 +22,7 @@ export function Pill({ data }: NodeProps<PillNode>) {
 		node,
 		aggregation,
 		knowledgeCount,
+		knowledgeCategories,
 		childCount,
 		selected,
 		dimmed,
@@ -63,10 +65,17 @@ export function Pill({ data }: NodeProps<PillNode>) {
 					<Flag size={9} />
 				</span>
 			)}
+			<span
+				className={`zp-node-status zp-node-status--${displayStatus}`}
+				aria-label={`Status: ${displayStatus}`}
+			/>
 			<span className="zp-pill__title">{node.title}</span>
 			{knowledgeCount > 0 && (
-				<span className="zp-pill__chip" aria-label={`${knowledgeCount} knowledge entries`}>
-					K{knowledgeCount}
+				<span className="zp-probe-rail" aria-label={`${knowledgeCount} knowledge entries`}>
+					{knowledgeCategories.slice(0, 3).map((category) => (
+						<i key={category} className={`zp-probe-dot zp-probe-dot--${category}`} />
+					))}
+					<span className="zp-probe-count">{knowledgeCount}</span>
 				</span>
 			)}
 			{childCount > 0 && (

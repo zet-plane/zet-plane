@@ -56,6 +56,7 @@ function ProjectShell() {
 							<Link
 								to="/projects/$projectId/graph"
 								params={{ projectId }}
+								search={{ view: "diagnose" }}
 								className="rounded px-2 py-1 hover:bg-accent"
 								activeProps={{
 									className: "rounded px-2 py-1 bg-accent font-medium",

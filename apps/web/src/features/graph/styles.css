@@ -1,17 +1,39 @@
-/* Status palette (kept) */
 :root {
+	--zp-surface-app: #eef3f8;
+	--zp-surface-panel: #ffffff;
+	--zp-surface-canvas: #f5f8fb;
+	--zp-border-subtle: #d8e0ea;
+	--zp-edge-neutral: #9aa9ba;
+	--zp-edge-selected: #3b82f6;
+	--zp-edge-dim: rgba(120, 137, 158, 0.28);
+	--zp-type-scaffold: #b9892f;
+	--zp-type-growth: #2f8c8c;
+	--zp-type-knowledge: #8b6bd6;
 	--zp-status-active: #3b82f6;
-	--zp-status-active-bg: #e0ecff;
-	--zp-status-blocked: #d97757;
-	--zp-status-blocked-bg: #fbe5da;
-	--zp-status-completed: #5d9970;
-	--zp-status-completed-bg: #dceadf;
-	--zp-status-archived: #b6b6b6;
-	--zp-status-archived-bg: #ececec;
-	--zp-accent-scaffold: #c79420;
-	--zp-accent-growth: #2f8c8c;
-	--zp-accent-knowledge: #a67bd8;
-	--zp-edge-knowledge: #a67bd8;
+	--zp-status-blocked: #d66b4d;
+	--zp-status-completed: #4f9565;
+	--zp-status-archived: #9ca3af;
+	--zp-glow-selected: rgba(59, 130, 246, 0.28);
+	--zp-status-active-bg: #e8f1ff;
+	--zp-status-blocked-bg: #f9e4dc;
+	--zp-status-completed-bg: #e2f0e6;
+	--zp-status-archived-bg: #eef0f3;
+	--zp-accent-scaffold: var(--zp-type-scaffold);
+	--zp-accent-growth: var(--zp-type-growth);
+	--zp-accent-knowledge: var(--zp-type-knowledge);
+	--zp-edge-knowledge: var(--zp-type-knowledge);
+}
+
+.zp-workbench {
+	background: var(--zp-surface-app);
+}
+
+.zp-workbench__canvas {
+	background:
+		linear-gradient(rgba(154, 169, 186, 0.12) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(154, 169, 186, 0.12) 1px, transparent 1px),
+		var(--zp-surface-canvas);
+	background-size: 28px 28px;
 }
 
 /* Sibling Pill */
@@ -20,16 +42,16 @@
 	display: inline-flex;
 	align-items: center;
 	gap: 10px;
-	padding: 6px 14px 6px 12px;
-	border-radius: 999px;
+	padding: 6px 12px;
+	border-radius: 8px;
 	font-size: 13px;
-	background: var(--zp-status-active-bg);
-	box-shadow: 0 1px 2px rgba(20, 20, 20, 0.04), 0 1px 3px rgba(20, 20, 20, 0.06);
+	background: rgba(255, 255, 255, 0.92);
+	box-shadow: 0 1px 2px rgba(35, 48, 66, 0.05), 0 8px 20px rgba(35, 48, 66, 0.06);
 	min-width: 140px;
 	overflow: hidden;
 	font-family: inherit;
-	border: 0;
-	color: inherit;
+	border: 1px solid var(--zp-border-subtle);
+	color: #243244;
 }
 .zp-pill__title {
 	font-weight: 500;
@@ -38,18 +60,10 @@
 	text-overflow: ellipsis;
 	max-width: 220px;
 }
-.zp-pill__chip {
-	font-family: ui-monospace, monospace;
-	font-size: 10px;
-	color: #6b6b6b;
-	background: rgba(255, 255, 255, 0.55);
-	padding: 1px 6px;
-	border-radius: 6px;
-}
 .zp-pill__dive {
 	font-family: ui-monospace, monospace;
 	font-size: 11px;
-	color: #6b6b6b;
+	color: #5d6f85;
 	margin-left: auto;
 	padding: 1px 6px;
 	cursor: pointer;
@@ -58,7 +72,7 @@
 	border-radius: 4px;
 	line-height: 1;
 }
-.zp-pill__dive:hover { background: rgba(0, 0, 0, 0.06); color: #1a1a1a; }
+.zp-pill__dive:hover { background: rgba(59, 130, 246, 0.1); color: #1f4f90; }
 .zp-pill__agg {
 	position: absolute;
 	bottom: 0;
@@ -67,22 +81,69 @@
 	height: 3px;
 	display: flex;
 }
-.zp-pill__agg-a { background: var(--zp-status-active); }
-.zp-pill__agg-b { background: var(--zp-status-blocked); }
-.zp-pill__agg-d { background: var(--zp-status-completed); }
+.zp-pill__agg-a { background: color-mix(in srgb, var(--zp-status-active), white 18%); }
+.zp-pill__agg-b { background: color-mix(in srgb, var(--zp-status-blocked), white 12%); }
+.zp-pill__agg-d { background: color-mix(in srgb, var(--zp-status-completed), white 14%); }
 
-/* Status tints */
-.zp-pill--blocked { background: var(--zp-status-blocked-bg); }
-.zp-pill--completed { background: var(--zp-status-completed-bg); color: #6b6b6b; }
-.zp-pill--completed .zp-pill__title { text-decoration: line-through; text-decoration-color: #9a9a9a; }
-.zp-pill--archived { background: var(--zp-status-archived-bg); color: #9a9a9a; }
+/* Compact status marker */
+.zp-node-status {
+	width: 7px;
+	height: 7px;
+	border-radius: 999px;
+	background: var(--zp-status-active);
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+	flex: 0 0 auto;
+}
+.zp-node-status--blocked {
+	background: var(--zp-status-blocked);
+	box-shadow: 0 0 0 3px rgba(214, 107, 77, 0.14);
+}
+.zp-node-status--completed {
+	background: var(--zp-status-completed);
+	box-shadow: 0 0 0 3px rgba(79, 149, 101, 0.14);
+}
+.zp-node-status--archived {
+	background: var(--zp-status-archived);
+	box-shadow: 0 0 0 3px rgba(156, 163, 175, 0.16);
+}
+.zp-pill--completed { color: #607084; }
+.zp-pill--completed .zp-pill__title { text-decoration: line-through; text-decoration-color: #9ca3af; }
+.zp-pill--archived { color: #7a8796; }
+
+/* Knowledge probe rail */
+.zp-probe-rail {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	border-radius: 999px;
+	border: 1px solid rgba(139, 107, 214, 0.22);
+	background: rgba(139, 107, 214, 0.08);
+	padding: 1px 5px;
+	flex: 0 0 auto;
+}
+.zp-probe-dot {
+	width: 5px;
+	height: 5px;
+	border-radius: 999px;
+	background: var(--zp-type-knowledge);
+}
+.zp-probe-dot--decision { background: #3b82f6; }
+.zp-probe-dot--pitfall { background: var(--zp-status-blocked); }
+.zp-probe-dot--finding { background: var(--zp-status-completed); }
+.zp-probe-dot--context { background: var(--zp-type-knowledge); }
+.zp-probe-count {
+	font-family: ui-monospace, monospace;
+	font-size: 10px;
+	line-height: 1;
+	color: #5d4c87;
+}
 
 /* Scaffold variant */
 .zp-pill--scaffold {
-	padding-left: 22px;
+	padding-left: 20px;
 	font-size: 13.5px;
 	font-weight: 500;
-	box-shadow: 0 2px 4px rgba(20, 20, 20, 0.05), 0 4px 10px rgba(20, 20, 20, 0.06);
+	box-shadow: 0 2px 4px rgba(35, 48, 66, 0.05), 0 10px 24px rgba(35, 48, 66, 0.07);
 }
 .zp-pill--scaffold::before {
 	content: "";
@@ -92,7 +153,7 @@
 	transform: translateY(-50%);
 	width: 14px;
 	height: 100%;
-	background: var(--zp-accent-scaffold);
+	background: var(--zp-type-scaffold);
 	clip-path: polygon(0 0, 100% 0, 100% 35%, 60% 50%, 100% 65%, 100% 100%, 0 100%);
 	opacity: 0.85;
 }
@@ -114,18 +175,22 @@
 	width: 5px;
 	height: 5px;
 	border-radius: 50%;
-	background: var(--zp-accent-growth);
+	background: var(--zp-type-growth);
 	margin-right: 2px;
 	flex: 0 0 auto;
 }
 
 /* Selection / dim */
-.zp-pill--selected { outline: 2px solid var(--zp-status-active); outline-offset: 2px; }
+.zp-pill--selected {
+	outline: 2px solid var(--zp-edge-selected);
+	outline-offset: 2px;
+	box-shadow: 0 0 0 5px var(--zp-glow-selected), 0 10px 24px rgba(35, 48, 66, 0.08);
+}
 .zp-pill--dimmed { opacity: 0.4; }
 
 /* Knowledge variant */
 .zp-pill--knowledge {
-	background: rgba(166, 123, 216, 0.18);
+	background: rgba(139, 107, 214, 0.1);
 	font-size: 11.5px;
 	min-width: 100px;
 	padding: 3px 10px;
@@ -136,7 +201,7 @@
 	width: 5px;
 	height: 5px;
 	border-radius: 50%;
-	background: var(--zp-accent-knowledge);
+	background: var(--zp-type-knowledge);
 	margin-right: 2px;
 	flex: 0 0 auto;
 }
@@ -157,7 +222,7 @@
 	color: inherit;
 	line-height: 1;
 }
-.zp-pill__jump-btn:hover { background: rgba(0, 0, 0, 0.08); color: #1a1a1a; }
+.zp-pill__jump-btn:hover { background: rgba(59, 130, 246, 0.1); color: #1f4f90; }
 
 /* Hero */
 .zp-hero {
@@ -197,8 +262,8 @@
 .zp-breadcrumb__sep { color: #c0c0c0; }
 
 /* Staging panel */
-.zp-staging { width: 280px; border-left: 1px solid #e3e1dc; background: #fafaf8; display: flex; flex-direction: column; }
-.zp-staging__header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #e3e1dc; }
+.zp-staging { width: 280px; border-left: 1px solid var(--zp-border-subtle); background: var(--zp-surface-panel); display: flex; flex-direction: column; }
+.zp-staging__header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--zp-border-subtle); }
 .zp-staging__title { font-size: 12px; font-weight: 600; }
 .zp-staging__count { font-family: ui-monospace, monospace; font-size: 11px; color: #6b6b6b; }
 .zp-staging__list { padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
@@ -211,10 +276,10 @@
 	height: 100%;
 	display: flex;
 	flex-direction: column;
-	border: 1px dashed #d8d4ca;
+	border: 1px dashed var(--zp-border-subtle);
 	border-radius: 8px;
-	background: rgba(250, 250, 248, 0.88);
-	color: #3f3f3f;
+	background: rgba(255, 255, 255, 0.78);
+	color: #243244;
 	overflow: hidden;
 }
 .zp-staging-lane__header {
@@ -222,7 +287,7 @@
 	align-items: center;
 	justify-content: space-between;
 	padding: 10px 12px;
-	border-bottom: 1px solid #e3e1dc;
+	border-bottom: 1px solid var(--zp-border-subtle);
 	font-size: 12px;
 	font-weight: 600;
 }
@@ -236,7 +301,7 @@
 }
 .zp-staging-lane__empty {
 	font-size: 11px;
-	color: #9a9a9a;
+	color: #7a8796;
 }
 .zp-staging-lane__item {
 	display: flex;
@@ -244,7 +309,7 @@
 	align-items: flex-start;
 	gap: 2px;
 	width: 100%;
-	border: 1px solid #e3e1dc;
+	border: 1px solid var(--zp-border-subtle);
 	border-radius: 6px;
 	background: #fff;
 	padding: 8px 10px;
@@ -254,12 +319,12 @@
 }
 .zp-staging-lane__item:hover,
 .zp-staging-lane__item--selected {
-	border-color: var(--zp-status-active);
+	border-color: var(--zp-edge-selected);
 	background: var(--zp-status-active-bg);
 }
 .zp-staging-lane__marker {
 	font-size: 10px;
-	color: #8a8174;
+	color: #6d7f94;
 	text-transform: uppercase;
 }
 
@@ -272,17 +337,20 @@
 	border-radius: 6px;
 	font-size: 11px;
 	background: #fff;
-	border: 1px solid #e3e1dc;
+	border: 1px solid var(--zp-border-subtle);
 	cursor: pointer;
 }
-.zp-chrome-toggle[aria-pressed="true"] { background: rgba(166, 123, 216, 0.18); border-color: var(--zp-accent-knowledge); }
+.zp-chrome-toggle[aria-pressed="true"] { background: rgba(139, 107, 214, 0.1); border-color: var(--zp-type-knowledge); }
 
 /* Edges */
-.zp-edge--active { stroke: var(--zp-status-active); }
+.zp-edge { stroke: var(--zp-edge-neutral); }
+.zp-edge--neutral { stroke: var(--zp-edge-neutral); }
+.zp-edge--selected { stroke: var(--zp-edge-selected); filter: drop-shadow(0 0 4px var(--zp-glow-selected)); }
 .zp-edge--blocked { stroke: var(--zp-status-blocked); }
+.zp-edge--active { stroke: var(--zp-edge-selected); }
 .zp-edge--completed { stroke: var(--zp-status-completed); }
 .zp-edge--archived { stroke: var(--zp-status-archived); }
-.zp-edge--dim { opacity: 0.25; }
+.zp-edge--dim { stroke: var(--zp-edge-dim); opacity: 0.45; }
 
 /* Legacy classes removed:
    .zp-node--scaffold, .zp-node--growth, .zp-container--*, etc. */

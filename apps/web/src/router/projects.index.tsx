@@ -29,6 +29,7 @@ function ProjectsListPage() {
 						<Link
 							to="/projects/$projectId/graph"
 							params={{ projectId: p.id }}
+							search={{ view: "diagnose" }}
 							className="flex items-baseline justify-between px-4 py-3 hover:bg-accent"
 						>
 							<span className="text-base font-medium">{p.name}</span>

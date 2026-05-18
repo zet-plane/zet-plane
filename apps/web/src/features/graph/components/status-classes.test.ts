@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { edgeStatusClass, nodeStatusClass } from "./status-classes";
+import { edgeStateClass, nodeStatusClass } from "./status-classes";
 
 describe("nodeStatusClass", () => {
 	it("returns zp-pill-- prefixed class for each status", () => {
@@ -10,15 +10,18 @@ describe("nodeStatusClass", () => {
 	});
 });
 
-describe("edgeStatusClass", () => {
-	it("returns blocked for blocked or archived targets", () => {
-		expect(edgeStatusClass("blocked")).toBe("zp-edge--blocked");
-		expect(edgeStatusClass("archived")).toBe("zp-edge--blocked");
+describe("edgeStateClass", () => {
+	it("returns neutral, selected, dim, or blocked state classes", () => {
+		expect(edgeStateClass({ selected: false, dimmed: false, blocked: false })).toBe("zp-edge--neutral");
+		expect(edgeStateClass({ selected: true, dimmed: false, blocked: false })).toBe("zp-edge--selected");
+		expect(edgeStateClass({ selected: false, dimmed: true, blocked: false })).toBe("zp-edge--dim");
+		expect(edgeStateClass({ selected: false, dimmed: false, blocked: true })).toBe("zp-edge--blocked");
 	});
-	it("returns completed for completed targets", () => {
-		expect(edgeStatusClass("completed")).toBe("zp-edge--completed");
-	});
-	it("returns active for active targets", () => {
-		expect(edgeStatusClass("active")).toBe("zp-edge--active");
+
+	it("prioritizes selected, blocked, dimmed, then neutral", () => {
+		expect(edgeStateClass({ selected: true, dimmed: true, blocked: true })).toBe("zp-edge--selected");
+		expect(edgeStateClass({ selected: true, dimmed: true, blocked: false })).toBe("zp-edge--selected");
+		expect(edgeStateClass({ selected: false, dimmed: true, blocked: true })).toBe("zp-edge--blocked");
+		expect(edgeStateClass({ selected: false, dimmed: true, blocked: false })).toBe("zp-edge--dim");
 	});
 });

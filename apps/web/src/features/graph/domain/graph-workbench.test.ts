@@ -123,6 +123,25 @@ describe('graphWorkbench helpers', () => {
     expect(getOneHopEdgeIds(graph.edges, 'n1')).toEqual(new Set(['e-in', 'e-out']));
   });
 
+  it('returns only direct incoming and outgoing dependencies for a middle node', () => {
+    const graph: ProjectGraph = {
+      nodes: [
+        mkNode('source'),
+        mkNode('middle'),
+        mkNode('target'),
+        mkNode('two-hop-target'),
+      ],
+      edges: [
+        mkEdge('in', 'source', 'middle', 'dependency'),
+        mkEdge('out', 'middle', 'target', 'dependency'),
+        mkEdge('two-hop', 'target', 'two-hop-target', 'dependency'),
+      ],
+    };
+
+    expect(getOneHopEdgeIds(graph.edges, 'middle')).toEqual(new Set(['in', 'out']));
+    expect(getOneHopEdgeIds(graph.edges, 'middle').has('two-hop')).toBe(false);
+  });
+
   it('returns the matching node or null when no node id is selected', () => {
     const nodes = [mkNode('n1'), mkNode('n2')];
 

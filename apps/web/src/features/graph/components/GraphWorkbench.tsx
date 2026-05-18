@@ -128,6 +128,7 @@ export function GraphWorkbench({
 				<div className="zp-workbench__canvas relative min-w-0 flex-1">
 					<GraphCanvas
 						graph={graph}
+						entries={entries}
 						isLoading={isLoading}
 						error={error}
 						onRetry={onRetry}

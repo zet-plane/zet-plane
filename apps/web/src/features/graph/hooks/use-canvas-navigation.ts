@@ -11,7 +11,7 @@ export function useCanvasNavigation() {
 
 	const diveInto = useCallback(
 		(id: string) => {
-			navigate({ search: (prev) => ({ ...(prev as object), focus: id }) });
+			navigate({ search: (prev) => ({ ...prev, focus: id }) });
 		},
 		[navigate],
 	);
@@ -20,8 +20,8 @@ export function useCanvasNavigation() {
 		(id: string | null) => {
 			navigate({
 				search: (prev) => {
-					const { focus: _drop, ...rest } = (prev as { focus?: string });
-					return id ? { ...rest, focus: id } : rest;
+					const { focus: _drop, ...rest } = prev;
+					return id ? { ...prev, focus: id } : rest;
 				},
 			});
 		},

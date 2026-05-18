@@ -21,6 +21,7 @@ const mkData = (overrides: Partial<PillData> = {}): PillData => ({
 	},
 	aggregation: undefined,
 	knowledgeCount: 0,
+	knowledgeCategories: [],
 	childCount: 0,
 	selected: false,
 	dimmed: false,
@@ -54,14 +55,22 @@ describe('Pill', () => {
 		expect(screen.getByText('Ship v1')).toBeInTheDocument();
 	});
 
-	it('shows knowledge chip when knowledgeCount > 0', () => {
-		renderPill(mkData({ knowledgeCount: 3 }));
-		expect(screen.getByText('K3')).toBeInTheDocument();
+	it('renders a compact status marker', () => {
+		const { container } = renderPill(mkData());
+		expect(container.querySelector('.zp-node-status')).not.toBeNull();
+		expect(screen.getByLabelText('Status: active')).toBeInTheDocument();
 	});
 
-	it('does NOT show knowledge chip when knowledgeCount = 0', () => {
+	it('renders knowledge probe rail when knowledge categories are present', () => {
+		renderPill(mkData({ knowledgeCount: 3, knowledgeCategories: ['decision', 'pitfall'] }));
+		expect(screen.getByLabelText('3 knowledge entries')).toBeInTheDocument();
+		expect(screen.queryByText('K3')).toBeNull();
+	});
+
+	it('does NOT show knowledge probe rail when knowledgeCount = 0', () => {
 		renderPill(mkData());
 		expect(screen.queryByText(/^K\d+$/)).toBeNull();
+		expect(screen.queryByLabelText(/\d+ knowledge entries/)).toBeNull();
 	});
 
 	it('shows dive-in glyph when childCount > 0', () => {

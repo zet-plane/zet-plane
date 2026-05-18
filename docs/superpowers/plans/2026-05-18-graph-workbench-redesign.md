@@ -631,7 +631,7 @@ git commit -m "feat(web): render staging as canvas lane"
 - Modify: `apps/web/src/features/graph/components/status-classes.test.ts`
 - Modify: `apps/web/src/features/graph/components/Pill.test.tsx`
 
-- [ ] **Step 1: Update status class tests**
+- [x] **Step 1: Update status class tests**
 
 Replace edge status expectations with neutral/highlight semantics:
 
@@ -642,7 +642,7 @@ expect(edgeStateClass({ selected: false, dimmed: true, blocked: false })).toBe("
 expect(edgeStateClass({ selected: false, dimmed: false, blocked: true })).toBe("zp-edge--blocked");
 ```
 
-- [ ] **Step 2: Update Pill tests**
+- [x] **Step 2: Update Pill tests**
 
 Add:
 
@@ -660,7 +660,7 @@ it("renders knowledge probe rail when knowledge categories are present", () => {
 
 Add `knowledgeCategories` to `PillData`.
 
-- [ ] **Step 3: Implement compact status marker**
+- [x] **Step 3: Implement compact status marker**
 
 In `Pill`, render:
 
@@ -681,7 +681,7 @@ Replace `K3` chip with probe rail when categories are available:
 )}
 ```
 
-- [ ] **Step 4: Implement CSS variables and neutral edges**
+- [x] **Step 4: Implement CSS variables and neutral edges**
 
 Add variables under `:root`:
 
@@ -707,13 +707,13 @@ Add variables under `:root`:
 
 Set `.zp-edge` default stroke to `var(--zp-edge-neutral)`, `.zp-edge--selected` to selected, and `.zp-edge--dim` opacity/stroke to dim.
 
-- [ ] **Step 5: Run component tests**
+- [x] **Step 5: Run component tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/features/graph/components/Pill.test.tsx src/features/graph/components/status-classes.test.ts`
 
 Expected: all tests pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/src/features/graph/styles.css apps/web/src/features/graph/components/Pill.tsx apps/web/src/features/graph/components/DependencyEdge.tsx apps/web/src/features/graph/components/status-classes.ts apps/web/src/features/graph/components/status-classes.test.ts apps/web/src/features/graph/components/Pill.test.tsx
@@ -729,7 +729,7 @@ git commit -m "feat(web): apply cool circuit graph styling"
 - Modify: `apps/web/src/features/graph/components/DependencyEdge.tsx`
 - Modify: `apps/web/src/features/graph/domain/graph-workbench.test.ts`
 
-- [ ] **Step 1: Ensure helper test covers one-hop only**
+- [x] **Step 1: Ensure helper test covers one-hop only**
 
 Add:
 
@@ -738,7 +738,7 @@ expect(getOneHopEdgeIds(edges, "middle")).toEqual(new Set(["in", "out"]));
 expect(getOneHopEdgeIds(edges, "middle").has("two-hop")).toBe(false);
 ```
 
-- [ ] **Step 2: Pass selected edge state to React Flow edges**
+- [x] **Step 2: Pass selected edge state to React Flow edges**
 
 In `GraphCanvas`, compute:
 
@@ -758,7 +758,7 @@ data: {
 }
 ```
 
-- [ ] **Step 3: Update `DependencyEdgeData`**
+- [x] **Step 3: Update `DependencyEdgeData`**
 
 Add `selected: boolean` and render selected class:
 
@@ -769,13 +769,13 @@ if (data?.dimmed) classes.push("zp-edge--dim");
 if (data?.targetStatus === "blocked") classes.push("zp-edge--blocked");
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `pnpm --filter @zet-plane/web test -- src/features/graph/domain/graph-workbench.test.ts`
 
 Expected: all tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/src/features/graph/components/GraphCanvas.tsx apps/web/src/features/graph/components/DependencyEdge.tsx apps/web/src/features/graph/domain/graph-workbench.test.ts
@@ -790,7 +790,7 @@ git commit -m "feat(web): highlight selected graph dependencies"
 - Modify: `apps/web/e2e/canvas.spec.ts`
 - Modify: any files required by failures from earlier tasks.
 
-- [ ] **Step 1: Update knowledge toggle E2E**
+- [x] **Step 1: Update knowledge toggle E2E**
 
 Replace localStorage persistence expectations with URL behavior:
 
@@ -804,7 +804,7 @@ await toggle.click();
 await expect(page).not.toHaveURL(/knowledge=nodes/);
 ```
 
-- [ ] **Step 2: Add view switch E2E**
+- [x] **Step 2: Add view switch E2E**
 
 ```ts
 await page.getByRole("button", { name: "Explore" }).click();
@@ -814,7 +814,7 @@ await page.getByRole("button", { name: "Diagnose" }).click();
 await expect(page).toHaveURL(/view=diagnose/);
 ```
 
-- [ ] **Step 3: Run unit tests**
+- [x] **Step 3: Run unit tests**
 
 Run: `pnpm --filter @zet-plane/web test`
 
@@ -832,7 +832,7 @@ Run: `pnpm --filter @zet-plane/web exec playwright test e2e/canvas.spec.ts --pro
 
 Expected: Playwright passes against the seeded semantic demo. If backend or dev server is unavailable, record the blocker and the command output in the final handoff.
 
-- [ ] **Step 6: Commit final test updates**
+- [x] **Step 6: Commit final test updates**
 
 ```bash
 git add apps/web/e2e/canvas.spec.ts
