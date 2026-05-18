@@ -4,8 +4,6 @@ import type {
   Prisma,
   OrchestratorTask as PrismaTask,
   OrchestratorTaskType,
-  OrchestratorTaskStatus,
-  OrchestratorSourceType,
 } from '@generated/client'
 
 type JsonValue = Prisma.JsonValue

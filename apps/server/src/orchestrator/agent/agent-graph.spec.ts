@@ -1,7 +1,9 @@
 // apps/server/src/orchestrator/agent/agent-graph.spec.ts
 import { describe, it, expect, vi } from 'vitest'
-import { ToolMessage } from '@langchain/core/messages'
+import { AIMessage, ToolMessage } from '@langchain/core/messages'
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
+import { tool } from '@langchain/core/tools'
+import { z } from 'zod'
 
 const mockLlm = {
   bindTools: vi.fn().mockReturnValue({ invoke: vi.fn() }),
@@ -17,6 +19,59 @@ describe('buildAgentGraph', () => {
     })
     expect(graph).toBeDefined()
     expect(typeof graph.invoke).toBe('function')
+  })
+
+  it('continues back to the agent after a tool returns empty content', async () => {
+    const { buildAgentGraph } = await import('./agent-graph')
+    const invoke = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new AIMessage({
+          content: '',
+          tool_calls: [{ id: 'call-1', name: 'empty_tool', args: {}, type: 'tool_call' }],
+        }),
+      )
+      .mockResolvedValueOnce(
+        new AIMessage({
+          content: JSON.stringify({
+            summary: 'tool finished, model followed up',
+            signalType: 'progress',
+            confidence: 0.8,
+            evidence: [],
+          }),
+        }),
+      )
+    const llm = {
+      bindTools: vi.fn().mockReturnValue({ invoke }),
+    } as unknown as BaseChatModel
+    const emptyTool = tool(async () => '', {
+      name: 'empty_tool',
+      description: 'Returns an empty string',
+      schema: z.object({}),
+    })
+
+    const graph = buildAgentGraph({
+      tools: [emptyTool],
+      systemPrompt: 'You are a test agent.',
+      llm,
+    })
+
+    const result = await graph.invoke({ messages: [] }) as { messages: unknown[] }
+    const messages = result.messages
+
+    expect(invoke).toHaveBeenCalledTimes(2)
+    expect(messages).toHaveLength(3)
+    expect(messages[1]).toBeInstanceOf(ToolMessage)
+    expect((messages[1] as ToolMessage).content).toBe('')
+    expect(messages[2]).toBeInstanceOf(AIMessage)
+    expect(messages[2]).toMatchObject({
+      content: JSON.stringify({
+        summary: 'tool finished, model followed up',
+        signalType: 'progress',
+        confidence: 0.8,
+        evidence: [],
+      }),
+    })
   })
 })
 

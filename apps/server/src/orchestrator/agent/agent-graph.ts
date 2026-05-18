@@ -89,7 +89,8 @@ export function buildAgentGraph(options: BuildOptions): AgentGraph {
 
   function shouldContinueAfterTools(state: typeof MessagesAnnotation.State): 'agent' | typeof END {
     const last = state.messages.at(-1)
-    if (!last || !last.content) return END
+    if (!last) return END
+    if (!(last instanceof ToolMessage) && !last.content) return END
     if (isTerminalSignalMessage(last)) return END
     return 'agent'
   }
@@ -149,8 +150,9 @@ export function extractConcludeInsight(messages: BaseMessage[]): AgentInsight | 
 // (onChainEnd, patchRun, etc.) have had a chance to push items to autoBatchQueue.
 // Pass 1: drains the p-queue (all callbacks complete; each fires void processRunOperation
 //         which synchronously pushes its item to autoBatchQueue before returning).
-// Pass 2: awaitPendingTraceBatches() now sees all those items and waits for the
-//         250 ms autoBatch drain timer to fire and the HTTP batch to land in LangSmith.
+// Pass 2: the second awaitAllCallbacks() re-runs awaitPendingTraceBatches() after
+//         those items exist, so it now waits for the 250 ms autoBatch drain timer
+//         to fire and the HTTP batch to land in LangSmith.
 async function flushTraces(): Promise<void> {
   if (!isTraceFlushEnabled()) return
   const flush = async () => {
