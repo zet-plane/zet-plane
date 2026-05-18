@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import { OrchestratorTaskType } from '@generated/client'
 import type { OrchestratorTask, OrchestratorContext } from '../types'
 import { SkillRegistry } from '../skill/skill-registry'
 
@@ -19,9 +20,10 @@ export class PromptBuilderService {
   }
 
   private buildUserMessage(task: OrchestratorTask, ctx: OrchestratorContext): string {
-    const completionInstruction = ctx.constraints.requiresHumanApproval
-      ? 'This task requires human approval. After preparing the required draft/package, call `notify_human` instead of `conclude`.'
-      : 'When done, call the `conclude` tool with your structured summary.'
+    const completionInstruction =
+      task.type === OrchestratorTaskType.checkpoint
+        ? 'When done, call the `conclude` tool with signalType: decision and evidence referencing the knowledge entry you created. Do NOT call `notify_human`.'
+        : 'When done, call the `conclude` tool with your structured summary.'
 
     const sections: string[] = []
 

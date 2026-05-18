@@ -18,7 +18,10 @@ export class AgentRuntimeService {
     const task = await this.repo.findById(taskId)
     if (!task) throw new Error(`Task ${taskId} not found`)
 
-    // Guard against BullMQ stall re-delivery: do not re-run a task already in a terminal state
+    // Guard against BullMQ stall re-delivery: do not re-run a task already in a terminal state.
+    // waiting_for_approval is DEPRECATED — checkpoint tasks no longer use it (they conclude via
+    // the gate lifecycle). Kept here only to guard any legacy tasks that may already be in this
+    // state. Remove once no tasks carry this status in production.
     if (
       task.status === OrchestratorTaskStatus.succeeded ||
       task.status === OrchestratorTaskStatus.waiting_for_approval
@@ -34,6 +37,9 @@ export class AgentRuntimeService {
         modelResult: insight as unknown as Prisma.JsonValue,
       })
     } catch (err) {
+      // DEPRECATED: WaitingForApprovalSignal / waiting_for_approval is no longer used by
+      // checkpoint tasks. Checkpoint wait semantics live on the gate (blocked node), not the task.
+      // This branch is kept only for backward compatibility until the status is fully removed.
       if (err instanceof WaitingForApprovalSignal) {
         await this.repo.updateStatus(taskId, OrchestratorTaskStatus.waiting_for_approval)
         return

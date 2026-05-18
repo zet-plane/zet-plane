@@ -60,16 +60,6 @@ describe('ContextBuilderService', () => {
     expect(ctx.trigger.sourceId).toBe('src-1')
   })
 
-  it('sets requiresHumanApproval=true for checkpoint tasks', async () => {
-    const ctx = await builder.build(makeTask(OrchestratorTaskType.checkpoint))
-    expect(ctx.constraints.requiresHumanApproval).toBe(true)
-  })
-
-  it('sets requiresHumanApproval=false for non-checkpoint tasks', async () => {
-    const ctx = await builder.build(makeTask(OrchestratorTaskType.event_anchor))
-    expect(ctx.constraints.requiresHumanApproval).toBe(false)
-  })
-
   it('calls graph reader for event_anchor tasks', async () => {
     await builder.build(makeTask(OrchestratorTaskType.event_anchor))
     expect(mockGraphReader.getCandidateNodes).toHaveBeenCalledWith('p1')

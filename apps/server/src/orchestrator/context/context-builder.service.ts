@@ -53,7 +53,6 @@ export class ContextBuilderService {
       constraints: {
         mayWriteGraph: true,
         mayWriteKnowledge: true,
-        requiresHumanApproval: task.type === OrchestratorTaskType.checkpoint,
       },
     }
   }

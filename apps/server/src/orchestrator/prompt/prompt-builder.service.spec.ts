@@ -21,7 +21,7 @@ const makeTask = (type: OrchestratorTaskType = OrchestratorTaskType.event_anchor
   updatedAt: new Date(),
 })
 
-const makeCtx = (requiresHumanApproval = false) => ({
+const makeCtx = () => ({
   project: { id: 'proj-1', name: 'Test', status: 'active' },
   trigger: { sourceType: 'graph_event', sourceId: 'src-1', raw: { foo: 'bar' } },
   candidateNodes: [{ id: 'node-1' }],
@@ -30,7 +30,7 @@ const makeCtx = (requiresHumanApproval = false) => ({
   availableSkills: [
     { name: 'event-anchoring', description: 'Anchors events', applicableTasks: ['event_anchor'] },
   ],
-  constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval },
+  constraints: { mayWriteGraph: true, mayWriteKnowledge: true },
 })
 
 describe('PromptBuilderService', () => {
@@ -70,16 +70,16 @@ describe('PromptBuilderService', () => {
   })
 
   it('instructs non-checkpoint tasks to conclude when work is done', () => {
-    const { userMessage } = service.build(makeTask(), makeCtx(false) as any)
+    const { userMessage } = service.build(makeTask(), makeCtx() as any)
     expect(userMessage).toContain('call the `conclude` tool')
   })
 
-  it('instructs checkpoint tasks to notify_human instead of conclude', () => {
+  it('instructs checkpoint tasks to conclude with decision signalType and evidence', () => {
     const { userMessage } = service.build(
       makeTask(OrchestratorTaskType.checkpoint),
-      makeCtx(true) as any,
+      makeCtx() as any,
     )
-    expect(userMessage).toContain('requires human approval')
-    expect(userMessage).toContain('call `notify_human` instead of `conclude`')
+    expect(userMessage).toContain('signalType: decision')
+    expect(userMessage).toContain('Do NOT call `notify_human`')
   })
 })

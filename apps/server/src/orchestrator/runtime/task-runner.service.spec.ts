@@ -60,7 +60,7 @@ describe('TaskRunnerService', () => {
         candidateNodes: [],
         relatedEntries: [],
         recentTaskHistory: [],
-        constraints: { mayWriteGraph: true, mayWriteKnowledge: true, requiresHumanApproval: false },
+        constraints: { mayWriteGraph: true, mayWriteKnowledge: true },
       }),
     }
     mockPromptBuilder = {

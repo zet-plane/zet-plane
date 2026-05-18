@@ -1,6 +1,10 @@
 import { tool, type StructuredToolInterface } from '@langchain/core/tools'
 import { z } from 'zod'
 
+// DEPRECATED: notify_human / WaitingForApprovalSignal is no longer used by checkpoint tasks.
+// Checkpoint wait semantics belong to the gate layer (blocked node with isCheckpoint=true),
+// not the task. If a genuine task-level pause/resume is needed in the future, model it
+// separately (e.g. pause_for_input) rather than reusing this mechanism.
 export class WaitingForApprovalSignal extends Error {
   constructor(
     public readonly reason: string,
@@ -27,7 +31,8 @@ export const notifyHumanTool = (): StructuredToolInterface =>
     },
     {
       name: 'notify_human',
-      description: 'Call when human judgment is required. Exits the loop and marks task waiting_for_approval.',
+      description:
+        '[DEPRECATED] Legacy task-level human-approval escape hatch. Do not use for checkpoint tasks. Prefer `conclude` for completed work and `to_staging` for uncertain routing; this tool exits the loop and marks the task waiting_for_approval.',
       schema: z.object({
         reason: z.string().describe('Why human judgment is needed'),
         context: z.string().describe('Summary of the situation for the human reviewer'),
