@@ -149,7 +149,7 @@ checkpoint task 执行：
 
 checkpoint node 继续保持 blocked + isCheckpoint=true
 
-human 调用 POST /graph/:id/resolve-checkpoint
+human 调用 PATCH /api/nodes/:id/resolution
   → node.status = active
   → node.checkpointResolution = continue | loop
   → 发布 graph.checkpoint.resolved

@@ -38,7 +38,7 @@
 cd apps/server && pnpm vitest run
 ```
 
-Expected: All tests pass *except* the one checkpoint test in `prompt-builder.service.spec.ts` (which was broken by the earlier `prompt-builder.service.ts` change — we'll fix that in Task 2). Note the count of failures before continuing.
+Expected: The suite should pass on this branch. If anything fails, treat it as an unexpected baseline issue and note the failing test(s) before continuing.
 
 - [ ] **Step 2: Replace the skill file contents**
 

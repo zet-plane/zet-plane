@@ -99,7 +99,6 @@ export interface OrchestratorContext {
   constraints: {
     mayWriteGraph: boolean
     mayWriteKnowledge: boolean
-    requiresHumanApproval: boolean
   }
 }
 

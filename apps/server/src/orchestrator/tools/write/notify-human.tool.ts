@@ -31,7 +31,8 @@ export const notifyHumanTool = (): StructuredToolInterface =>
     },
     {
       name: 'notify_human',
-      description: 'Call when human judgment is required. Exits the loop and marks task waiting_for_approval.',
+      description:
+        '[DEPRECATED] Legacy task-level human-approval escape hatch. Do not use for checkpoint tasks. Prefer `conclude` for completed work and `to_staging` for uncertain routing; this tool exits the loop and marks the task waiting_for_approval.',
       schema: z.object({
         reason: z.string().describe('Why human judgment is needed'),
         context: z.string().describe('Summary of the situation for the human reviewer'),
