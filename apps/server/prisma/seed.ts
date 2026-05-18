@@ -29,7 +29,6 @@ import yaml from 'js-yaml'
 import { PrismaPg } from '@prisma/adapter-pg'
 import {
   PrismaClient,
-  NodeRole,
   NodeStatus,
   NodeType,
   EdgeType,
@@ -163,7 +162,6 @@ async function bootstrapProject(
       id: args.rootId,
       projectId: args.id,
       isProjectRoot: true,
-      role: NodeRole.project_root,
       type: NodeType.scaffold,
       title: args.rootTitle,
       description: args.rootDescription,
@@ -530,7 +528,6 @@ async function seedSemanticDemo(tx: PrismaTx): Promise<void> {
         isCheckpoint: spec.isCheckpoint ?? false,
         checkpointResolution: spec.resolution ?? null,
         createdBy: spec.createdBy ?? CreatedBy.human,
-        role: NodeRole.regular,
       },
     })
     await tx.edge.create({
