@@ -9,6 +9,7 @@ export type PeripheralStubData = {
 	placement: PeripheralPlacement;
 	direction: 'incoming' | 'outgoing';
 	selected: boolean;
+	jumpTargetId: string;
 	onJump?: (id: string) => void;
 };
 
@@ -23,7 +24,7 @@ const HANDLE_POSITION: Record<PeripheralPlacement, Position> = {
 };
 
 export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
-	const { node, placement, direction, selected, onJump } = data;
+	const { node, placement, direction, selected, jumpTargetId, onJump } = data;
 	const classes = [
 		'zp-pill',
 		'zp-pill--peripheral',
@@ -52,7 +53,7 @@ export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
 				className="zp-pill__jump-btn"
 				onClick={(e) => {
 					e.stopPropagation();
-					onJump?.(node.id);
+					onJump?.(jumpTargetId);
 				}}
 				aria-label={`Jump to ${node.title}`}
 				title="Jump in"

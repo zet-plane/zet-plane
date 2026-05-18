@@ -10,6 +10,7 @@ const ROOT_ID = "00000000-0000-4000-8001-000000000000";
 const IDEA_ID = "00000000-0000-4000-8001-000000000010";
 const REQUIREMENTS_ID = "00000000-0000-4000-8001-000000000020";
 const REQ_INTERVIEWS_ID = "00000000-0000-4000-8001-000000000021";
+const REQ_BOUNDARIES_ID = "00000000-0000-4000-8001-000000000023";
 const REQ_HANDOFF_FINDING_ID = "00000000-0000-4000-8001-000000000024";
 const REQ_UNDERSTANDING_NOT_EXECUTION_ID = "00000000-0000-4000-8001-000000000025";
 
@@ -93,6 +94,7 @@ test.describe("Semantic demo canvas", () => {
 
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
 		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 
 		const breadcrumbButtons = page.locator("nav.zp-breadcrumb button");
 		await expect(breadcrumbButtons).toHaveCount(1);
@@ -160,6 +162,7 @@ test.describe("Semantic demo canvas", () => {
 		await expect(page.locator(`[data-id="${PRD_SCOPE_ID}"]`)).toBeVisible();
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
 		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 		await expect(
 			page.locator(`.react-flow [data-id="${REQUIREMENTS_ID}"]`),
 		).not.toBeAttached();
@@ -230,6 +233,7 @@ test.describe("Semantic demo canvas", () => {
 
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
 		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 
 		const boundaryStub = page.getByRole("button", {
 			name: "Open 边界确认：理解而非执行",
@@ -242,7 +246,7 @@ test.describe("Semantic demo canvas", () => {
 			.getByRole("button", { name: "Jump to 边界确认：理解而非执行" })
 			.click();
 		await expect(page).toHaveURL(
-			new RegExp(`focus=${REQ_UNDERSTANDING_NOT_EXECUTION_ID}`),
+			new RegExp(`focus=${REQ_BOUNDARIES_ID}`),
 		);
 	});
 

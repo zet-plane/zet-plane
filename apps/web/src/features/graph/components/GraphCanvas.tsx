@@ -2,10 +2,12 @@ import {
 	Background,
 	Controls,
 	type Edge,
+	MarkerType,
 	type Node,
 	ReactFlow,
 	ReactFlowProvider,
 } from '@xyflow/react';
+import type { NodeResponse } from '@zet-plane/contracts';
 import { useCallback, useMemo } from 'react';
 import '@xyflow/react/dist/style.css';
 import { aggregateStatus } from '../domain/aggregate-status';
@@ -31,6 +33,12 @@ const PERIPHERAL_GAP = 60;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
 const PERIPHERAL_V_SPACING = 12;
+const EDGE_MARKER_COLOR: Record<NodeResponse['status'], string> = {
+	active: 'var(--zp-status-active)',
+	blocked: 'var(--zp-status-blocked)',
+	completed: 'var(--zp-status-completed)',
+	archived: 'var(--zp-status-archived)',
+};
 
 type Props = {
 	graph: ProjectGraph | undefined;
@@ -156,6 +164,7 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 				target: e.toId,
 				sourceHandle: childIsSource ? childHandle : peripheralHandle,
 				targetHandle: childIsSource ? peripheralHandle : childHandle,
+				markerEnd: directedMarker(targetStatus),
 				type: 'dependency',
 				data: {
 					targetStatus,
@@ -169,17 +178,21 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 	const xyNodes: Node[] = [...pillNodes, ...peripheralNodes];
 
 	const xyEdges: Edge[] = [
-		...layouted.edges.map((e) => ({
-			id: e.id,
-			source: e.fromId,
-			target: e.toId,
-			type: 'dependency',
-			data: {
-				targetStatus: layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active',
-				dimmed: false,
-				variant: 'flow',
-			} as Record<string, unknown>,
-		})),
+		...layouted.edges.map((e) => {
+			const targetStatus = layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active';
+			return {
+				id: e.id,
+				source: e.fromId,
+				target: e.toId,
+				markerEnd: directedMarker(targetStatus),
+				type: 'dependency',
+				data: {
+					targetStatus,
+					dimmed: false,
+					variant: 'flow',
+				} as Record<string, unknown>,
+			};
+		}),
 		...peripheralEdges,
 	];
 
@@ -217,6 +230,15 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			)}
 		</div>
 	);
+}
+
+function directedMarker(targetStatus: NodeResponse['status']) {
+	return {
+		type: MarkerType.ArrowClosed,
+		width: 14,
+		height: 14,
+		color: EDGE_MARKER_COLOR[targetStatus],
+	};
 }
 
 type Rect = { x: number; y: number; width: number; height: number };
@@ -376,6 +398,7 @@ function layoutPeripherals(
 				placement: p.placement,
 				direction: p.stub.side === 'left' ? 'incoming' : 'outgoing',
 				selected: selectedNodeId === p.stub.external.id,
+				jumpTargetId: p.stub.jumpTargetId,
 				onJump,
 			} as unknown as Record<string, unknown>,
 			selectable: true,
