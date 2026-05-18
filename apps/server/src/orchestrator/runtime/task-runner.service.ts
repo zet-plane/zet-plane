@@ -116,7 +116,7 @@ export class TaskRunnerService {
       writeEmbeddingTool({ searchService: this.searchService }),
       useSkillTool(this.skillRegistry),
       skipTool(),
-      notifyHumanTool(),
+      ...(task.type !== OrchestratorTaskType.checkpoint ? [notifyHumanTool()] : []),
       concludeTool(),
       toStagingTool({ entryService: this.entryService, projectId: task.projectId, stagingNodeId: staging.id }),
     ]
