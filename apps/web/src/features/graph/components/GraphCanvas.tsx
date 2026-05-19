@@ -96,7 +96,10 @@ function CanvasInner({
 		};
 	}, [view]);
 
-	const { data: layouted, isLayouting, error: layoutErr } = useLayoutedGraph(subGraphForLayout);
+	const { data: layouted, isLayouting, error: layoutErr } = useLayoutedGraph(
+		subGraphForLayout,
+		entries,
+	);
 
 	const onNodeClick = useCallback(
 		(_: unknown, n: Node) => {

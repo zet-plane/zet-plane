@@ -1,4 +1,6 @@
+import type { KnowledgeEntryResponse } from "@zet-plane/contracts";
 import { useEffect, useMemo, useState } from "react";
+import { measurePillSize, type PillVariant } from "../components/pill-geometry";
 import { aggregateStatus } from "../domain/aggregate-status";
 import { topologyHash } from "../domain/topology-hash";
 import type {
@@ -7,15 +9,12 @@ import type {
 	ProjectGraph,
 } from "../domain/types";
 import { type LayoutInput, type LayoutOutput, layoutGraph } from "./elk-layout";
-import { measureNodeText } from "./measure-text";
 
-const NODE_TITLE_FONT = "600 14px Inter Variable";
-const NODE_TITLE_MAX_WIDTH = 220;
-const NODE_TITLE_LINE_HEIGHT = 20;
-const NODE_HORIZONTAL_PADDING = 24;
-const NODE_VERTICAL_PADDING = 24;
-const NODE_SUMMARY_GAP = 4;
-const NODE_SUMMARY_LINE_HEIGHT = 13;
+function variantFor(nodeType: string): PillVariant {
+	if (nodeType === "scaffold") return "scaffold";
+	if (nodeType === "growth") return "growth";
+	return "default";
+}
 
 type LayoutState = {
 	data: LayoutedGraph | undefined;
@@ -35,10 +34,21 @@ type LayoutRun = {
 	cancel: () => void;
 };
 
-function createLayoutKey(graph: ProjectGraph): string {
+function createLayoutKey(
+	graph: ProjectGraph,
+	knowledgeCountByNodeId: Map<string, number>,
+): string {
 	const textKey = graph.nodes
 		.map(
-			(node) => [node.id, node.title, node.description, node.status] as const,
+			(node) =>
+				[
+					node.id,
+					node.title,
+					node.description,
+					node.status,
+					node.type,
+					knowledgeCountByNodeId.get(node.id) ?? 0,
+				] as const,
 		)
 		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
 
@@ -74,26 +84,44 @@ function createSummaryNodeIds(graph: ProjectGraph): Set<string> {
 	return summaryNodeIds;
 }
 
-function createLayoutInput(graph: ProjectGraph): LayoutInput {
+function createCompositionChildCount(graph: ProjectGraph): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const edge of graph.edges) {
+		if (edge.type !== "composition") continue;
+		counts.set(edge.fromId, (counts.get(edge.fromId) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function createKnowledgeCountByNodeId(
+	entries: KnowledgeEntryResponse[],
+): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		counts.set(entry.nodeId, (counts.get(entry.nodeId) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function createLayoutInput(
+	graph: ProjectGraph,
+	knowledgeCountByNodeId: Map<string, number>,
+): LayoutInput {
 	const summaryNodeIds = createSummaryNodeIds(graph);
+	const childCountByNodeId = createCompositionChildCount(graph);
 	const nodes = graph.nodes.map((node) => {
-		const textSize = measureNodeText({
-			text: node.title,
-			font: NODE_TITLE_FONT,
-			maxWidth: NODE_TITLE_MAX_WIDTH,
-			lineHeight: NODE_TITLE_LINE_HEIGHT,
+		const { width, height } = measurePillSize({
+			title: node.title,
+			variant: variantFor(node.type),
+			knowledgeCount: knowledgeCountByNodeId.get(node.id) ?? 0,
+			childCount: childCountByNodeId.get(node.id) ?? 0,
+			hasSummaryBar: summaryNodeIds.has(node.id),
 		});
-		const summaryHeight = summaryNodeIds.has(node.id)
-			? NODE_SUMMARY_GAP + NODE_SUMMARY_LINE_HEIGHT
-			: 0;
 
 		return {
 			id: node.id,
-			width: Math.max(1, textSize.width + NODE_HORIZONTAL_PADDING * 2),
-			height: Math.max(
-				1,
-				textSize.height + summaryHeight + NODE_VERTICAL_PADDING * 2,
-			),
+			width: Math.max(1, width),
+			height: Math.max(1, height),
 			parentId: null,
 		};
 	});
@@ -139,7 +167,12 @@ function mergeLayoutResult(
 	};
 }
 
-export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
+const EMPTY_ENTRIES: KnowledgeEntryResponse[] = [];
+
+export function useLayoutedGraph(
+	graph: ProjectGraph | undefined,
+	entries: KnowledgeEntryResponse[] = EMPTY_ENTRIES,
+): LayoutState {
 	const [state, setState] = useState<LayoutRunState>({
 		layoutKey: undefined,
 		layoutResult: undefined,
@@ -147,9 +180,16 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 		error: null,
 	});
 
+	const knowledgeCountByNodeId = useMemo(
+		() => createKnowledgeCountByNodeId(entries),
+		[entries],
+	);
+
 	const layoutKey = useMemo(() => {
-		return graph === undefined ? undefined : createLayoutKey(graph);
-	}, [graph]);
+		return graph === undefined
+			? undefined
+			: createLayoutKey(graph, knowledgeCountByNodeId);
+	}, [graph, knowledgeCountByNodeId]);
 
 	const data = useMemo(() => {
 		if (
@@ -187,7 +227,7 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			error: null,
 		}));
 
-		const input = createLayoutInput(graph);
+		const input = createLayoutInput(graph, knowledgeCountByNodeId);
 		const run = runLayoutInline(input);
 
 		void run.promise
