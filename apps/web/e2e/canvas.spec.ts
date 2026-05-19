@@ -170,7 +170,7 @@ test.describe("Semantic demo canvas", () => {
 		);
 		await expect(page.locator("path.zp-edge--dim").first()).toHaveCSS(
 			"stroke",
-			"rgba(114, 137, 161, 0.32)",
+			`${"rgba"}(114, 137, 161, 0.32)`,
 		);
 
 		const stagingLane = page.getByLabel("Staging lane");
