@@ -216,6 +216,75 @@ describe("GraphCanvas knowledge nodes", () => {
 		);
 	});
 
+	it("dims nodes that are not one-hop dependency neighbors of the selected node", () => {
+		const graph: ProjectGraph = {
+			nodes: [
+				mkNode("root", {
+					isProjectRoot: true,
+					role: "project_root",
+					type: "scaffold",
+				}),
+				mkNode("a"),
+				mkNode("b"),
+				mkNode("c"),
+			],
+			edges: [
+				{
+					id: "c-a",
+					projectId: "p",
+					fromId: "root",
+					toId: "a",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-b",
+					projectId: "p",
+					fromId: "root",
+					toId: "b",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-c",
+					projectId: "p",
+					fromId: "root",
+					toId: "c",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "d-ab",
+					projectId: "p",
+					fromId: "a",
+					toId: "b",
+					type: "dependency",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+			],
+		};
+
+		render(
+			<GraphCanvas
+				graph={graph}
+				entries={[]}
+				isLoading={false}
+				error={null}
+				selectedNodeId="a"
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByTestId("react-flow")).toHaveAttribute(
+			"data-dimmed-node-ids",
+			"c",
+		);
+	});
+
 	it("shows a leaf-focused empty state with an explicit parent return", () => {
 		navigation.focusedNodeId = "leaf";
 		const graph: ProjectGraph = {

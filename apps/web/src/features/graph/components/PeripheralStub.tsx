@@ -9,6 +9,7 @@ export type PeripheralStubData = {
 	placement: PeripheralPlacement;
 	direction: 'incoming' | 'outgoing';
 	selected: boolean;
+	dimmed?: boolean;
 	jumpTargetId: string;
 	onJump?: (id: string) => void;
 };
@@ -24,7 +25,7 @@ const HANDLE_POSITION: Record<PeripheralPlacement, Position> = {
 };
 
 export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
-	const { node, placement, direction, selected, jumpTargetId, onJump } = data;
+	const { node, placement, direction, selected, dimmed, jumpTargetId, onJump } = data;
 	const classes = [
 		'zp-pill',
 		'zp-pill--peripheral',
@@ -32,6 +33,7 @@ export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
 		`zp-pill--${node.status}`,
 	];
 	if (selected) classes.push('zp-pill--selected');
+	if (dimmed) classes.push('zp-pill--dimmed');
 	const handleType = direction === 'incoming' ? 'source' : 'target';
 	return (
 		<div

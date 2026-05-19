@@ -13,6 +13,7 @@ import {
 	getKnowledgeSummary,
 	getNodeById,
 	getOneHopEdgeIds,
+	getOneHopNodeIds,
 	isLeafNode,
 } from "./graph-workbench";
 import type { ProjectGraph } from "./types";
@@ -163,6 +164,32 @@ describe("graphWorkbench helpers", () => {
 			new Set(["in", "out"]),
 		);
 		expect(getOneHopEdgeIds(graph.edges, "middle").has("two-hop")).toBe(false);
+	});
+
+	it("returns the node id and its one-hop dependency neighbors", () => {
+		const graph: ProjectGraph = {
+			nodes: [
+				mkNode("n1"),
+				mkNode("source"),
+				mkNode("target"),
+				mkNode("child"),
+				mkNode("two-hop"),
+				mkNode("isolated"),
+			],
+			edges: [
+				mkEdge("e-in", "source", "n1", "dependency"),
+				mkEdge("e-out", "n1", "target", "dependency"),
+				mkEdge("e-compose", "n1", "child", "composition"),
+				mkEdge("e-two-hop", "target", "two-hop", "dependency"),
+			],
+		};
+
+		expect(getOneHopNodeIds(graph.edges, "n1")).toEqual(
+			new Set(["n1", "source", "target"]),
+		);
+		expect(getOneHopNodeIds(graph.edges, "isolated")).toEqual(
+			new Set(["isolated"]),
+		);
 	});
 
 	it("returns the matching node or null when no node id is selected", () => {

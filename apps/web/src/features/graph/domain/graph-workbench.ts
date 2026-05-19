@@ -84,6 +84,19 @@ export function getOneHopEdgeIds(
 	);
 }
 
+export function getOneHopNodeIds(
+	edges: EdgeResponse[],
+	nodeId: NodeResponse["id"],
+): Set<NodeResponse["id"]> {
+	const ids = new Set<NodeResponse["id"]>([nodeId]);
+	for (const edge of edges) {
+		if (edge.type !== "dependency") continue;
+		if (edge.fromId === nodeId) ids.add(edge.toId);
+		else if (edge.toId === nodeId) ids.add(edge.fromId);
+	}
+	return ids;
+}
+
 export function getKnowledgeSummary(
 	entries: KnowledgeEntryResponse[],
 	nodeId: NodeResponse["id"],

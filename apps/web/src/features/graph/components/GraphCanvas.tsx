@@ -26,6 +26,7 @@ import {
 	type GraphWorkbenchFilters,
 	getKnowledgeSummary,
 	getOneHopEdgeIds,
+	getOneHopNodeIds,
 	nodeMatchesFilters,
 } from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
@@ -133,6 +134,13 @@ function CanvasInner({
 				: new Set<string>(),
 		[graph, selectedNodeId],
 	);
+	const selectedRelatedNodeIds = useMemo(
+		() =>
+			graph && selectedNodeId
+				? getOneHopNodeIds(graph.edges, selectedNodeId)
+				: new Set<string>(),
+		[graph, selectedNodeId],
+	);
 	const hasSelectedNode = selectedNodeId !== null;
 
 	const view = useMemo(
@@ -186,7 +194,9 @@ function CanvasInner({
 
 	const pillNodes: Node[] = layouted.nodes.map((n) => {
 		const knowledgeSummary = getKnowledgeSummary(entries, n.id);
-		const dimmed = !nodeMatchesFilters(n, filters);
+		const dimmed =
+			!nodeMatchesFilters(n, filters) ||
+			(hasSelectedNode && !selectedRelatedNodeIds.has(n.id));
 		const data: PillData = {
 			node: n,
 			aggregation: aggregation.get(n.id),
@@ -221,6 +231,7 @@ function CanvasInner({
 		childRects,
 		selectedNodeId,
 		diveInto,
+		hasSelectedNode ? selectedRelatedNodeIds : null,
 	);
 	const peripheralNodes: Node[] = peripheralPlacements.map((p) => p.node);
 	const placementByStubId = new Map(
@@ -500,6 +511,7 @@ function layoutPeripherals(
 	childRects: Map<string, Rect>,
 	selectedNodeId: string | null,
 	onJump: (id: string) => void,
+	relatedNodeIds: Set<string> | null,
 ): PeripheralLayout[] {
 	if (stubs.length === 0 || childRects.size === 0) return [];
 	const bbox = computeBbox(childRects.values());
@@ -567,6 +579,8 @@ function layoutPeripherals(
 				placement: p.placement,
 				direction: p.stub.side === "left" ? "incoming" : "outgoing",
 				selected: selectedNodeId === p.stub.external.id,
+				dimmed:
+					relatedNodeIds !== null && !relatedNodeIds.has(p.stub.external.id),
 				jumpTargetId: p.stub.jumpTargetId,
 				onJump,
 			} as unknown as Record<string, unknown>,
