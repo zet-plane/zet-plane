@@ -5,6 +5,7 @@ dist/
 *.env
 !.env.example
 .superpowers/
+.vscode/
 
 # Prisma 7 generated client (regenerated via postinstall)
 apps/server/src/prisma/gen/
