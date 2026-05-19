@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
-// Drift-detection: the `.zp-pill` div is `display: inline-flex` and grows to
-// its content width regardless of the wrapper width ELK reserved for it.
+// Drift-detection: the `.zp-pill` div fills the wrapper width ELK reserved for
+// it, while its content still needs enough measured room to avoid clipping.
 // If `measurePillSize` (apps/web/src/features/graph/components/pill-geometry.ts)
 // underestimates that width, the pill overflows its reserved box and collides
 // with neighboring nodes (notably peripheral stubs).

@@ -9,6 +9,7 @@ import type {
 	ProjectGraph,
 } from "../domain/types";
 import { type LayoutInput, type LayoutOutput, layoutGraph } from "./elk-layout";
+import { resetMeasureCache } from "./measure-text";
 
 function variantFor(nodeType: string): PillVariant {
 	if (nodeType === "scaffold") return "scaffold";
@@ -37,6 +38,7 @@ type LayoutRun = {
 function createLayoutKey(
 	graph: ProjectGraph,
 	knowledgeCountByNodeId: Map<string, number>,
+	geometryGraph: ProjectGraph = graph,
 ): string {
 	const textKey = graph.nodes
 		.map(
@@ -54,6 +56,7 @@ function createLayoutKey(
 
 	return JSON.stringify({
 		topology: topologyHash(graph),
+		geometryTopology: topologyHash(geometryGraph),
 		text: textKey,
 	});
 }
@@ -106,9 +109,10 @@ function createKnowledgeCountByNodeId(
 function createLayoutInput(
 	graph: ProjectGraph,
 	knowledgeCountByNodeId: Map<string, number>,
+	geometryGraph: ProjectGraph = graph,
 ): LayoutInput {
-	const summaryNodeIds = createSummaryNodeIds(graph);
-	const childCountByNodeId = createCompositionChildCount(graph);
+	const summaryNodeIds = createSummaryNodeIds(geometryGraph);
+	const childCountByNodeId = createCompositionChildCount(geometryGraph);
 	const nodes = graph.nodes.map((node) => {
 		const { width, height } = measurePillSize({
 			title: node.title,
@@ -167,12 +171,52 @@ function mergeLayoutResult(
 	};
 }
 
+function hasFontsApi(): boolean {
+	if (typeof document === "undefined") return false;
+	const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
+	return fonts?.ready !== undefined;
+}
+
+function useFontsReady(): boolean {
+	// Initial state must be `false` in real browsers: `document.fonts.status`
+	// can read "loaded" before CSS-driven web fonts have started loading,
+	// because no font requests are pending *yet*. We always wait for
+	// `document.fonts.ready` so measurements happen against the typeface CSS
+	// will actually render. In non-browser test envs (no FontFaceSet) we
+	// short-circuit to `true` so server-side / jsdom tests don't hang.
+	const [ready, setReady] = useState<boolean>(() => !hasFontsApi());
+
+	useEffect(() => {
+		if (ready) return;
+		const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
+		if (fonts?.ready === undefined) {
+			setReady(true);
+			return;
+		}
+		let cancelled = false;
+		fonts.ready.then(() => {
+			if (cancelled) return;
+			// Drop widths measured with fallback fonts so the next layout
+			// pass re-measures against the real (now-loaded) typeface.
+			resetMeasureCache();
+			setReady(true);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [ready]);
+
+	return ready;
+}
+
 const EMPTY_ENTRIES: KnowledgeEntryResponse[] = [];
 
 export function useLayoutedGraph(
 	graph: ProjectGraph | undefined,
 	entries: KnowledgeEntryResponse[] = EMPTY_ENTRIES,
+	geometryGraph: ProjectGraph | undefined = graph,
 ): LayoutState {
+	const fontsReady = useFontsReady();
 	const [state, setState] = useState<LayoutRunState>({
 		layoutKey: undefined,
 		layoutResult: undefined,
@@ -188,8 +232,8 @@ export function useLayoutedGraph(
 	const layoutKey = useMemo(() => {
 		return graph === undefined
 			? undefined
-			: createLayoutKey(graph, knowledgeCountByNodeId);
-	}, [graph, knowledgeCountByNodeId]);
+			: createLayoutKey(graph, knowledgeCountByNodeId, geometryGraph ?? graph);
+	}, [graph, geometryGraph, knowledgeCountByNodeId]);
 
 	const data = useMemo(() => {
 		if (
@@ -220,6 +264,16 @@ export function useLayoutedGraph(
 			};
 		}
 
+		// Web fonts (e.g. Inter Variable) are async — measuring pill widths
+		// before they load gives canvas measureText fallback-font results
+		// that are narrower than the real CSS render, which makes ELK's
+		// (correct) centering land on too-small wrappers. Defer until ready.
+		if (!fontsReady) {
+			return () => {
+				cancelled = true;
+			};
+		}
+
 		setState((current) => ({
 			layoutKey: current.layoutKey,
 			layoutResult: current.layoutResult,
@@ -227,7 +281,11 @@ export function useLayoutedGraph(
 			error: null,
 		}));
 
-		const input = createLayoutInput(graph, knowledgeCountByNodeId);
+		const input = createLayoutInput(
+			graph,
+			knowledgeCountByNodeId,
+			geometryGraph ?? graph,
+		);
 		const run = runLayoutInline(input);
 
 		void run.promise
@@ -260,7 +318,7 @@ export function useLayoutedGraph(
 			cancelled = true;
 			run.cancel();
 		};
-	}, [layoutKey]);
+	}, [layoutKey, fontsReady]);
 
 	return {
 		data,

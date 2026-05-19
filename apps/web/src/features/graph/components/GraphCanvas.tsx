@@ -99,6 +99,7 @@ function CanvasInner({
 	const { data: layouted, isLayouting, error: layoutErr } = useLayoutedGraph(
 		subGraphForLayout,
 		entries,
+		graph,
 	);
 
 	const onNodeClick = useCallback(

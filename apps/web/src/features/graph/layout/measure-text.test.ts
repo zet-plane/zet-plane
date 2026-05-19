@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { prepareMock, layoutMock } = vi.hoisted(() => ({
-	prepareMock: vi.fn(),
-	layoutMock: vi.fn(),
+const { prepareWithSegmentsMock, measureLineStatsMock } = vi.hoisted(() => ({
+	prepareWithSegmentsMock: vi.fn(),
+	measureLineStatsMock: vi.fn(),
 }));
 
 vi.mock("@chenglou/pretext", () => ({
-	prepare: prepareMock,
-	layout: layoutMock,
+	prepareWithSegments: prepareWithSegmentsMock,
+	measureLineStats: measureLineStatsMock,
 }));
 
 import { measureNodeText, resetMeasureCache } from "./measure-text";
@@ -16,17 +16,17 @@ describe("measureNodeText", () => {
 	const originalGetContext = HTMLCanvasElement.prototype.getContext;
 
 	beforeEach(() => {
-		prepareMock.mockReset();
-		layoutMock.mockReset();
+		prepareWithSegmentsMock.mockReset();
+		measureLineStatsMock.mockReset();
 		resetMeasureCache();
 		HTMLCanvasElement.prototype.getContext = originalGetContext;
 	});
 
 	it("returns positive integer dimensions", () => {
 		const prepared = { prepared: true };
-		prepareMock.mockReturnValue(prepared);
-		layoutMock.mockReturnValue({
-			height: 0.4,
+		prepareWithSegmentsMock.mockReturnValue(prepared);
+		measureLineStatsMock.mockReturnValue({
+			maxLineWidth: 83.4,
 			lineCount: 1,
 		});
 		const input = {
@@ -36,19 +36,18 @@ describe("measureNodeText", () => {
 			lineHeight: 20,
 		};
 
-		expect(measureNodeText(input)).toEqual({ width: 35, height: 1 });
-		expect(prepareMock).toHaveBeenCalledWith(input.text, input.font);
-		expect(layoutMock).toHaveBeenCalledWith(
-			prepared,
-			input.maxWidth,
-			input.lineHeight,
+		expect(measureNodeText(input)).toEqual({ width: 84, height: 20 });
+		expect(prepareWithSegmentsMock).toHaveBeenCalledWith(
+			input.text,
+			input.font,
 		);
+		expect(measureLineStatsMock).toHaveBeenCalledWith(prepared, input.maxWidth);
 	});
 
 	it("caches identical calls and does not rerun prepare", () => {
-		prepareMock.mockReturnValue({ prepared: true });
-		layoutMock.mockReturnValue({
-			height: 24,
+		prepareWithSegmentsMock.mockReturnValue({ prepared: true });
+		measureLineStatsMock.mockReturnValue({
+			maxLineWidth: 96,
 			lineCount: 2,
 		});
 
@@ -63,14 +62,14 @@ describe("measureNodeText", () => {
 		const second = measureNodeText(input);
 
 		expect(first).toEqual(second);
-		expect(prepareMock).toHaveBeenCalledTimes(1);
-		expect(layoutMock).toHaveBeenCalledTimes(1);
+		expect(prepareWithSegmentsMock).toHaveBeenCalledTimes(1);
+		expect(measureLineStatsMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("does not cache different text values together", () => {
-		prepareMock.mockReturnValue({ prepared: true });
-		layoutMock.mockReturnValue({
-			height: 24,
+		prepareWithSegmentsMock.mockReturnValue({ prepared: true });
+		measureLineStatsMock.mockReturnValue({
+			maxLineWidth: 96,
 			lineCount: 2,
 		});
 
@@ -87,11 +86,11 @@ describe("measureNodeText", () => {
 			lineHeight: 20,
 		});
 
-		expect(prepareMock).toHaveBeenCalledTimes(2);
-		expect(layoutMock).toHaveBeenCalledTimes(2);
+		expect(prepareWithSegmentsMock).toHaveBeenCalledTimes(2);
+		expect(measureLineStatsMock).toHaveBeenCalledTimes(2);
 	});
 
-	it("measures shorter text narrower than longer text without pretext width", () => {
+	it("uses pretext line width instead of canvas width", () => {
 		HTMLCanvasElement.prototype.getContext = vi.fn((contextId: string) => {
 			if (contextId !== "2d") {
 				return null;
@@ -104,26 +103,36 @@ describe("measureNodeText", () => {
 				}),
 			} as CanvasRenderingContext2D;
 		}) as typeof HTMLCanvasElement.prototype.getContext;
-		prepareMock.mockReturnValue({ prepared: true });
-		layoutMock.mockReturnValue({
-			height: 20,
+		prepareWithSegmentsMock.mockReturnValue({ prepared: true });
+		measureLineStatsMock.mockReturnValue({
+			maxLineWidth: 123.2,
 			lineCount: 1,
 		});
 
-		const short = measureNodeText({
+		const measured = measureNodeText({
 			text: "Tiny",
 			font: "600 14px Inter",
 			maxWidth: 180,
 			lineHeight: 20,
 		});
-		const long = measureNodeText({
-			text: "A much longer node title",
+
+		expect(measured.width).toBe(124);
+	});
+
+	it("uses pretext line count to calculate height", () => {
+		prepareWithSegmentsMock.mockReturnValue({ prepared: true });
+		measureLineStatsMock.mockReturnValue({
+			maxLineWidth: 160,
+			lineCount: 3,
+		});
+
+		const measured = measureNodeText({
+			text: "A long title that wraps",
 			font: "600 14px Inter",
 			maxWidth: 180,
 			lineHeight: 20,
 		});
 
-		expect(short.width).toBeLessThan(long.width);
-		expect(long.width).toBeLessThanOrEqual(180);
+		expect(measured).toEqual({ width: 160, height: 60 });
 	});
 });

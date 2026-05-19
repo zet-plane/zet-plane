@@ -168,4 +168,47 @@ describe("useLayoutedGraph", () => {
 
 		expect(rootNode?.height).toBeGreaterThan(childNode?.height ?? 0);
 	});
+
+	it("sizes visible dive buttons from the full graph even when layout edges are dependencies only", async () => {
+		layoutGraphMock.mockResolvedValueOnce({
+			nodes: [
+				{ id: "before", position: { x: 0, y: 0 }, width: 140, height: 32 },
+				{ id: "parent", position: { x: 0, y: 48 }, width: 180, height: 35 },
+			],
+		});
+		const visibleGraph: ProjectGraph = {
+			nodes: [node("before", "Before"), node("parent", "Parent")],
+			edges: [edge("d1", "before", "parent", "dependency")],
+		};
+		const geometryGraph: ProjectGraph = {
+			nodes: [
+				...visibleGraph.nodes,
+				node("child-a", "Child A"),
+				node("child-b", "Child B"),
+			],
+			edges: [
+				...visibleGraph.edges,
+				edge("c1", "parent", "child-a", "composition"),
+				edge("c2", "parent", "child-b", "composition"),
+			],
+		};
+
+		renderHook(() => useLayoutedGraph(visibleGraph, [], geometryGraph));
+
+		await waitFor(() => expect(layoutGraphMock).toHaveBeenCalledTimes(1));
+
+		const call = layoutGraphMock.mock.calls[0]?.[0] as
+			| {
+					nodes: Array<{ id: string; width: number }>;
+			  }
+			| undefined;
+		const beforeNode = call?.nodes.find(
+			(layoutNode: { id: string; width: number }) => layoutNode.id === "before",
+		);
+		const parentNode = call?.nodes.find(
+			(layoutNode: { id: string; width: number }) => layoutNode.id === "parent",
+		);
+
+		expect(parentNode?.width).toBeGreaterThan(beforeNode?.width ?? 0);
+	});
 });

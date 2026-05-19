@@ -1,10 +1,9 @@
 // Single source of truth for Pill rendered dimensions.
 //
-// `.zp-pill` is `display: inline-flex`, so it grows to its true content width
-// regardless of the wrapper width ELK assigns. To stop pills from overflowing
-// the reserved box and overlapping neighbors (peripheral stubs in particular),
-// the layout layer must reserve a width that matches what CSS will actually
-// render. This module computes that width purely from props — no DOM.
+// `.zp-pill` fills the React Flow wrapper width assigned from ELK. To stop the
+// pill content from being clipped or crowding neighbors, the layout layer must
+// reserve a width that matches what CSS needs to render. This module computes
+// that width purely from props — no DOM.
 //
 // CSS drift is caught by `apps/web/e2e/pill-geometry.spec.ts`, which asserts
 // `pill.offsetWidth <= measurePillSize(...).width` on representative pills.
@@ -52,9 +51,9 @@ export const PILL_DIVE_DIGIT_WIDTH = 7;
 // Title — matches `.zp-pill__title` CSS computed from the base `.zp-pill` font.
 // We bake the rendered font here so width changes if CSS font weights/sizes
 // shift (and so the e2e check actually catches them).
-export const PILL_TITLE_FONT_DEFAULT = "500 13px Inter Variable";
-export const PILL_TITLE_FONT_SCAFFOLD = "500 13.5px Inter Variable";
-export const PILL_TITLE_FONT_GROWTH = "500 12.5px Inter Variable";
+export const PILL_TITLE_FONT_DEFAULT = '500 13px "Inter Variable"';
+export const PILL_TITLE_FONT_SCAFFOLD = '500 13.5px "Inter Variable"';
+export const PILL_TITLE_FONT_GROWTH = '500 12.5px "Inter Variable"';
 export const PILL_TITLE_MAX_WIDTH = 220;
 export const PILL_TITLE_LINE_HEIGHT = 18;
 
