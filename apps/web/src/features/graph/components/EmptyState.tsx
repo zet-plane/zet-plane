@@ -1,13 +1,32 @@
-type EmptyProps = { rootOnly?: boolean };
+type EmptyProps = {
+	rootOnly?: boolean;
+	focusTitle?: string;
+	onReturnToParent?: () => void;
+};
 
-export function EmptyState({ rootOnly }: EmptyProps) {
+export function EmptyState({
+	rootOnly,
+	focusTitle,
+	onReturnToParent,
+}: EmptyProps) {
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
 			<div>
-				{rootOnly
-					? "This project doesn't have any work nodes yet."
-					: "Nothing to display."}
+				{focusTitle
+					? `${focusTitle} has no child nodes.`
+					: rootOnly
+						? "This project doesn't have any work nodes yet."
+						: "Nothing to display."}
 			</div>
+			{onReturnToParent && (
+				<button
+					type="button"
+					onClick={onReturnToParent}
+					className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent"
+				>
+					Return to parent canvas
+				</button>
+			)}
 		</div>
 	);
 }

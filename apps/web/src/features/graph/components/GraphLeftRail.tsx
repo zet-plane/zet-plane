@@ -1,7 +1,12 @@
 import type { NodeResponse } from "@zet-plane/contracts";
 import { useMemo, useState } from "react";
-import { countCompositionChildren } from "../domain/graph-workbench";
+import {
+	buildAttentionGroups,
+	countCompositionChildren,
+	type GraphWorkbenchFilters,
+} from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
+import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
 
 type GraphView = "diagnose" | "explore";
 
@@ -12,6 +17,8 @@ type Props = {
 	selectedNodeId: string | null;
 	onQueryChange: (query: string) => void;
 	onSelectNode: (id: string | null) => void;
+	filters?: GraphWorkbenchFilters;
+	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
 };
 
 export function GraphLeftRail({
@@ -21,15 +28,19 @@ export function GraphLeftRail({
 	selectedNodeId,
 	onQueryChange,
 	onSelectNode,
+	filters = { status: null, type: null },
+	onFiltersChange,
 }: Props) {
 	const [collapsed, setCollapsed] = useState(false);
+	const { focusedNodeId } = useCanvasNavigation();
 	const childCounts = useMemo(
 		() => (graph ? countCompositionChildren(graph) : new Map<string, number>()),
 		[graph],
 	);
 	const nodes = graph?.nodes ?? [];
-	const attentionNodes = nodes.filter(
-		(node) => node.status === "blocked" || node.isCheckpoint,
+	const attentionGroups = useMemo(
+		() => (graph ? buildAttentionGroups(graph, focusedNodeId, filters) : []),
+		[graph, filters, focusedNodeId],
 	);
 	const normalizedQuery = query.trim().toLowerCase();
 	const exploreNodes =
@@ -69,9 +80,11 @@ export function GraphLeftRail({
 				<div className="min-h-0 flex-1 overflow-auto p-3">
 					{view === "diagnose" ? (
 						<DiagnoseRailContent
-							nodes={attentionNodes}
+							groups={attentionGroups}
 							childCounts={childCounts}
+							filters={filters}
 							selectedNodeId={selectedNodeId}
+							onFiltersChange={onFiltersChange}
 							onSelectNode={onSelectNode}
 						/>
 					) : (
@@ -90,17 +103,21 @@ export function GraphLeftRail({
 }
 
 function DiagnoseRailContent({
-	nodes,
+	groups,
 	childCounts,
+	filters,
 	selectedNodeId,
+	onFiltersChange,
 	onSelectNode,
 }: {
-	nodes: NodeResponse[];
+	groups: ReturnType<typeof buildAttentionGroups>;
 	childCounts: Map<string, number>;
+	filters: GraphWorkbenchFilters;
 	selectedNodeId: string | null;
+	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
 	onSelectNode: (id: string | null) => void;
 }) {
-	if (nodes.length === 0) {
+	if (groups.length === 0) {
 		return (
 			<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
 				No blocked nodes or checkpoints in this graph.
@@ -109,19 +126,76 @@ function DiagnoseRailContent({
 	}
 
 	return (
-		<div className="space-y-2">
-			<div className="text-xs text-muted-foreground">
-				Blocked nodes and checkpoints
-			</div>
-			{nodes.map((node) => (
-				<NodeButton
-					key={node.id}
-					node={node}
-					meta={`${node.status} · ${childCounts.get(node.id) ?? 0} children`}
-					selected={selectedNodeId === node.id}
-					onSelectNode={onSelectNode}
-				/>
+		<div className="space-y-4">
+			<FilterChips filters={filters} onFiltersChange={onFiltersChange} />
+			{groups.map((group) => (
+				<section key={group.label} className="space-y-2">
+					<h3 className="text-xs font-semibold uppercase text-muted-foreground">
+						{group.label}
+					</h3>
+					{group.nodes.map((node) => (
+						<NodeButton
+							key={node.id}
+							node={node}
+							meta={`${node.status} · ${childCounts.get(node.id) ?? 0} children`}
+							selected={selectedNodeId === node.id}
+							onSelectNode={onSelectNode}
+						/>
+					))}
+				</section>
 			))}
+		</div>
+	);
+}
+
+function FilterChips({
+	filters,
+	onFiltersChange,
+}: {
+	filters: GraphWorkbenchFilters;
+	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
+}) {
+	const setStatus = (status: NodeResponse["status"]) => {
+		onFiltersChange?.({
+			...filters,
+			status: filters.status === status ? null : status,
+		});
+	};
+	const setType = (type: NodeResponse["type"]) => {
+		onFiltersChange?.({
+			...filters,
+			type: filters.type === type ? null : type,
+		});
+	};
+
+	return (
+		<div className="space-y-2">
+			<div className="flex flex-wrap gap-1">
+				{(["blocked", "active", "completed"] as const).map((status) => (
+					<button
+						key={status}
+						type="button"
+						aria-pressed={filters.status === status}
+						onClick={() => setStatus(status)}
+						className="rounded border border-border px-2 py-1 text-xs hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+					>
+						Status: {status}
+					</button>
+				))}
+			</div>
+			<div className="flex flex-wrap gap-1">
+				{(["scaffold", "growth", "staging"] as const).map((type) => (
+					<button
+						key={type}
+						type="button"
+						aria-pressed={filters.type === type}
+						onClick={() => setType(type)}
+						className="rounded border border-border px-2 py-1 text-xs hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+					>
+						Type: {type}
+					</button>
+				))}
+			</div>
 		</div>
 	);
 }

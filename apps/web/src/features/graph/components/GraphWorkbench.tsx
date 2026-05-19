@@ -1,7 +1,10 @@
 import type { KnowledgeEntryResponse } from "@zet-plane/contracts";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { canvasView } from "../domain/canvas-view";
-import { buildCompositionParentMap } from "../domain/graph-workbench";
+import {
+	buildCompositionParentMap,
+	type GraphWorkbenchFilters,
+} from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
 import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
 import { GraphCanvas } from "./GraphCanvas";
@@ -51,6 +54,10 @@ export function GraphWorkbench({
 	onKnowledgeNodesVisibleChange,
 }: GraphWorkbenchProps) {
 	const { focusedNodeId, diveInto } = useCanvasNavigation();
+	const [filters, setFilters] = useState<GraphWorkbenchFilters>({
+		status: null,
+		type: null,
+	});
 
 	const currentCanvasView = useMemo(() => {
 		if (!graph) return null;
@@ -73,7 +80,8 @@ export function GraphWorkbench({
 	}, [currentCanvasView]);
 
 	const compositionParent = useMemo(
-		() => (graph ? buildCompositionParentMap(graph) : new Map<string, string>()),
+		() =>
+			graph ? buildCompositionParentMap(graph) : new Map<string, string>(),
 		[graph],
 	);
 
@@ -85,7 +93,8 @@ export function GraphWorkbench({
 			}
 
 			const detailShowsHero =
-				currentCanvasView !== null && selectedNodeId === currentCanvasView.hero.id;
+				currentCanvasView !== null &&
+				selectedNodeId === currentCanvasView.hero.id;
 			const isExternal = !visibleIds.has(id);
 			if (detailShowsHero && isExternal) {
 				const parent = compositionParent.get(id);
@@ -123,6 +132,8 @@ export function GraphWorkbench({
 					query={query}
 					selectedNodeId={selectedNodeId}
 					onQueryChange={onQueryChange}
+					filters={filters}
+					onFiltersChange={setFilters}
 					onSelectNode={smartSelectNode}
 				/>
 				<div className="zp-workbench__canvas relative min-w-0 flex-1">
@@ -134,6 +145,8 @@ export function GraphWorkbench({
 						onRetry={onRetry}
 						selectedNodeId={selectedNodeId}
 						onSelectNode={smartSelectNode}
+						knowledgeNodesVisible={knowledgeNodesVisible}
+						filters={filters}
 					/>
 					<Legend />
 					<UpdatedAgo

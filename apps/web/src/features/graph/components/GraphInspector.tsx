@@ -3,8 +3,15 @@ import type {
 	KnowledgeEntryResponse,
 	NodeResponse,
 } from "@zet-plane/contracts";
-import { useState } from "react";
-import { getKnowledgeSummary, getNodeById } from "../domain/graph-workbench";
+import { useMemo, useState } from "react";
+import { canvasView } from "../domain/canvas-view";
+import {
+	buildCompositionParentMap,
+	getContextGraphSummary,
+	getContextNodeIds,
+	getKnowledgeSummary,
+	getNodeById,
+} from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
 import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
 
@@ -28,6 +35,15 @@ export function GraphInspector({
 	onSelectNode,
 }: Props) {
 	const selected = getNodeById(graph?.nodes ?? [], selectedNodeId);
+	const { focusedNodeId, diveUpTo } = useCanvasNavigation();
+	const currentCanvasView = useMemo(() => {
+		if (!graph) return null;
+		try {
+			return canvasView(graph, focusedNodeId);
+		} catch {
+			return null;
+		}
+	}, [graph, focusedNodeId]);
 
 	if (!selected) {
 		return (
@@ -44,7 +60,22 @@ export function GraphInspector({
 
 	const nodes = graph?.nodes ?? [];
 	const edges = graph?.edges ?? [];
-	const selectedEntries = entries.filter((entry) => entry.nodeId === selected.id);
+	const selectedEntries = entries.filter(
+		(entry) => entry.nodeId === selected.id,
+	);
+	const selectedSummary = getKnowledgeSummary(entries, selected.id);
+	const compositionParent = graph
+		? buildCompositionParentMap(graph)
+		: new Map<string, string>();
+	const root = graph?.nodes.find((node) => node.isProjectRoot) ?? null;
+	const homeParentId = compositionParent.get(selected.id) ?? null;
+	const homeFocusId =
+		homeParentId && homeParentId !== root?.id ? homeParentId : null;
+	const homeNode = getNodeById(nodes, homeParentId);
+	const selectedIsPeripheral =
+		currentCanvasView?.peripheralStubs.some(
+			(stub) => stub.external.id === selected.id,
+		) ?? false;
 
 	return (
 		<aside className="zp-inspector w-80 shrink-0 overflow-auto border-l border-border bg-background p-4 text-sm">
@@ -72,30 +103,91 @@ export function GraphInspector({
 				)}
 			</header>
 
-			<Section title="Meta">
+			{selectedIsPeripheral && (
+				<Section title="External to current canvas">
+					<Field
+						label="Home canvas"
+						value={homeNode?.title ?? "Project graph"}
+					/>
+					<button
+						type="button"
+						onClick={() => diveUpTo(homeFocusId)}
+						className="mt-2 w-full rounded-md border border-border px-3 py-1.5 text-left text-xs font-medium hover:bg-accent"
+					>
+						Jump to home canvas
+					</button>
+				</Section>
+			)}
+
+			{view === "diagnose" ? (
+				<>
+					<Section title="Current meaning">
+						<p className="text-muted-foreground">
+							{selected.description ??
+								"This node is part of the current project graph context."}
+						</p>
+					</Section>
+
+					{selected.isCheckpoint && (
+						<Section title="Checkpoint state">
+							<Field
+								label="Resolution"
+								value={selected.checkpointResolution ?? "unresolved"}
+							/>
+						</Section>
+					)}
+
+					<Section title="Flow impact">
+						<DependencyRows
+							edges={edges}
+							nodes={nodes}
+							selectedNodeId={selected.id}
+							onSelectNode={onSelectNode}
+						/>
+					</Section>
+
+					<Section title={`Evidence (${selectedEntries.length})`}>
+						<EvidenceRows entries={selectedEntries} />
+					</Section>
+				</>
+			) : (
+				<>
+					<Section title="Knowledge summary">
+						<Field label="Entries" value={String(selectedSummary.count)} />
+						<Field
+							label="Pitfalls"
+							value={String(selectedSummary.pitfallCount)}
+						/>
+						<Field
+							label="Categories"
+							value={
+								selectedSummary.categories.length > 0
+									? selectedSummary.categories.join(", ")
+									: "None"
+							}
+						/>
+					</Section>
+
+					<Section title={`Evidence list (${selectedEntries.length})`}>
+						<EvidenceRows entries={selectedEntries} />
+					</Section>
+
+					<Section title="Related nodes">
+						<DependencyRows
+							edges={edges}
+							nodes={nodes}
+							selectedNodeId={selected.id}
+							onSelectNode={onSelectNode}
+						/>
+					</Section>
+				</>
+			)}
+
+			<CollapsibleSection title="Meta">
 				<Field label="Created by" value={selected.createdBy} />
 				<Field label="Created" value={formatDate(selected.createdAt)} />
 				<Field label="Updated" value={formatDate(selected.updatedAt)} />
-				{selected.isCheckpoint && (
-					<Field
-						label="Checkpoint"
-						value={selected.checkpointResolution ?? "unresolved"}
-					/>
-				)}
-			</Section>
-
-			<Section title="Flow impact">
-				<DependencyRows
-					edges={edges}
-					nodes={nodes}
-					selectedNodeId={selected.id}
-					onSelectNode={onSelectNode}
-				/>
-			</Section>
-
-			<Section title={`Knowledge evidence (${selectedEntries.length})`}>
-				<EvidenceRows entries={selectedEntries} />
-			</Section>
+			</CollapsibleSection>
 		</aside>
 	);
 }
@@ -114,22 +206,21 @@ function GraphContextSummary({
 	const { focusedNodeId } = useCanvasNavigation();
 	const focused = getNodeById(graph?.nodes ?? [], focusedNodeId);
 	const nodes = graph?.nodes ?? [];
-	const dependencies =
-		graph?.edges.filter((edge) => edge.type === "dependency").length ?? 0;
-	const blocked = nodes.filter((node) => node.status === "blocked").length;
-	const checkpoints = nodes.filter((node) => node.isCheckpoint).length;
-	const scopedEntries = focused
-		? entries.filter((entry) => entry.nodeId === focused.id)
-		: entries;
-	const summary = focused
-		? getKnowledgeSummary(entries, focused.id)
+	const contextIds = graph
+		? getContextNodeIds(graph, focusedNodeId)
+		: new Set<NodeResponse["id"]>();
+	const scopedEntries = entries.filter((entry) => contextIds.has(entry.nodeId));
+	const summary = graph
+		? getContextGraphSummary(graph, entries, focusedNodeId)
 		: {
-				count: entries.length,
-				pitfallCount: entries.filter((entry) => entry.category === "pitfall")
-					.length,
-				categories: Array.from(
-					new Set(entries.map((entry) => entry.category)),
-				).sort(),
+				nodeCount: 0,
+				blockedCount: 0,
+				checkpointCount: 0,
+				stagingCount: 0,
+				dependencyCount: 0,
+				evidenceCount: 0,
+				pitfallCount: 0,
+				categories: [],
 			};
 
 	return (
@@ -142,21 +233,30 @@ function GraphContextSummary({
 			</h2>
 			<p className="mt-2 text-sm text-muted-foreground">
 				{focused?.description ??
-					`Project ${projectId} has ${nodes.length} nodes and ${dependencies} dependency edges.`}
+					`Project ${projectId} has ${nodes.length} nodes. This summary follows the current canvas context.`}
 			</p>
 
 			<div className="mt-4 grid grid-cols-2 gap-2">
-				<Metric label="Nodes" value={nodes.length} />
-				<Metric label="Blocked" value={blocked} />
-				<Metric label="Checkpoints" value={checkpoints} />
-				<Metric label="Evidence" value={summary.count} />
+				<Metric label="Blocked" value={summary.blockedCount} />
+				<Metric label="Checkpoints" value={summary.checkpointCount} />
+				<Metric label="Staging" value={summary.stagingCount} />
+				<Metric label="Impacted" value={summary.dependencyCount} />
+			</div>
+
+			<div className="mt-2 grid grid-cols-2 gap-2">
+				<Metric label="Nodes" value={summary.nodeCount} />
+				<Metric label="Evidence" value={summary.evidenceCount} />
 			</div>
 
 			<Section title="Knowledge summary">
 				<Field label="Pitfalls" value={String(summary.pitfallCount)} />
 				<Field
 					label="Categories"
-					value={summary.categories.length > 0 ? summary.categories.join(", ") : "None"}
+					value={
+						summary.categories.length > 0
+							? summary.categories.join(", ")
+							: "None"
+					}
 				/>
 			</Section>
 
@@ -164,6 +264,31 @@ function GraphContextSummary({
 				<EvidenceRows entries={scopedEntries.slice(0, 4)} />
 			</Section>
 		</div>
+	);
+}
+
+function CollapsibleSection({
+	title,
+	children,
+}: {
+	title: string;
+	children: React.ReactNode;
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<section className="mt-4 border-t border-border pt-3">
+			<button
+				type="button"
+				onClick={() => setOpen((value) => !value)}
+				aria-expanded={open}
+				className="flex w-full items-center justify-between text-xs font-semibold uppercase text-muted-foreground hover:text-foreground"
+			>
+				<span>{title}</span>
+				<span aria-hidden="true">{open ? "−" : "+"}</span>
+			</button>
+			{open && <div className="mt-2 space-y-1">{children}</div>}
+		</section>
 	);
 }
 
