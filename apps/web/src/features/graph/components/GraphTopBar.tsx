@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+import { formatAppDateTime } from "@/i18n/format";
 import type { BreadcrumbSegment } from "../domain/breadcrumb";
 import { breadcrumb } from "../domain/breadcrumb";
 import type { ProjectGraph } from "../domain/types";
@@ -26,16 +28,21 @@ export function GraphTopBar({
 	onViewChange,
 	onKnowledgeNodesVisibleChange,
 }: Props) {
+	const { i18n, t } = useTranslation("graph");
+	const { t: tCommon } = useTranslation("common");
+	const language = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en";
 	const { focusedNodeId, diveUpTo } = useCanvasNavigation();
 	const root = graph?.nodes.find((node) => node.isProjectRoot);
-	const projectTitle = root?.title ?? "Graph workbench";
+	const projectTitle = root?.title ?? t("topBar.fallbackTitle");
 	const segments = compactBreadcrumb(
 		graph ? breadcrumb(graph, focusedNodeId) : [],
 	);
 	const updatedLabel =
 		dataUpdatedAt > 0
-			? `Updated ${new Date(dataUpdatedAt).toLocaleTimeString()}`
-			: "No graph data";
+			? tCommon("time.updatedAt", {
+					time: formatAppDateTime(language, new Date(dataUpdatedAt)),
+				})
+			: t("topBar.noGraphData");
 
 	return (
 		<header className="zp-topbar flex min-h-14 items-center gap-3 border-b border-border bg-background px-4 text-sm">
@@ -45,10 +52,10 @@ export function GraphTopBar({
 				</div>
 				<nav
 					className="zp-topbar__crumbs mt-1 flex min-w-0 items-center gap-1 overflow-hidden text-xs text-muted-foreground"
-					aria-label="Graph breadcrumb"
+					aria-label={t("topBar.breadcrumbLabel")}
 				>
 					{segments.length === 0 ? (
-						<span>Graph</span>
+						<span>{t("topBar.graph")}</span>
 					) : (
 						segments.map((segment, index) => (
 							<span
@@ -74,14 +81,14 @@ export function GraphTopBar({
 			</div>
 
 			<fieldset className="zp-topbar__switch flex shrink-0 overflow-hidden rounded-md border border-border">
-				<legend className="sr-only">Graph view</legend>
+				<legend className="sr-only">{t("topBar.viewLegend")}</legend>
 				<button
 					type="button"
 					aria-pressed={view === "diagnose"}
 					onClick={() => onViewChange("diagnose")}
 					className="px-3 py-1.5 text-xs font-medium hover:bg-accent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
 				>
-					Diagnose
+					{t("view.diagnose")}
 				</button>
 				<button
 					type="button"
@@ -89,7 +96,7 @@ export function GraphTopBar({
 					onClick={() => onViewChange("explore")}
 					className="border-l border-border px-3 py-1.5 text-xs font-medium hover:bg-accent aria-pressed:bg-primary aria-pressed:text-primary-foreground"
 				>
-					Explore
+					{t("view.explore")}
 				</button>
 			</fieldset>
 
@@ -99,7 +106,7 @@ export function GraphTopBar({
 				onClick={() => onKnowledgeNodesVisibleChange(!knowledgeNodesVisible)}
 				className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
 			>
-				Knowledge nodes
+				{t("topBar.knowledgeNodes")}
 			</button>
 			<button
 				type="button"
@@ -108,7 +115,9 @@ export function GraphTopBar({
 				className="shrink-0 rounded-md border border-border px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent disabled:opacity-50"
 				title={updatedLabel}
 			>
-				{isFetching ? "Refreshing..." : "Refresh"}
+				{isFetching
+					? tCommon("actions.refreshing")
+					: tCommon("actions.refresh")}
 			</button>
 		</header>
 	);

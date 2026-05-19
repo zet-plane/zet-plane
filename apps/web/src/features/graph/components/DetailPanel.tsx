@@ -4,6 +4,8 @@ import type {
 	NodeResponse,
 } from "@zet-plane/contracts";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { formatAppDateTime } from "@/i18n/format";
 import { useNodeEntries } from "../hooks/use-node-entries";
 
 type Props = {
@@ -21,6 +23,9 @@ export function DetailPanel({
 	selectedNodeId,
 	onSelectNode,
 }: Props) {
+	const { i18n, t } = useTranslation("graph");
+	const { t: tCommon } = useTranslation("common");
+	const language = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en";
 	const selected = selectedNodeId
 		? (nodes.find((n) => n.id === selectedNodeId) ?? null)
 		: null;
@@ -29,7 +34,7 @@ export function DetailPanel({
 	if (!selected) {
 		return (
 			<div className="flex h-full items-center justify-center p-6 text-sm text-muted-foreground">
-				Select a node to see details.
+				{t("inspector.emptySelection")}
 			</div>
 		);
 	}
@@ -45,7 +50,8 @@ export function DetailPanel({
 		<div className="flex h-full flex-col overflow-auto p-4 text-sm">
 			<header className="mb-3">
 				<div className="text-xs uppercase tracking-wide text-muted-foreground">
-					{selected.type} · {selected.status}
+					{t(`nodeTypeValue.${selected.type}`)} ·{" "}
+					{t(`statusValue.${selected.status}`)}
 				</div>
 				<h2 className="mt-1 text-lg font-semibold">{selected.title}</h2>
 				{selected.description && (
@@ -55,36 +61,49 @@ export function DetailPanel({
 				)}
 			</header>
 
-			<Section title="Meta">
-				<Field label="Created by" value={selected.createdBy} />
+			<Section title={t("inspector.meta")}>
+				<Field label={t("inspector.createdBy")} value={selected.createdBy} />
 				<Field
-					label="Created"
-					value={new Date(selected.createdAt).toLocaleString()}
+					label={t("inspector.created")}
+					value={formatAppDateTime(language, selected.createdAt)}
 				/>
 				<Field
-					label="Updated"
-					value={new Date(selected.updatedAt).toLocaleString()}
+					label={t("inspector.updated")}
+					value={formatAppDateTime(language, selected.updatedAt)}
 				/>
 				{selected.isCheckpoint && (
 					<Field
-						label="Checkpoint"
-						value={selected.checkpointResolution ?? "unresolved"}
+						label={t("legend.checkpoint")}
+						value={selected.checkpointResolution ?? t("inspector.unresolved")}
 					/>
 				)}
 			</Section>
 
-			<Section title={`Knowledge (${entries?.length ?? 0})`}>
-				{!entries && <div className="text-muted-foreground">Loading…</div>}
-				{entries && entries.length === 0 && (
-					<div className="text-muted-foreground">No knowledge entries.</div>
+			<Section
+				title={t("inspector.knowledgeCount", { count: entries?.length ?? 0 })}
+			>
+				{!entries && (
+					<div className="text-muted-foreground">
+						{tCommon("state.loading")}
+					</div>
 				)}
-				{entries &&
-					entries.map((entry) => <EntryRow key={entry.id} entry={entry} />)}
+				{entries && entries.length === 0 && (
+					<div className="text-muted-foreground">
+						{t("inspector.noKnowledgeEntries")}
+					</div>
+				)}
+				{entries?.map((entry) => (
+					<EntryRow key={entry.id} entry={entry} />
+				))}
 			</Section>
 
-			<Section title={`Outgoing dependencies (${outgoing.length})`}>
+			<Section
+				title={t("inspector.outgoingDependenciesCount", {
+					count: outgoing.length,
+				})}
+			>
 				{outgoing.length === 0 && (
-					<div className="text-muted-foreground">None.</div>
+					<div className="text-muted-foreground">{tCommon("state.none")}.</div>
 				)}
 				{outgoing.map((e) => {
 					const target = nodes.find((n) => n.id === e.toId);
@@ -104,9 +123,13 @@ export function DetailPanel({
 				})}
 			</Section>
 
-			<Section title={`Incoming dependencies (${incoming.length})`}>
+			<Section
+				title={t("inspector.incomingDependenciesCount", {
+					count: incoming.length,
+				})}
+			>
 				{incoming.length === 0 && (
-					<div className="text-muted-foreground">None.</div>
+					<div className="text-muted-foreground">{tCommon("state.none")}.</div>
 				)}
 				{incoming.map((e) => {
 					const source = nodes.find((n) => n.id === e.fromId);

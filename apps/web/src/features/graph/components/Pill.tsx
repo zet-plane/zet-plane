@@ -4,6 +4,7 @@ import type {
 	NodeResponse,
 } from "@zet-plane/contracts";
 import { Flag } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AggregatedStatus } from "../domain/types";
 
 export type PillData = {
@@ -20,6 +21,7 @@ export type PillData = {
 export type PillNode = Node<PillData>;
 
 export function Pill({ data }: NodeProps<PillNode>) {
+	const { t } = useTranslation("graph");
 	const {
 		node,
 		aggregation,
@@ -31,6 +33,7 @@ export function Pill({ data }: NodeProps<PillNode>) {
 		onDive,
 	} = data;
 	const displayStatus = node.status;
+	const displayStatusLabel = t(`statusValue.${displayStatus}`);
 
 	const classes = [
 		"zp-pill",
@@ -121,7 +124,7 @@ export function Pill({ data }: NodeProps<PillNode>) {
 			<span
 				className={`zp-node-status zp-node-status--${displayStatus}`}
 				role="img"
-				aria-label={`Status: ${displayStatus}`}
+				aria-label={t("pill.status", { status: displayStatusLabel })}
 			/>
 			<span className="zp-pill__title">{node.title}</span>
 			{knowledgeCount > 0 && (
@@ -143,7 +146,10 @@ export function Pill({ data }: NodeProps<PillNode>) {
 				<button
 					type="button"
 					className="zp-pill__dive"
-					aria-label={`Dive into ${node.title} (${childCount} children)`}
+					aria-label={t("pill.diveInto", {
+						title: node.title,
+						count: childCount,
+					})}
 					onClick={(e) => {
 						e.stopPropagation();
 						dive();

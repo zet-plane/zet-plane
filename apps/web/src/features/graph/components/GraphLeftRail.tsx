@@ -1,5 +1,6 @@
 import type { NodeResponse } from "@zet-plane/contracts";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
 	buildAttentionGroups,
 	buildCompositionParentMap,
@@ -34,6 +35,7 @@ export function GraphLeftRail({
 	filters = { status: null, type: null },
 	onFiltersChange,
 }: Props) {
+	const { t } = useTranslation("graph");
 	const [collapsed, setCollapsed] = useState(false);
 	const { focusedNodeId } = useCanvasNavigation();
 	const childCounts = useMemo(
@@ -79,13 +81,13 @@ export function GraphLeftRail({
 			<div className="flex items-center justify-between border-b border-border p-2">
 				{!collapsed && (
 					<span className="text-xs font-semibold uppercase text-muted-foreground">
-						{view === "diagnose" ? "Diagnose" : "Explore"}
+						{view === "diagnose" ? t("view.diagnose") : t("view.explore")}
 					</span>
 				)}
 				<button
 					type="button"
 					onClick={() => setCollapsed((value) => !value)}
-					aria-label={collapsed ? "Expand rail" : "Collapse rail"}
+					aria-label={collapsed ? t("leftRail.expand") : t("leftRail.collapse")}
 					className="rounded px-2 py-1 text-xs hover:bg-accent"
 				>
 					{collapsed ? ">" : "<"}
@@ -136,6 +138,7 @@ function DiagnoseRailContent({
 	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
 	onSelectNode: (id: string | null) => void;
 }) {
+	const { t } = useTranslation("graph");
 	const hasActiveFilters = filters.status != null || filters.type != null;
 
 	return (
@@ -144,20 +147,20 @@ function DiagnoseRailContent({
 			{groups.length === 0 ? (
 				<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
 					{hasActiveFilters
-						? "No nodes match the current filters."
-						: "No blocked nodes or checkpoints in this graph."}
+						? t("leftRail.noFilterMatches")
+						: t("leftRail.noAttentionItems")}
 				</div>
 			) : (
 				groups.map((group) => (
 					<section key={group.label} className="space-y-2">
 						<h3 className="text-xs font-semibold uppercase text-muted-foreground">
-							{group.label}
+							{translateAttentionGroup(t, group.label)}
 						</h3>
 						{group.nodes.map((node) => (
 							<NodeButton
 								key={node.id}
 								node={node}
-								meta={`${node.status} · ${childCounts.get(node.id) ?? 0} children`}
+								meta={`${t(`statusValue.${node.status}`)} · ${t("leftRail.childrenCount", { count: childCounts.get(node.id) ?? 0 })}`}
 								selected={selectedNodeId === node.id}
 								onSelectNode={onSelectNode}
 							/>
@@ -176,6 +179,7 @@ function FilterChips({
 	filters: GraphWorkbenchFilters;
 	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
 }) {
+	const { t } = useTranslation("graph");
 	const setStatus = (status: NodeResponse["status"]) => {
 		onFiltersChange?.({
 			...filters,
@@ -200,7 +204,9 @@ function FilterChips({
 						onClick={() => setStatus(status)}
 						className="rounded border border-border px-2 py-1 text-xs hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
 					>
-						Status: {status}
+						{t("leftRail.statusFilter", {
+							status: t(`statusValue.${status}`),
+						})}
 					</button>
 				))}
 			</div>
@@ -213,7 +219,7 @@ function FilterChips({
 						onClick={() => setType(type)}
 						className="rounded border border-border px-2 py-1 text-xs hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
 					>
-						Type: {type}
+						{t("leftRail.typeFilter", { type: t(`nodeTypeValue.${type}`) })}
 					</button>
 				))}
 			</div>
@@ -240,40 +246,45 @@ function ExploreRailContent({
 	onQueryChange: (query: string) => void;
 	onSelectNode: (id: string | null) => void;
 }) {
+	const { t } = useTranslation("graph");
 	const currentNodes = nodes.filter((node) => currentCanvasIds.has(node.id));
 	const elsewhereNodes = nodes.filter((node) => !currentCanvasIds.has(node.id));
 
 	return (
 		<div className="space-y-3">
 			<label className="block text-xs font-medium text-muted-foreground">
-				Search graph
+				{t("leftRail.searchLabel")}
 				<input
 					type="search"
 					value={query}
 					onChange={(event) => onQueryChange(event.target.value)}
-					placeholder="Search nodes"
+					placeholder={t("leftRail.searchPlaceholder")}
 					className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
 				/>
 			</label>
 			{nodes.length === 0 ? (
 				<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
-					No nodes match the current search.
+					{t("leftRail.noSearchMatches")}
 				</div>
 			) : (
 				<div className="space-y-4">
 					<ExploreNodeSection
-						title="Current canvas"
+						title={t("leftRail.currentCanvas")}
 						nodes={currentNodes}
 						selectedNodeId={selectedNodeId}
-						getMeta={(node) => `${node.type} · ${node.status}`}
+						getMeta={(node) =>
+							`${t(`nodeTypeValue.${node.type}`)} · ${t(`statusValue.${node.status}`)}`
+						}
 						onSelectNode={onSelectNode}
 					/>
 					<ExploreNodeSection
-						title="Elsewhere in project"
+						title={t("leftRail.elsewhere")}
 						nodes={elsewhereNodes}
 						selectedNodeId={selectedNodeId}
 						getMeta={(node) =>
-							`Home: ${homeCanvasLabel(node, allNodes, compositionParent)}`
+							t("leftRail.home", {
+								title: homeCanvasLabel(node, allNodes, compositionParent, t),
+							})
 						}
 						onSelectNode={onSelectNode}
 					/>
@@ -320,11 +331,21 @@ function homeCanvasLabel(
 	node: NodeResponse,
 	nodes: NodeResponse[],
 	compositionParent: Map<string, string>,
+	t: ReturnType<typeof useTranslation<"graph">>["t"],
 ) {
 	const parentId = compositionParent.get(node.id);
 	const root = nodes.find((candidate) => candidate.isProjectRoot);
-	if (!parentId || parentId === root?.id) return "Project graph";
-	return getNodeById(nodes, parentId)?.title ?? "Project graph";
+	if (!parentId || parentId === root?.id) return t("leftRail.projectGraph");
+	return getNodeById(nodes, parentId)?.title ?? t("leftRail.projectGraph");
+}
+
+function translateAttentionGroup(
+	t: ReturnType<typeof useTranslation<"graph">>["t"],
+	label: string,
+) {
+	if (label === "Blocked") return t("status.blocked");
+	if (label === "Checkpoints") return t("inspector.checkpoints");
+	return label;
 }
 
 function NodeButton({

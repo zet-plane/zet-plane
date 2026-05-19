@@ -1,4 +1,5 @@
-import type { NodeResponse } from '@zet-plane/contracts';
+import type { NodeResponse } from "@zet-plane/contracts";
+import { useTranslation } from "react-i18next";
 
 type Props = {
 	nodes: NodeResponse[];
@@ -6,17 +7,20 @@ type Props = {
 };
 
 export function StagingPanel({ nodes, onSelect }: Props) {
-	const stagingNodes = nodes.filter((n) => n.role === 'staging_root' || n.type === 'staging');
+	const { t } = useTranslation("graph");
+	const stagingNodes = nodes.filter(
+		(n) => n.role === "staging_root" || n.type === "staging",
+	);
 
 	return (
-		<aside className="zp-staging" aria-label="Staging region">
+		<aside className="zp-staging" aria-label={t("staging.region")}>
 			<div className="zp-staging__header">
-				<span className="zp-staging__title">Staging</span>
+				<span className="zp-staging__title">{t("staging.title")}</span>
 				<span className="zp-staging__count">{stagingNodes.length}</span>
 			</div>
 			<div className="zp-staging__list">
 				{stagingNodes.length === 0 ? (
-					<div className="zp-staging__empty">No unanchored nodes</div>
+					<div className="zp-staging__empty">{t("staging.empty")}</div>
 				) : (
 					stagingNodes.map((n) => (
 						<button

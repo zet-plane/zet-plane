@@ -1,13 +1,14 @@
-import { Handle, type Node, type NodeProps, Position } from '@xyflow/react';
-import type { NodeResponse } from '@zet-plane/contracts';
-import { ArrowUpRight } from 'lucide-react';
+import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
+import type { NodeResponse } from "@zet-plane/contracts";
+import { ArrowUpRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
-export type PeripheralPlacement = 'top' | 'right' | 'bottom' | 'left';
+export type PeripheralPlacement = "top" | "right" | "bottom" | "left";
 
 export type PeripheralStubData = {
 	node: NodeResponse;
 	placement: PeripheralPlacement;
-	direction: 'incoming' | 'outgoing';
+	direction: "incoming" | "outgoing";
 	selected: boolean;
 	dimmed?: boolean;
 	jumpTargetId: string;
@@ -25,22 +26,25 @@ const HANDLE_POSITION: Record<PeripheralPlacement, Position> = {
 };
 
 export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
-	const { node, placement, direction, selected, dimmed, jumpTargetId, onJump } = data;
+	const { t } = useTranslation("graph");
+	const { node, placement, direction, selected, dimmed, jumpTargetId, onJump } =
+		data;
 	const classes = [
-		'zp-pill',
-		'zp-pill--peripheral',
+		"zp-pill",
+		"zp-pill--peripheral",
 		`zp-pill--${node.type}`,
 		`zp-pill--${node.status}`,
 	];
-	if (selected) classes.push('zp-pill--selected');
-	if (dimmed) classes.push('zp-pill--dimmed');
-	const handleType = direction === 'incoming' ? 'source' : 'target';
+	if (selected) classes.push("zp-pill--selected");
+	if (dimmed) classes.push("zp-pill--dimmed");
+	const handleType = direction === "incoming" ? "source" : "target";
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: React Flow node surfaces are divs because nested buttons and handles live inside the node.
 		<div
-			className={classes.join(' ')}
+			className={classes.join(" ")}
 			role="button"
 			tabIndex={0}
-			aria-label={`Open ${node.title}`}
+			aria-label={t("peripheral.open", { title: node.title })}
 			aria-pressed={selected}
 		>
 			<Handle
@@ -57,8 +61,8 @@ export function PeripheralStub({ data }: NodeProps<PeripheralStubNode>) {
 					e.stopPropagation();
 					onJump?.(jumpTargetId);
 				}}
-				aria-label={`Jump to ${node.title}`}
-				title="Jump in"
+				aria-label={t("peripheral.jumpTo", { title: node.title })}
+				title={t("peripheral.jumpIn")}
 			>
 				<ArrowUpRight size={11} aria-hidden />
 			</button>

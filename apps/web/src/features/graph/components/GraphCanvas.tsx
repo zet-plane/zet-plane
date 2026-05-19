@@ -15,6 +15,7 @@ import type {
 	NodeResponse,
 } from "@zet-plane/contracts";
 import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import "@xyflow/react/dist/style.css";
 import { aggregateStatus } from "../domain/aggregate-status";
 import {
@@ -107,6 +108,8 @@ function CanvasInner({
 	knowledgeNodesVisible = false,
 	filters = { status: null, type: null },
 }: Props) {
+	const { t } = useTranslation("graph");
+	const { t: tCommon } = useTranslation("common");
 	const { focusedNodeId, diveInto, diveUpTo } = useCanvasNavigation();
 
 	const aggregation = useMemo(
@@ -185,7 +188,7 @@ function CanvasInner({
 	);
 	const onPaneClick = useCallback(() => onSelectNode(null), [onSelectNode]);
 
-	if (isLoading) return <LoadingState message="Loading graph…" />;
+	if (isLoading) return <LoadingState message={t("canvas.loading")} />;
 	if (error) return <ErrorState error={error} onRetry={onRetry} />;
 	if (layoutErr) return <ErrorState error={layoutErr} />;
 	if (!view) return <EmptyState rootOnly />;
@@ -203,7 +206,8 @@ function CanvasInner({
 		}
 		return <EmptyState rootOnly />;
 	}
-	if (isLayouting || !layouted) return <LoadingState message="Laying out…" />;
+	if (isLayouting || !layouted)
+		return <LoadingState message={t("canvas.layouting")} />;
 
 	const pillNodes: Node[] = layouted.nodes.map((n) => {
 		const knowledgeSummary = getKnowledgeSummary(entries, n.id);
@@ -371,7 +375,7 @@ function CanvasInner({
 		selected && selectedNodeId !== null && !currentContextIds.has(selected.id)
 			? {
 					node: selected,
-					homeTitle: homeNode?.title ?? "Project graph",
+					homeTitle: homeNode?.title ?? t("leftRail.projectGraph"),
 					homeFocusId,
 				}
 			: null;
@@ -381,10 +385,12 @@ function CanvasInner({
 			{externalSelection && (
 				<div className="absolute left-4 top-4 z-10 rounded-lg border border-border bg-background/95 p-3 text-sm shadow-sm">
 					<div className="font-medium text-foreground">
-						Selected outside this canvas: "{externalSelection.node.title}"
+						{t("canvas.selectedOutside", {
+							title: externalSelection.node.title,
+						})}
 					</div>
 					<div className="mt-1 text-xs text-muted-foreground">
-						Lives under: {externalSelection.homeTitle}
+						{t("canvas.livesUnder", { title: externalSelection.homeTitle })}
 					</div>
 					<div className="mt-2 flex gap-2">
 						<button
@@ -392,14 +398,14 @@ function CanvasInner({
 							onClick={() => diveUpTo(externalSelection.homeFocusId)}
 							className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-accent"
 						>
-							Show on canvas
+							{t("canvas.showOnCanvas")}
 						</button>
 						<button
 							type="button"
 							onClick={() => onSelectNode(null)}
 							className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
 						>
-							Clear
+							{tCommon("actions.clear")}
 						</button>
 					</div>
 				</div>

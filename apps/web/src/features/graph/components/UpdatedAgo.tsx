@@ -1,10 +1,20 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { formatAppRelativeTime } from "@/i18n/format";
 
-export function formatUpdatedAgo(secondsAgo: number): string {
-	if (secondsAgo < 5) return "just now";
-	if (secondsAgo < 60) return `Updated ${Math.floor(secondsAgo)}s ago`;
-	if (secondsAgo < 3600) return `Updated ${Math.floor(secondsAgo / 60)}m ago`;
-	return `Updated ${Math.floor(secondsAgo / 3600)}h ago`;
+type UpdatedAgoTranslator = {
+	(key: "state.justNow"): string;
+	(key: "time.updatedAt", options: { time: string }): string;
+};
+
+export function formatUpdatedAgo(
+	language: "en" | "zh-CN",
+	secondsAgo: number,
+	t: UpdatedAgoTranslator,
+): string {
+	const relative = formatAppRelativeTime(language, secondsAgo);
+	if (!relative) return t("state.justNow");
+	return t("time.updatedAt", { time: relative });
 }
 
 type Props = {
@@ -14,6 +24,8 @@ type Props = {
 };
 
 export function UpdatedAgo({ updatedAtMs, onRefresh, isFetching }: Props) {
+	const { i18n, t } = useTranslation("common");
+	const language = i18n.resolvedLanguage === "zh-CN" ? "zh-CN" : "en";
 	const [now, setNow] = useState(() => Date.now());
 	useEffect(() => {
 		const t = setInterval(() => setNow(Date.now()), 5000);
@@ -30,10 +42,10 @@ export function UpdatedAgo({ updatedAtMs, onRefresh, isFetching }: Props) {
 			className="absolute bottom-3 left-3 z-10 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm hover:bg-accent disabled:opacity-50"
 		>
 			{isFetching
-				? "Refreshing…"
+				? t("actions.refreshingEllipsis")
 				: updatedAtMs > 0
-					? formatUpdatedAgo(secondsAgo)
-					: "Never updated"}
+					? formatUpdatedAgo(language, secondsAgo, t)
+					: t("state.neverUpdated")}
 		</button>
 	);
 }

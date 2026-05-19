@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function Legend() {
 	const [open, setOpen] = useState(false);
+	const { t } = useTranslation("graph");
 
 	return (
 		<div className="absolute right-3 bottom-3 z-10 rounded-md border border-border bg-background text-xs shadow-sm">
@@ -10,33 +12,33 @@ export function Legend() {
 				onClick={() => setOpen((v) => !v)}
 				className="block w-full px-2 py-1 text-left font-medium hover:bg-accent"
 			>
-				{open ? "Legend ▾" : "Legend ▸"}
+				{open ? t("legend.titleOpen") : t("legend.titleClosed")}
 			</button>
 			{open && (
 				<div className="space-y-2 border-t border-border p-2">
 					<Row
-						label="Active"
+						label={t("status.active")}
 						swatch={<Swatch color="var(--zp-status-active)" />}
 					/>
 					<Row
-						label="Blocked"
+						label={t("status.blocked")}
 						swatch={<Swatch color="var(--zp-status-blocked)" />}
 					/>
 					<Row
-						label="Completed"
+						label={t("status.completed")}
 						swatch={<Swatch color="var(--zp-status-completed)" />}
 					/>
 					<Row
-						label="Archived"
+						label={t("status.archived")}
 						swatch={<Swatch color="var(--zp-status-archived)" />}
 					/>
 					<hr className="border-border" />
-					<Row label="Scaffold (flag-tab)" swatch={<ScaffoldGlyph />} />
-					<Row label="Growth (compact)" swatch={<GrowthGlyph />} />
-					<Row label="Knowledge (violet)" swatch={<KnowledgeGlyph />} />
+					<Row label={t("legend.scaffold")} swatch={<ScaffoldGlyph />} />
+					<Row label={t("legend.growth")} swatch={<GrowthGlyph />} />
+					<Row label={t("legend.knowledge")} swatch={<KnowledgeGlyph />} />
 					<hr className="border-border" />
-					<Row label="Checkpoint" swatch={<span>⚑</span>} />
-					<Row label="Dive in" swatch={<span>↳N</span>} />
+					<Row label={t("legend.checkpoint")} swatch={<span>⚑</span>} />
+					<Row label={t("legend.diveIn")} swatch={<span>↳N</span>} />
 				</div>
 			)}
 		</div>
