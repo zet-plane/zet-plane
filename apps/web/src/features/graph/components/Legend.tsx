@@ -66,7 +66,7 @@ function ScaffoldGlyph() {
 		<span
 			className="inline-block h-3 w-5 rounded-full"
 			style={{
-				background: "var(--zp-status-active-bg)",
+				background: "var(--zp-color-accent-signal-soft)",
 				borderLeft: "3px solid var(--zp-accent-scaffold)",
 			}}
 		/>
@@ -76,7 +76,10 @@ function GrowthGlyph() {
 	return (
 		<span
 			className="inline-block h-2 w-5 rounded-full"
-			style={{ background: "var(--zp-status-active-bg)" }}
+			style={{
+				background: "var(--zp-color-accent-signal-soft)",
+				borderLeft: "3px solid var(--zp-accent-growth)",
+			}}
 		/>
 	);
 }
@@ -84,7 +87,7 @@ function KnowledgeGlyph() {
 	return (
 		<span
 			className="inline-block h-2 w-5 rounded-full"
-			style={{ background: "rgba(166, 123, 216, 0.35)" }}
+			style={{ background: "var(--zp-color-semantic-knowledge-soft)" }}
 		/>
 	);
 }

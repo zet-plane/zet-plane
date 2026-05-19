@@ -13,4 +13,23 @@ describe("Legend", () => {
 
 		expect(screen.getByText("Scaffold (flag-tab)")).toBeInTheDocument();
 	});
+
+	it("renders token-backed swatches and glyphs", () => {
+		const { container } = render(<Legend />);
+
+		fireEvent.click(screen.getByRole("button", { name: /Legend/ }));
+
+		for (const token of [
+			"var(--zp-status-active)",
+			"var(--zp-status-blocked)",
+			"var(--zp-status-completed)",
+			"var(--zp-status-archived)",
+			"var(--zp-color-accent-signal-soft)",
+			"var(--zp-accent-scaffold)",
+			"var(--zp-accent-growth)",
+			"var(--zp-color-semantic-knowledge-soft)",
+		]) {
+			expect(container.querySelector(`[style*="${token}"]`)).not.toBeNull();
+		}
+	});
 });
