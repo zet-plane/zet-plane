@@ -344,6 +344,7 @@ function translateAttentionGroup(
 	label: string,
 ) {
 	if (label === "Blocked") return t("status.blocked");
+	if (label === "Blocked inside") return t("leftRail.blockedInside");
 	if (label === "Checkpoints") return t("inspector.checkpoints");
 	return label;
 }

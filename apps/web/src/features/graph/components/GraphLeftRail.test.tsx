@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { NodeResponse } from "@zet-plane/contracts";
+import i18n from "i18next";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { GraphWorkbenchFilters } from "../domain/graph-workbench";
@@ -48,6 +49,14 @@ const graph: ProjectGraph = {
 			title: "Checkpoint child",
 			isCheckpoint: true,
 		}),
+		mkNode("active-container", {
+			title: "Active container",
+			type: "scaffold",
+		}),
+		mkNode("blocked-grandchild", {
+			title: "Blocked grandchild",
+			status: "blocked",
+		}),
 		mkNode("outside-blocked", { title: "Outside blocked", status: "blocked" }),
 	],
 	edges: [
@@ -78,6 +87,24 @@ const graph: ProjectGraph = {
 			createdBy: "human",
 			createdAt: "2026-05-16T00:00:00.000Z",
 		},
+		{
+			id: "c-active-container",
+			projectId: "p",
+			fromId: "parent",
+			toId: "active-container",
+			type: "composition",
+			createdBy: "human",
+			createdAt: "2026-05-16T00:00:00.000Z",
+		},
+		{
+			id: "c-blocked-grandchild",
+			projectId: "p",
+			fromId: "active-container",
+			toId: "blocked-grandchild",
+			type: "composition",
+			createdBy: "human",
+			createdAt: "2026-05-16T00:00:00.000Z",
+		},
 	],
 };
 
@@ -99,6 +126,24 @@ describe("GraphLeftRail", () => {
 		expect(screen.getByText("Blocked child")).toBeInTheDocument();
 		expect(screen.getByText("Checkpoint child")).toBeInTheDocument();
 		expect(screen.queryByText("Outside blocked")).not.toBeInTheDocument();
+	});
+
+	it("localizes containers with blocked descendants in Simplified Chinese", async () => {
+		await i18n.changeLanguage("zh-CN");
+
+		render(
+			<GraphLeftRail
+				graph={graph}
+				view="diagnose"
+				query=""
+				selectedNodeId={null}
+				onQueryChange={vi.fn()}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText("子项阻塞")).toBeInTheDocument();
+		expect(screen.queryByText("Blocked inside")).not.toBeInTheDocument();
 	});
 
 	it("filters diagnose attention items by selected status chip", () => {

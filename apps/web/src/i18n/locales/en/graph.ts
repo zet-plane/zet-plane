@@ -39,6 +39,7 @@ export const graph = {
 		collapse: "Collapse rail",
 		noFilterMatches: "No nodes match the current filters.",
 		noAttentionItems: "No blocked nodes or checkpoints in this graph.",
+		blockedInside: "Blocked inside",
 		childrenCount: "{{count}} children",
 		statusFilter: "Status: {{status}}",
 		typeFilter: "Type: {{type}}",

@@ -42,6 +42,7 @@ export const graph = {
 		collapse: "收起栏",
 		noFilterMatches: "没有节点匹配当前筛选。",
 		noAttentionItems: "这个图谱中没有阻塞节点或检查点。",
+		blockedInside: "子项阻塞",
 		childrenCount: "{{count}} 个子节点",
 		statusFilter: "状态：{{status}}",
 		typeFilter: "类型：{{type}}",
