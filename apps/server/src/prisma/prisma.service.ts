@@ -16,6 +16,8 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   get knowledgeRevision() { return this.client.knowledgeRevision }
   get project() { return this.client.project }
   get orchestratorTask() { return this.client.orchestratorTask }
+  get incomingEvent() { return this.client.incomingEvent }
+  get projectSourceMapping() { return this.client.projectSourceMapping }
 
   // Overloads mirror PrismaClient.$transaction so callers (GraphRepository) compile correctly.
   $transaction<P extends Prisma.PrismaPromise<unknown>[]>(
