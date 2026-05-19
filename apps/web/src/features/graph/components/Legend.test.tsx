@@ -15,21 +15,37 @@ describe("Legend", () => {
 	});
 
 	it("renders token-backed swatches and glyphs", () => {
-		const { container } = render(<Legend />);
+		render(<Legend />);
 
 		fireEvent.click(screen.getByRole("button", { name: /Legend/ }));
 
-		for (const token of [
-			"var(--zp-status-active)",
-			"var(--zp-status-blocked)",
-			"var(--zp-status-completed)",
-			"var(--zp-status-archived)",
-			"var(--zp-color-accent-signal-soft)",
-			"var(--zp-accent-scaffold)",
-			"var(--zp-accent-growth)",
-			"var(--zp-color-semantic-knowledge-soft)",
-		]) {
-			expect(container.querySelector(`[style*="${token}"]`)).not.toBeNull();
-		}
+		expect(screen.getByTestId("legend-swatch-active")).toHaveAttribute(
+			"style",
+			"background: var(--zp-status-active);",
+		);
+		expect(screen.getByTestId("legend-swatch-blocked")).toHaveAttribute(
+			"style",
+			"background: var(--zp-status-blocked);",
+		);
+		expect(screen.getByTestId("legend-swatch-completed")).toHaveAttribute(
+			"style",
+			"background: var(--zp-status-completed);",
+		);
+		expect(screen.getByTestId("legend-swatch-archived")).toHaveAttribute(
+			"style",
+			"background: var(--zp-status-archived);",
+		);
+		expect(screen.getByTestId("legend-glyph-scaffold")).toHaveAttribute(
+			"style",
+			"background: var(--zp-color-accent-signal-soft); border-left-width: 3px; border-left-style: solid; border-left-color: var(--zp-accent-scaffold);",
+		);
+		expect(screen.getByTestId("legend-glyph-growth")).toHaveAttribute(
+			"style",
+			"background: var(--zp-color-accent-signal-soft); border-left-width: 3px; border-left-style: solid; border-left-color: var(--zp-accent-growth);",
+		);
+		expect(screen.getByTestId("legend-glyph-knowledge")).toHaveAttribute(
+			"style",
+			"background: var(--zp-color-semantic-knowledge-soft);",
+		);
 	});
 });
