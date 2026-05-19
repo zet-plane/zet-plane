@@ -50,20 +50,31 @@ Manual API       ──POST──▶
 ### 端点
 
 ```
-POST /webhooks/github
-POST /webhooks/feishu
-POST /webhooks/claude
-POST /webhooks/manual
+POST /webhooks/:source
+```
+
+统一入口，`:source` 取值为 `EventSource`（`github` | `feishu` | `claude_hook` | `manual` | `cli`）。未知 source → 404。
+
+### AdapterRegistry
+
+每个 Adapter 实现 `IWebhookAdapter` 接口，并在 `EventPipelineModule` 初始化时向 `AdapterRegistry` 注册自身。`AdapterRegistry` 以 `source` 为键维护映射表。
+
+```typescript
+// apps/server/src/event-pipeline/adapters/adapter.interface.ts
+export interface IWebhookAdapter<TPayload extends Record<string, unknown> = Record<string, unknown>> {
+  readonly source: EventSource
+  normalize(payload: unknown, headers: Record<string, string>): NormalizedEvent<TPayload>
+}
 ```
 
 ### WebhookController 职责
 
-1. 验签（GitHub: `X-Hub-Signature-256`，飞书: 签名校验）
-2. 调对应 Adapter，将原始 payload 转为 `NormalizedEvent`
+1. 从路径参数取 `source`，通过 `AdapterRegistry.get(source)` 查找对应 Adapter；找不到 → 404
+2. 调 Adapter，将原始 payload + headers 转为 `NormalizedEvent`（含验签）
 3. 将 `NormalizedEvent` 推入 BullMQ `incoming-events` 队列
 4. 返回 `{ received: true }`，不等待处理结果
 
-验签失败或 payload 无法解析 → 返回 400，不入队。
+验签失败或 payload 无法解析 → 返回 400，不入队。Controller 本身不感知任何具体来源。
 
 ---
 
@@ -72,18 +83,29 @@ POST /webhooks/manual
 ```typescript
 // apps/server/src/event-pipeline/types.ts
 
-export type EventSource = 'github' | 'feishu' | 'claude_hook' | 'manual'
+export type EventSource = 'github' | 'feishu' | 'claude_hook' | 'manual' | 'cli' // 'cli' 占位，暂不实现
 
-export interface NormalizedEvent {
+export interface NormalizedEvent<TPayload extends Record<string, unknown> = Record<string, unknown>> {
   source: EventSource
   eventType: string         // 'github.push' | 'feishu.message' | 'claude_hook.session_end' | ...
   idempotencyKey: string    // 唯一键，用于去重
   sourceProjectHint: string // 原始项目标识，如 "org/repo"、飞书群 chat_id
   occurredAt: Date
-  payload: Record<string, unknown>  // 原始字段，供 Orchestrator 使用
+  payload: TPayload
 }
 
 export type RouteTarget = 'direct' | 'orchestrate'
+
+// 各来源的 payload 类型约束，在对应 adapter 文件中定义并 export
+// 示例：
+//   GithubAdapter → NormalizedEvent<GithubPushPayload>
+//   FeishuAdapter → NormalizedEvent<FeishuMessagePayload>
+//
+// IWebhookAdapter 接口签名：
+//   normalize(...): NormalizedEvent<TPayload>
+//
+// BullMQ 入队边界使用无参数基础类型 NormalizedEvent（即 TPayload = Record<string, unknown>），
+// Worker 侧不感知具体 payload 结构，Orchestrator 按需解析。
 ```
 
 **各 Adapter 的 idempotencyKey 构造规则**：
@@ -92,8 +114,9 @@ export type RouteTarget = 'direct' | 'orchestrate'
 |------|---------------|
 | GitHub | `github:{X-GitHub-Delivery}` |
 | 飞书 | `feishu:{message_id}` |
-| Claude Hook | `claude_hook:{hook_event_id}`（由 zet-plane-cli 在推送前生成 UUID，随 payload 一起发送） |
+| Claude Hook | `claude_hook:{hook_event_id}`（调用方在推送前生成 UUID，随 payload 一起发送） |
 | Manual | `manual:{uuid}`（调用方生成并传入） |
+| CLI（占位） | `cli:{uuid}`（zet-plane CLI 生成，暂不实现） |
 
 ---
 
@@ -125,6 +148,7 @@ enum EventSource {
   feishu
   claude_hook
   manual
+  cli        // 占位，zet-plane CLI 接入时实现
   @@map("event_source")
 }
 
@@ -200,6 +224,7 @@ export const ROUTING_RULES: Record<string, RouteTarget> = {
   'claude_hook.session_end':  'orchestrate',
   'claude_hook.tool_use':     'orchestrate',
   'manual':                   'orchestrate',
+  // 'cli.*': 'orchestrate',  // 占位，zet-plane CLI 接入时补充具体 eventType
 }
 
 export const DEFAULT_ROUTE: RouteTarget = 'orchestrate'  // 未知类型保守策略
@@ -238,10 +263,12 @@ apps/server/src/event-pipeline/
 │
 ├── adapters/
 │   ├── adapter.interface.ts
+│   ├── adapter.registry.ts
 │   ├── github.adapter.ts
 │   ├── feishu.adapter.ts
 │   ├── claude-hook.adapter.ts
-│   └── manual.adapter.ts
+│   ├── manual.adapter.ts
+│   └── cli.adapter.ts          ← 占位，暂不实现
 │
 └── repository/
     ├── incoming-event.repository.ts
@@ -263,10 +290,12 @@ apps/server/src/event-pipeline/
     DeduplicationService,
     EnrichmentService,
     IncomingEventRepository,
+    AdapterRegistry,
     GithubAdapter,
     FeishuAdapter,
     ClaudeHookAdapter,
     ManualAdapter,
+    // CliAdapter,  // 占位，zet-plane CLI 接入时注册至 AdapterRegistry
   ],
   exports: [],  // Pipeline 是终点，不导出
 })
@@ -312,10 +341,12 @@ Domain Service 有状态机守卫，`OrchestratorTaskPublisher` 有 idempotencyK
 
 | 组件 | 核心测试场景 |
 |------|------------|
-| `WebhookController` | 验签通过→入队；验签失败→400；未知 source→400 |
+| `AdapterRegistry` | 已注册 source→返回对应 Adapter；未知 source→抛异常 |
+| `WebhookController` | 已注册 source→通过 registry 分发入队；未知 source→404；验签失败→400 |
 | `GithubAdapter` | 合法 payload→正确 NormalizedEvent；缺字段→400 |
 | `FeishuAdapter` | 同上，message_id 为 idempotencyKey |
 | `ClaudeHookAdapter` | 同上，hook_event_id 为 idempotencyKey |
+| `CliAdapter` | 占位，zet-plane CLI 接入时补充 |
 | `DeduplicationService` | 新键→写 DB 返回 'new'；已存在→返回 'duplicate'；DB 失败→抛异常 |
 | `EnrichmentService` | hint 存在→返回 projectId；不存在→抛 NoProjectMappingError |
 | `EventPipelineWorker` | happy path orchestrate；dedup 命中短路；enrich 失败→status=failed；direct→NodeService 被调用 |
