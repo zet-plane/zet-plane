@@ -173,6 +173,7 @@ enum OrchestratorSourceType {
   knowledge_event
   schedule
   manual
+  incoming_event
 
   @@map("orchestrator_source_type")
 }
@@ -194,4 +195,54 @@ model OrchestratorTask {
   @@index([projectId], map: "idx_orchestrator_tasks_project_id")
   @@index([status], map: "idx_orchestrator_tasks_task_status")
   @@map("orchestrator_tasks")
+}
+
+enum EventSource {
+  github
+  feishu
+  claude_hook
+  manual
+  cli
+
+  @@map("event_source")
+}
+
+enum IncomingEventStatus {
+  pending
+  processing
+  routed
+  deduplicated
+  failed
+
+  @@map("incoming_event_status")
+}
+
+model IncomingEvent {
+  id             String              @id @default(uuid())
+  source         EventSource
+  idempotencyKey String              @unique @map("idempotency_key")
+  projectId      String?             @map("project_id")
+  eventType      String              @map("event_type")
+  payload        Json
+  status         IncomingEventStatus @default(pending)
+  routedTo       String?             @map("routed_to")
+  error          Json?
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@index([projectId], map: "idx_incoming_events_project_id")
+  @@index([status],    map: "idx_incoming_events_status")
+  @@map("incoming_events")
+}
+
+model ProjectSourceMapping {
+  id          String      @id @default(uuid())
+  projectId   String      @map("project_id")
+  source      EventSource
+  sourceKey   String      @map("source_key")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@unique([source, sourceKey], map: "uk_project_source_mappings_source_key")
+  @@index([projectId],          map: "idx_project_source_mappings_project_id")
+  @@map("project_source_mappings")
 }
