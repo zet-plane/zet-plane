@@ -117,33 +117,35 @@ function DiagnoseRailContent({
 	onFiltersChange?: (filters: GraphWorkbenchFilters) => void;
 	onSelectNode: (id: string | null) => void;
 }) {
-	if (groups.length === 0) {
-		return (
-			<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
-				No blocked nodes or checkpoints in this graph.
-			</div>
-		);
-	}
+	const hasActiveFilters = filters.status != null || filters.type != null;
 
 	return (
 		<div className="space-y-4">
 			<FilterChips filters={filters} onFiltersChange={onFiltersChange} />
-			{groups.map((group) => (
-				<section key={group.label} className="space-y-2">
-					<h3 className="text-xs font-semibold uppercase text-muted-foreground">
-						{group.label}
-					</h3>
-					{group.nodes.map((node) => (
-						<NodeButton
-							key={node.id}
-							node={node}
-							meta={`${node.status} · ${childCounts.get(node.id) ?? 0} children`}
-							selected={selectedNodeId === node.id}
-							onSelectNode={onSelectNode}
-						/>
-					))}
-				</section>
-			))}
+			{groups.length === 0 ? (
+				<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
+					{hasActiveFilters
+						? "No nodes match the current filters."
+						: "No blocked nodes or checkpoints in this graph."}
+				</div>
+			) : (
+				groups.map((group) => (
+					<section key={group.label} className="space-y-2">
+						<h3 className="text-xs font-semibold uppercase text-muted-foreground">
+							{group.label}
+						</h3>
+						{group.nodes.map((node) => (
+							<NodeButton
+								key={node.id}
+								node={node}
+								meta={`${node.status} · ${childCounts.get(node.id) ?? 0} children`}
+								selected={selectedNodeId === node.id}
+								onSelectNode={onSelectNode}
+							/>
+						))}
+					</section>
+				))
+			)}
 		</div>
 	);
 }

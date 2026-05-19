@@ -128,4 +128,39 @@ describe("GraphLeftRail", () => {
 		expect(screen.getByText("Blocked child")).toBeInTheDocument();
 		expect(screen.queryByText("Checkpoint child")).not.toBeInTheDocument();
 	});
+
+	it("keeps filter chips visible when a type filter yields no matches", () => {
+		function Harness() {
+			const [filters, setFilters] = useState<GraphWorkbenchFilters>({
+				status: null,
+				type: null,
+			});
+			return (
+				<GraphLeftRail
+					graph={graph}
+					view="diagnose"
+					query=""
+					selectedNodeId={null}
+					onQueryChange={vi.fn()}
+					onSelectNode={vi.fn()}
+					filters={filters}
+					onFiltersChange={setFilters}
+				/>
+			);
+		}
+
+		render(<Harness />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Type: staging" }));
+
+		const stagingChip = screen.getByRole("button", { name: "Type: staging" });
+		expect(stagingChip).toHaveAttribute("aria-pressed", "true");
+
+		fireEvent.click(stagingChip);
+
+		expect(screen.getByText("Blocked child")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: "Type: staging" }),
+		).toHaveAttribute("aria-pressed", "false");
+	});
 });
