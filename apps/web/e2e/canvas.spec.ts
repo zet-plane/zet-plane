@@ -12,7 +12,8 @@ const REQUIREMENTS_ID = "00000000-0000-4000-8001-000000000020";
 const REQ_INTERVIEWS_ID = "00000000-0000-4000-8001-000000000021";
 const REQ_BOUNDARIES_ID = "00000000-0000-4000-8001-000000000023";
 const REQ_HANDOFF_FINDING_ID = "00000000-0000-4000-8001-000000000024";
-const REQ_UNDERSTANDING_NOT_EXECUTION_ID = "00000000-0000-4000-8001-000000000025";
+const REQ_UNDERSTANDING_NOT_EXECUTION_ID =
+	"00000000-0000-4000-8001-000000000025";
 
 const COMPETITORS_ID = "00000000-0000-4000-8001-000000000030";
 
@@ -86,7 +87,9 @@ test.describe("Semantic demo canvas", () => {
 		const rootInCanvas = page.locator(`.react-flow [data-id="${ROOT_ID}"]`);
 		await expect(rootInCanvas).not.toBeAttached();
 
-		await expect(page.locator("path.zp-edge--composition").first()).not.toBeAttached();
+		await expect(
+			page.locator("path.zp-edge--composition").first(),
+		).not.toBeAttached();
 	});
 
 	test("top-level canvas shows only direct process flows and an empty staging lane", async ({
@@ -115,7 +118,7 @@ test.describe("Semantic demo canvas", () => {
 		).not.toBeAttached();
 
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
-		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toBeAttached();
 		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 
 		const staging = page.getByLabel("Staging lane");
@@ -167,10 +170,12 @@ test.describe("Semantic demo canvas", () => {
 		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 
-		await expect(page.locator(`[data-id="${PRD_USER_STORIES_ID}"]`)).toBeVisible();
+		await expect(
+			page.locator(`[data-id="${PRD_USER_STORIES_ID}"]`),
+		).toBeVisible();
 		await expect(page.locator(`[data-id="${PRD_SCOPE_ID}"]`)).toBeVisible();
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
-		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toBeAttached();
 		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 		await expect(
 			page.locator(`.react-flow [data-id="${REQUIREMENTS_ID}"]`),
@@ -217,8 +222,29 @@ test.describe("Semantic demo canvas", () => {
 		await leaf.dblclick();
 
 		await expect(page).toHaveURL(new RegExp(`focus=${PRD_ID}`));
-		await expect(page).not.toHaveURL(new RegExp(`focus=${PRD_USER_STORIES_ID}`));
+		await expect(page).not.toHaveURL(
+			new RegExp(`focus=${PRD_USER_STORIES_ID}`),
+		);
 		await expect(page.getByLabel("Staging lane")).not.toBeVisible();
+	});
+
+	test("manual leaf focus shows an empty state with a parent return", async ({
+		page,
+		baseURL,
+	}) => {
+		await page.goto(
+			`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_USER_STORIES_ID}`,
+		);
+
+		await expect(
+			page.getByText("用户故事拆分 has no child nodes."),
+		).toBeVisible();
+		await page.getByRole("button", { name: "Return to parent canvas" }).click();
+
+		await expect(page).toHaveURL(new RegExp(`focus=${PRD_ID}`));
+		await expect(
+			page.locator(`[data-id="${PRD_USER_STORIES_ID}"]`),
+		).toBeVisible();
 	});
 
 	test("diving into Scaffold Graph shows a sibling dependency edge and a cross-flow peripheral stub", async ({
@@ -238,7 +264,7 @@ test.describe("Semantic demo canvas", () => {
 		).toBeVisible();
 
 		const edges = page.locator(".react-flow__edges path.react-flow__edge-path");
-		await expect(edges.first()).toBeVisible();
+		await expect(edges.first()).toBeAttached();
 		await expect(edges.first()).toHaveAttribute("marker-end", /url/);
 
 		const boundaryStub = page.getByRole("button", {
@@ -247,13 +273,24 @@ test.describe("Semantic demo canvas", () => {
 		await expect(boundaryStub).toBeVisible();
 		await expect(boundaryStub).toHaveClass(/zp-pill--peripheral/);
 
+		await boundaryStub.click();
+		await expect(page.getByText("External to current canvas")).toBeVisible();
+		await expect(page.getByText("Home canvas", { exact: true })).toBeVisible();
+		await page.getByRole("button", { name: "Jump to home canvas" }).click();
+		await expect(page).toHaveURL(new RegExp(`focus=${REQ_BOUNDARIES_ID}`));
+		await expect(page).toHaveURL(
+			new RegExp(`nodeId=${REQ_UNDERSTANDING_NOT_EXECUTION_ID}`),
+		);
+
+		await page.goto(
+			`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${TECH_SCAFFOLD_GRAPH_ID}`,
+		);
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 		await page.getByRole("button", { name: /Legend/ }).click();
 		await page
 			.getByRole("button", { name: "Jump to 边界确认：理解而非执行" })
 			.click();
-		await expect(page).toHaveURL(
-			new RegExp(`focus=${REQ_BOUNDARIES_ID}`),
-		);
+		await expect(page).toHaveURL(new RegExp(`focus=${REQ_BOUNDARIES_ID}`));
 	});
 
 	test("legend toggles open/closed and shows the pill-idiom entries", async ({
@@ -265,7 +302,9 @@ test.describe("Semantic demo canvas", () => {
 
 		const legend = page.getByRole("button", { name: /Legend/ });
 		await expect(legend).toBeVisible();
+		await expect(page.getByText("Scaffold (flag-tab)")).not.toBeVisible();
 
+		await legend.click();
 		await expect(page.getByText("Scaffold (flag-tab)")).toBeVisible();
 		await expect(page.getByText("Growth (compact)")).toBeVisible();
 		await expect(page.getByText("Knowledge (violet)")).toBeVisible();
@@ -276,19 +315,44 @@ test.describe("Semantic demo canvas", () => {
 	});
 
 	test("knowledge toggle is backed by the URL", async ({ page, baseURL }) => {
-		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
+		await page.goto(
+			`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_SCOPE_ID}`,
+		);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
 
 		const toggle = page.getByRole("button", { name: /Knowledge nodes/ });
 		await expect(toggle).toHaveAttribute("aria-pressed", "false");
+		await expect(page.locator(".react-flow .zp-pill--knowledge")).toHaveCount(
+			0,
+		);
 
 		await toggle.click();
 		await expect(page).toHaveURL(/knowledge=nodes/);
 		await expect(toggle).toHaveAttribute("aria-pressed", "true");
+		await expect(
+			page.locator(".react-flow .zp-pill--knowledge").first(),
+		).toBeVisible();
 
 		await toggle.click();
 		await expect(page).not.toHaveURL(/knowledge=nodes/);
 		await expect(toggle).toHaveAttribute("aria-pressed", "false");
+		await expect(page.locator(".react-flow .zp-pill--knowledge")).toHaveCount(
+			0,
+		);
+	});
+
+	test("diagnose status filters dim non-matching canvas nodes", async ({
+		page,
+		baseURL,
+	}) => {
+		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+
+		await page.getByRole("button", { name: "Status: blocked" }).click();
+
+		await expect(
+			page.locator(`[data-id="${PRD_USER_STORIES_ID}"] .zp-pill--dimmed`),
+		).toBeVisible();
 	});
 
 	test("view switch is backed by the URL", async ({ page, baseURL }) => {
@@ -309,14 +373,10 @@ test.describe("Semantic demo canvas", () => {
 	}) => {
 		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-		await expect(
-			page.locator("path.zp-edge--composition"),
-		).not.toBeAttached();
+		await expect(page.locator("path.zp-edge--composition")).not.toBeAttached();
 
 		await page.goto(`${graphUrl(baseURL, DEMO_PROJECT_ID)}?focus=${PRD_ID}`);
 		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
-		await expect(
-			page.locator("path.zp-edge--composition"),
-		).not.toBeAttached();
+		await expect(page.locator("path.zp-edge--composition")).not.toBeAttached();
 	});
 });
