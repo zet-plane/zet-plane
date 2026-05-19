@@ -59,6 +59,15 @@ export function GraphWorkbench({
 		},
 		[onSelectNode],
 	);
+	const changeView = useCallback(
+		(nextView: GraphView) => {
+			if (nextView === "explore") {
+				setFilters({ status: null, type: null });
+			}
+			onViewChange(nextView);
+		},
+		[onViewChange],
+	);
 
 	return (
 		<div className="zp-workbench flex h-full min-h-0 flex-col bg-background text-foreground">
@@ -69,7 +78,7 @@ export function GraphWorkbench({
 				dataUpdatedAt={dataUpdatedAt}
 				isFetching={isFetching}
 				onRefresh={onRetry}
-				onViewChange={onViewChange}
+				onViewChange={changeView}
 				onKnowledgeNodesVisibleChange={onKnowledgeNodesVisibleChange}
 			/>
 			<div className="zp-workbench__body flex min-h-0 flex-1 overflow-hidden">

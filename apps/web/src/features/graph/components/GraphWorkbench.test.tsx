@@ -3,6 +3,7 @@ import type {
 	KnowledgeEntryResponse,
 	NodeResponse,
 } from "@zet-plane/contracts";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { ProjectGraph } from "../domain/types";
 import { GraphWorkbench } from "./GraphWorkbench";
@@ -23,7 +24,13 @@ vi.mock("../hooks/use-canvas-navigation", () => ({
 }));
 
 vi.mock("./GraphCanvas", () => ({
-	GraphCanvas: () => <div data-testid="graph-canvas" />,
+	GraphCanvas: ({
+		filters,
+	}: {
+		filters: { status: string | null; type: string | null };
+	}) => (
+		<div data-testid="graph-canvas" data-filters={JSON.stringify(filters)} />
+	),
 }));
 
 vi.mock("./GraphInspector", () => ({
@@ -31,7 +38,17 @@ vi.mock("./GraphInspector", () => ({
 }));
 
 vi.mock("./GraphTopBar", () => ({
-	GraphTopBar: () => <header data-testid="graph-topbar" />,
+	GraphTopBar: ({
+		onViewChange,
+	}: {
+		onViewChange: (view: "diagnose" | "explore") => void;
+	}) => (
+		<header data-testid="graph-topbar">
+			<button type="button" onClick={() => onViewChange("explore")}>
+				Explore
+			</button>
+		</header>
+	),
 }));
 
 vi.mock("./Legend", () => ({
@@ -106,6 +123,48 @@ const graph: ProjectGraph = {
 };
 
 describe("GraphWorkbench", () => {
+	it("clears diagnose filters when switching to Explore", () => {
+		function Harness() {
+			const [view, setView] = useState<"diagnose" | "explore">("diagnose");
+
+			return (
+				<GraphWorkbench
+					projectId="p"
+					graph={graph}
+					entries={[] as KnowledgeEntryResponse[]}
+					isLoading={false}
+					error={null}
+					isFetching={false}
+					dataUpdatedAt={0}
+					onRetry={vi.fn()}
+					view={view}
+					query=""
+					knowledgeNodesVisible={false}
+					selectedNodeId={null}
+					onSelectNode={vi.fn()}
+					onViewChange={setView}
+					onQueryChange={vi.fn()}
+					onKnowledgeNodesVisibleChange={vi.fn()}
+				/>
+			);
+		}
+
+		render(<Harness />);
+
+		fireEvent.click(screen.getByRole("button", { name: "Status: blocked" }));
+		expect(screen.getByTestId("graph-canvas")).toHaveAttribute(
+			"data-filters",
+			JSON.stringify({ status: "blocked", type: null }),
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Explore" }));
+
+		expect(screen.getByTestId("graph-canvas")).toHaveAttribute(
+			"data-filters",
+			JSON.stringify({ status: null, type: null }),
+		);
+	});
+
 	it("does not auto-navigate when Explore selects a project-wide external node", () => {
 		navigation.focusedNodeId = "parent";
 		navigation.diveInto.mockClear();
