@@ -148,9 +148,10 @@ test.describe("Semantic demo canvas", () => {
 			"rgb(255, 255, 255)",
 		);
 		await expect(activePill).toHaveCSS("color", "rgb(32, 48, 71)");
-		await expect(
-			page.locator(`[data-id="${IDEA_ID}"] .zp-pill`),
-		).toHaveCSS("color", "rgb(95, 112, 132)");
+		await expect(page.locator(`[data-id="${IDEA_ID}"] .zp-pill`)).toHaveCSS(
+			"color",
+			"rgb(95, 112, 132)",
+		);
 
 		const neutralEdge = page.locator("path.zp-edge--neutral").first();
 		await expect(neutralEdge).toBeAttached();

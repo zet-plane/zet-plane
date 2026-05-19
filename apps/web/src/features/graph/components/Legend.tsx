@@ -11,11 +11,16 @@ export function Legend() {
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				className="block w-full px-2 py-1 text-left font-medium hover:bg-accent"
+				aria-expanded={open}
+				aria-controls="zp-graph-legend-panel"
 			>
 				{open ? t("legend.titleOpen") : t("legend.titleClosed")}
 			</button>
 			{open && (
-				<div className="space-y-2 border-t border-border p-2">
+				<div
+					id="zp-graph-legend-panel"
+					className="space-y-2 border-t border-border p-2"
+				>
 					<Row
 						label={t("status.active")}
 						swatch={
@@ -66,8 +71,14 @@ export function Legend() {
 						swatch={<KnowledgeGlyph testId="legend-glyph-knowledge" />}
 					/>
 					<hr className="border-border" />
-					<Row label={t("legend.checkpoint")} swatch={<span>⚑</span>} />
-					<Row label={t("legend.diveIn")} swatch={<span>↳N</span>} />
+					<Row
+						label={t("legend.checkpoint")}
+						swatch={<span aria-hidden="true">⚑</span>}
+					/>
+					<Row
+						label={t("legend.diveIn")}
+						swatch={<span aria-hidden="true">↳N</span>}
+					/>
 				</div>
 			)}
 		</div>
@@ -86,6 +97,7 @@ function Swatch({ color, testId }: { color: string; testId?: string }) {
 	return (
 		<span
 			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-3 w-3 rounded-sm"
 			style={{ background: color }}
 		/>
@@ -95,6 +107,7 @@ function ScaffoldGlyph({ testId }: { testId?: string }) {
 	return (
 		<span
 			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-3 w-5 rounded-full"
 			style={{
 				background: "var(--zp-color-accent-signal-soft)",
@@ -109,6 +122,7 @@ function GrowthGlyph({ testId }: { testId?: string }) {
 	return (
 		<span
 			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-2 w-5 rounded-full"
 			style={{
 				background: "var(--zp-color-accent-signal-soft)",
@@ -123,6 +137,7 @@ function KnowledgeGlyph({ testId }: { testId?: string }) {
 	return (
 		<span
 			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-2 w-5 rounded-full"
 			style={{ background: "var(--zp-color-semantic-knowledge-soft)" }}
 		/>
