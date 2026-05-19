@@ -392,14 +392,14 @@
 .zp-chrome-toggle[aria-pressed="true"] { background: var(--zp-color-semantic-knowledge-soft); border-color: var(--zp-type-knowledge); }
 
 /* Edges */
-.zp-edge { stroke: var(--zp-edge-neutral); }
-.zp-edge--neutral { stroke: var(--zp-edge-neutral); }
-.zp-edge--selected { stroke: var(--zp-edge-selected); filter: drop-shadow(0 0 4px var(--zp-glow-selected)); }
-.zp-edge--blocked { stroke: var(--zp-status-blocked); }
-.zp-edge--active { stroke: var(--zp-edge-selected); }
-.zp-edge--completed { stroke: var(--zp-status-completed); }
-.zp-edge--archived { stroke: var(--zp-status-archived); }
-.zp-edge--dim { stroke: var(--zp-edge-dim); opacity: 1; }
+.react-flow__edge-path.zp-edge { stroke: var(--zp-edge-neutral); }
+.react-flow__edge-path.zp-edge--neutral { stroke: var(--zp-edge-neutral); }
+.react-flow__edge-path.zp-edge--selected { stroke: var(--zp-edge-selected); filter: drop-shadow(0 0 4px var(--zp-glow-selected)); }
+.react-flow__edge-path.zp-edge--blocked { stroke: var(--zp-status-blocked); }
+.react-flow__edge-path.zp-edge--active { stroke: var(--zp-edge-selected); }
+.react-flow__edge-path.zp-edge--completed { stroke: var(--zp-status-completed); }
+.react-flow__edge-path.zp-edge--archived { stroke: var(--zp-status-archived); }
+.react-flow__edge-path.zp-edge--dim { stroke: var(--zp-edge-dim); opacity: 1; }
 
 /* Legacy classes removed:
    .zp-node--scaffold, .zp-node--growth, .zp-container--*, etc. */

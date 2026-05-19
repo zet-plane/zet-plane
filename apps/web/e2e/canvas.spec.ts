@@ -126,6 +126,59 @@ test.describe("Semantic demo canvas", () => {
 		await expect(staging).toContainText("No unanchored nodes");
 	});
 
+	test("graph workbench applies the Flowing Circuit Blueprint color tokens", async ({
+		page,
+		baseURL,
+	}) => {
+		await page.goto(graphUrl(baseURL, DEMO_PROJECT_ID));
+		await expect(page.locator(".react-flow")).toBeVisible({ timeout: 10000 });
+
+		await expect(page.locator(".zp-workbench")).toHaveCSS(
+			"background-color",
+			"rgb(237, 243, 248)",
+		);
+		await expect(page.locator(".zp-workbench__canvas")).toHaveCSS(
+			"background-color",
+			"rgb(247, 251, 255)",
+		);
+
+		const activePill = page.locator(`[data-id="${PRD_ID}"] .zp-pill`);
+		await expect(activePill).toHaveCSS(
+			"background-color",
+			"rgb(255, 255, 255)",
+		);
+		await expect(activePill).toHaveCSS("color", "rgb(32, 48, 71)");
+		await expect(
+			page.locator(`[data-id="${IDEA_ID}"] .zp-pill`),
+		).toHaveCSS("color", "rgb(95, 112, 132)");
+
+		const neutralEdge = page.locator("path.zp-edge--neutral").first();
+		await expect(neutralEdge).toBeAttached();
+		await expect(neutralEdge).toHaveCSS("stroke", "rgb(114, 137, 161)");
+
+		await activePill.click();
+		await expect(activePill).toHaveCSS("outline-color", "rgb(79, 127, 174)");
+
+		const stagingLane = page.getByLabel("Staging lane");
+		await expect(stagingLane).toHaveCSS(
+			"background-color",
+			"rgb(255, 255, 255)",
+		);
+		await expect(stagingLane).toHaveCSS("color", "rgb(32, 48, 71)");
+
+		await page.getByRole("button", { name: /Legend/ }).click();
+		await expect(page.getByText("Knowledge (violet)")).toBeVisible();
+		const knowledgeGlyph = page
+			.getByText("Knowledge (violet)")
+			.locator("xpath=preceding-sibling::span")
+			.locator("span")
+			.first();
+		await expect(knowledgeGlyph).toHaveCSS(
+			"background-color",
+			"rgb(232, 232, 246)",
+		);
+	});
+
 	test("Scaffold pills show a flag-tab silhouette and dive glyph; Growth pills don't", async ({
 		page,
 		baseURL,

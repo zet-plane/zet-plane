@@ -97,22 +97,6 @@
 
 	--sidebar-ring: oklch(0.708 0 0);
 
-	/* Graph Canvas — status palette (blue-toned v1) */
-	--zp-status-active: oklch(0.62 0.18 250);
-	--zp-status-active-bg: oklch(0.95 0.04 250);
-	--zp-status-blocked: oklch(0.58 0.21 25);
-	--zp-status-blocked-bg: oklch(0.95 0.05 25);
-	--zp-status-completed: oklch(0.62 0.16 150);
-	--zp-status-completed-bg: oklch(0.95 0.04 150);
-	--zp-status-archived: oklch(0.6 0 0);
-	--zp-status-archived-bg: oklch(0.95 0 0);
-
-	/* Graph Canvas — accents */
-	--zp-selection-ring: oklch(0.55 0.2 285);
-	--zp-badge-neutral: oklch(0.5 0 0);
-
-	/* Graph Canvas — edge dim opacity for focus mode */
-	--zp-edge-dim-opacity: 0.18;
 }
 
 @media (prefers-color-scheme: dark) {
