@@ -13,6 +13,7 @@ import { ProjectModule } from './project/project.module'
 import { DomainExceptionFilter } from './common/exceptions'
 import { GlobalValidationPipe } from './common/validation/global-validation.pipe'
 import { OrchestratorModule } from './orchestrator/orchestrator.module'
+import { EventPipelineModule } from './event-pipeline/event-pipeline.module'
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { OrchestratorModule } from './orchestrator/orchestrator.module'
     KnowledgeModule,
     ProjectModule,
     OrchestratorModule,
+    EventPipelineModule,
   ],
   providers: [
     { provide: APP_PIPE, useClass: GlobalValidationPipe },
