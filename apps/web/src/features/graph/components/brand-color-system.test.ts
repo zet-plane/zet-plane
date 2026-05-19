@@ -78,6 +78,24 @@ describe("brand color system tokens", () => {
 		expect(styles).not.toMatch(/0\.(1[034]|22|26|28)\b/);
 	});
 
+	it("keeps knowledge probe colors inside the restrained knowledge family", () => {
+		expect(styles).toContain(
+			".zp-probe-rail {\n\tdisplay: inline-flex;\n\talign-items: center;\n\tgap: 3px;\n\tborder-radius: 999px;\n\tborder: 1px solid rgb(var(--zp-rgb-semantic-knowledge) / var(--zp-alpha-24));\n\tbackground: var(--zp-color-semantic-knowledge-soft);",
+		);
+		expect(styles).toContain(
+			".zp-probe-dot--decision {\n\tbackground: var(--zp-type-knowledge);",
+		);
+		expect(styles).toContain(
+			".zp-probe-dot--finding {\n\tbackground: var(--zp-type-knowledge);",
+		);
+		expect(styles).not.toContain(
+			".zp-probe-dot--decision {\n\tbackground: var(--zp-status-active);",
+		);
+		expect(styles).not.toContain(
+			".zp-probe-dot--finding {\n\tbackground: var(--zp-status-completed);",
+		);
+	});
+
 	it("keeps documented text and non-text contrast ratios above WCAG targets", () => {
 		const colors = {
 			fgStrong: "#203047",

@@ -141,6 +141,11 @@ test.describe("Semantic demo canvas", () => {
 			"background-color",
 			"rgb(247, 251, 255)",
 		);
+		const canvasBackgroundImage = await page
+			.locator(".zp-workbench__canvas")
+			.evaluate((element) => getComputedStyle(element).backgroundImage);
+		expect(canvasBackgroundImage.match(/linear-gradient/g)?.length).toBe(2);
+		expect(canvasBackgroundImage).toContain("128, 157, 188");
 
 		const activePill = page.locator(`[data-id="${PRD_ID}"] .zp-pill`);
 		await expect(activePill).toHaveCSS(
@@ -159,6 +164,14 @@ test.describe("Semantic demo canvas", () => {
 
 		await activePill.click();
 		await expect(activePill).toHaveCSS("outline-color", "rgb(79, 127, 174)");
+		await expect(page.locator("path.zp-edge--selected").first()).toHaveCSS(
+			"stroke",
+			"rgb(79, 127, 174)",
+		);
+		await expect(page.locator("path.zp-edge--dim").first()).toHaveCSS(
+			"stroke",
+			"rgba(114, 137, 161, 0.32)",
+		);
 
 		const stagingLane = page.getByLabel("Staging lane");
 		await expect(stagingLane).toHaveCSS(
