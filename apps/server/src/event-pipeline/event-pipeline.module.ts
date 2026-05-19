@@ -3,6 +3,8 @@ import { BullModule } from '@nestjs/bullmq'
 import { OrchestratorModule } from '../orchestrator/orchestrator.module'
 import { PrismaService } from '../prisma/prisma.service'
 import { AppConfig } from '../config/app-config'
+import { GRAPH_EVENTS_QUEUE } from '../graph/events/graph-event.publisher'
+import { KNOWLEDGE_EVENTS_QUEUE } from '../knowledge/events/knowledge-event.publisher'
 import { INCOMING_EVENTS_QUEUE } from './types'
 import { AdapterRegistry } from './adapters/adapter.registry'
 import { GithubAdapter } from './adapters/github.adapter'
@@ -14,10 +16,19 @@ import { IncomingEventRepository } from './repository/incoming-event.repository'
 import { DeduplicationService } from './pipeline/deduplication.service'
 import { EnrichmentService } from './pipeline/enrichment.service'
 import { EventPipelineWorker } from './pipeline/event-pipeline.worker'
+import {
+  DomainEventRouterService,
+  GraphEventRouterWorker,
+  KnowledgeEventRouterWorker,
+} from './pipeline/domain-event-router.service'
 
 @Module({
   imports: [
-    BullModule.registerQueue({ name: INCOMING_EVENTS_QUEUE }),
+    BullModule.registerQueue(
+      { name: INCOMING_EVENTS_QUEUE },
+      { name: GRAPH_EVENTS_QUEUE },
+      { name: KNOWLEDGE_EVENTS_QUEUE },
+    ),
     forwardRef(() => OrchestratorModule),
   ],
   controllers: [WebhookController],
@@ -27,6 +38,9 @@ import { EventPipelineWorker } from './pipeline/event-pipeline.worker'
     DeduplicationService,
     EnrichmentService,
     EventPipelineWorker,
+    DomainEventRouterService,
+    GraphEventRouterWorker,
+    KnowledgeEventRouterWorker,
     GithubAdapter,
     FeishuAdapter,
     ClaudeHookAdapter,

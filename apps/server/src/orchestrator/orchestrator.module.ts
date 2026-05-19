@@ -4,15 +4,9 @@ import { forwardRef } from '@nestjs/common'
 import { join } from 'node:path'
 import { PrismaService } from '../prisma/prisma.service'
 import { KnowledgeEventPublisher, KNOWLEDGE_EVENTS_QUEUE } from '../knowledge/events/knowledge-event.publisher'
-import { GRAPH_EVENTS_QUEUE } from '../graph/events/graph-event.publisher'
 import { ORCHESTRATOR_TASKS_QUEUE } from './types'
 import { OrchestratorTaskRepository } from './repository/orchestrator-task.repository'
 import { OrchestratorTaskPublisher } from './ingress/orchestrator-task.publisher'
-import {
-  OrchestratorRouterService,
-  OrchestratorGraphEventWorker,
-  OrchestratorKnowledgeEventWorker,
-} from './ingress/orchestrator-router.service'
 import { TaskSchedulerService } from './ingress/task-scheduler.service'
 import { PromptBuilderService } from './prompt/prompt-builder.service'
 import { AgentRuntimeService } from './runtime/agent-runtime.service'
@@ -37,7 +31,6 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
     forwardRef(() => ProjectModule),
     BullModule.registerQueue(
       { name: ORCHESTRATOR_TASKS_QUEUE },
-      { name: GRAPH_EVENTS_QUEUE },
       { name: KNOWLEDGE_EVENTS_QUEUE },
     ),
   ],
@@ -47,9 +40,6 @@ const SKILLS_DIR = join(__dirname, '../../skills/orchestrator')
     // orchestrator
     OrchestratorTaskRepository,
     OrchestratorTaskPublisher,
-    OrchestratorRouterService,
-    OrchestratorGraphEventWorker,
-    OrchestratorKnowledgeEventWorker,
     TaskSchedulerService,
     PromptBuilderService,
     AgentRuntimeService,
