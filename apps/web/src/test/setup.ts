@@ -1,4 +1,11 @@
 import "@testing-library/jest-dom";
+import { beforeEach } from "vitest";
+import { initAppI18n } from "@/i18n";
+
+beforeEach(async () => {
+	await initAppI18n({ language: "en" });
+	window.localStorage.clear();
+});
 
 if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
 	Object.defineProperty(window, "matchMedia", {
