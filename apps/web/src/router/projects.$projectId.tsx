@@ -3,16 +3,22 @@ import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { getProjectEndpoint } from "@zet-plane/contracts";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ProjectSwitcher } from "@/features/graph/components/ProjectSwitcher";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 import { apiCall } from "@/lib/api-client";
 
 function ProjectShell() {
 	const { projectId } = Route.useParams();
 	const [sidebarOpen, setSidebarOpen] = useState(false);
+	const { t } = useTranslation("projects");
 	const { data: project } = useQuery({
 		queryKey: ["project", projectId, "meta"],
 		queryFn: () => apiCall(getProjectEndpoint, { params: { id: projectId } }),
 	});
+	const sidebarLabel = sidebarOpen
+		? t("shell.collapseSidebar")
+		: t("shell.expandSidebar");
 
 	return (
 		<div
@@ -27,9 +33,9 @@ function ProjectShell() {
 					type="button"
 					onClick={() => setSidebarOpen((v) => !v)}
 					className="rounded p-1 text-muted-foreground hover:bg-accent"
-					aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+					aria-label={sidebarLabel}
 					aria-expanded={sidebarOpen}
-					title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+					title={sidebarLabel}
 				>
 					{sidebarOpen ? (
 						<PanelLeftClose size={16} />
@@ -38,12 +44,15 @@ function ProjectShell() {
 					)}
 				</button>
 				<Link to="/projects" className="text-muted-foreground hover:underline">
-					Projects
+					{t("shell.projects")}
 				</Link>
 				<span className="text-muted-foreground">/</span>
 				<span className="font-medium">{project?.name ?? projectId}</span>
 				<span className="text-muted-foreground">/</span>
-				<span className="text-muted-foreground">Graph</span>
+				<span className="text-muted-foreground">{t("shell.graph")}</span>
+				<div className="ml-auto">
+					<LanguageSwitcher />
+				</div>
 			</header>
 			<aside
 				className="row-start-2 flex flex-col gap-3 overflow-hidden border-r border-border p-2 text-sm"
@@ -62,7 +71,7 @@ function ProjectShell() {
 									className: "rounded px-2 py-1 bg-accent font-medium",
 								}}
 							>
-								Graph
+								{t("shell.graph")}
 							</Link>
 						</nav>
 					</>
