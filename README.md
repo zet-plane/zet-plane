@@ -40,7 +40,7 @@ pnpm prisma studio                    # GUI at localhost:5555
 
 # 前端开发
 cd apps/web
-pnpm dev                              # Vite dev server（端口 5173）
+pnpm dev                              # Vite dev server（端口 3001）
 pnpm test                             # vitest run
 pnpm build                            # tsc + vite build
 
