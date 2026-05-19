@@ -208,4 +208,62 @@ describe("GraphInspector", () => {
 
 		expect(navigation.diveUpTo).toHaveBeenCalledWith(null);
 	});
+
+	it("marks selected project-wide nodes outside the current focus and exposes a home jump", () => {
+		navigation.focusedNodeId = "parent";
+		const graphWithElsewhereNode: ProjectGraph = {
+			nodes: [
+				...graph.nodes,
+				mkNode("other-parent", {
+					title: "Other parent",
+					type: "scaffold",
+				}),
+				mkNode("elsewhere", {
+					title: "Elsewhere node",
+					type: "growth",
+				}),
+			],
+			edges: [
+				...graph.edges,
+				{
+					id: "c-other-parent",
+					projectId: "p",
+					fromId: "root",
+					toId: "other-parent",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-elsewhere",
+					projectId: "p",
+					fromId: "other-parent",
+					toId: "elsewhere",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+			],
+		};
+
+		render(
+			<GraphInspector
+				projectId="p"
+				graph={graphWithElsewhereNode}
+				entries={[]}
+				view="explore"
+				selectedNodeId="elsewhere"
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText("Outside current focus")).toBeInTheDocument();
+		expect(screen.getByText("Other parent")).toBeInTheDocument();
+
+		fireEvent.click(
+			screen.getByRole("button", { name: "Jump to home canvas" }),
+		);
+
+		expect(navigation.diveUpTo).toHaveBeenCalledWith("other-parent");
+	});
 });

@@ -182,4 +182,29 @@ describe("GraphLeftRail", () => {
 			screen.getByRole("button", { name: "Type: staging" }),
 		).toHaveAttribute("aria-pressed", "false");
 	});
+
+	it("groups explore results by current canvas visibility", () => {
+		render(
+			<GraphLeftRail
+				graph={graph}
+				view="explore"
+				query=""
+				selectedNodeId={null}
+				onQueryChange={vi.fn()}
+				onSelectNode={vi.fn()}
+			/>,
+		);
+
+		expect(screen.getByText("Current canvas")).toBeInTheDocument();
+		expect(screen.getByText("Elsewhere in project")).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /Blocked child/ }),
+		).toBeInTheDocument();
+		expect(
+			screen.getByRole("button", { name: /Outside blocked/ }),
+		).toBeInTheDocument();
+		expect(screen.getAllByText("Home: Project graph").length).toBeGreaterThan(
+			0,
+		);
+	});
 });

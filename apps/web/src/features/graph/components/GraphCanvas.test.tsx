@@ -338,4 +338,86 @@ describe("GraphCanvas knowledge nodes", () => {
 		);
 		expect(navigation.diveUpTo).toHaveBeenCalledWith("parent");
 	});
+
+	it("keeps external selections out of the canvas and offers an explicit home jump", () => {
+		navigation.focusedNodeId = "parent";
+		const graph: ProjectGraph = {
+			nodes: [
+				mkNode("root", {
+					isProjectRoot: true,
+					role: "project_root",
+					type: "scaffold",
+				}),
+				mkNode("parent", { type: "scaffold" }),
+				mkNode("visible", { title: "Visible node" }),
+				mkNode("other-parent", { type: "scaffold", title: "Other parent" }),
+				mkNode("elsewhere", { title: "Elsewhere node" }),
+			],
+			edges: [
+				{
+					id: "c-parent",
+					projectId: "p",
+					fromId: "root",
+					toId: "parent",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-visible",
+					projectId: "p",
+					fromId: "parent",
+					toId: "visible",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-other-parent",
+					projectId: "p",
+					fromId: "root",
+					toId: "other-parent",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+				{
+					id: "c-elsewhere",
+					projectId: "p",
+					fromId: "other-parent",
+					toId: "elsewhere",
+					type: "composition",
+					createdBy: "human",
+					createdAt: "2026-05-16T00:00:00.000Z",
+				},
+			],
+		};
+		const onSelectNode = vi.fn();
+
+		render(
+			<GraphCanvas
+				graph={graph}
+				entries={[]}
+				isLoading={false}
+				error={null}
+				selectedNodeId="elsewhere"
+				onSelectNode={onSelectNode}
+			/>,
+		);
+
+		expect(screen.getByTestId("react-flow")).not.toHaveAttribute(
+			"data-node-ids",
+			expect.stringContaining("elsewhere"),
+		);
+		expect(
+			screen.getByText('Selected outside this canvas: "Elsewhere node"'),
+		).toBeInTheDocument();
+		expect(screen.getByText("Lives under: Other parent")).toBeInTheDocument();
+
+		fireEvent.click(screen.getByRole("button", { name: "Show on canvas" }));
+		expect(navigation.diveUpTo).toHaveBeenCalledWith("other-parent");
+
+		fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+		expect(onSelectNode).toHaveBeenCalledWith(null);
+	});
 });

@@ -24,7 +24,9 @@ import {
 import {
 	buildCompositionParentMap,
 	type GraphWorkbenchFilters,
+	getContextNodeIds,
 	getKnowledgeSummary,
+	getNodeById,
 	getOneHopEdgeIds,
 	getOneHopNodeIds,
 	nodeMatchesFilters,
@@ -141,7 +143,18 @@ function CanvasInner({
 				: new Set<string>(),
 		[graph, selectedNodeId],
 	);
-	const hasSelectedNode = selectedNodeId !== null;
+	const currentContextIds = useMemo(() => {
+		if (!graph) return new Set<string>();
+		try {
+			return getContextNodeIds(graph, focusedNodeId);
+		} catch {
+			return new Set<string>();
+		}
+	}, [graph, focusedNodeId]);
+	const selected = getNodeById(graph?.nodes ?? [], selectedNodeId);
+	const selectedIsInCurrentContext =
+		selectedNodeId !== null && currentContextIds.has(selectedNodeId);
+	const hasSelectedNode = selectedNodeId !== null && selectedIsInCurrentContext;
 
 	const view = useMemo(
 		() => (graph ? canvasView(graph, focusedNodeId) : null),
@@ -347,9 +360,50 @@ function CanvasInner({
 		...peripheralEdges,
 		...knowledgeEdges,
 	];
+	const root = graph?.nodes.find((node) => node.isProjectRoot) ?? null;
+	const homeParentId = selected
+		? (compositionParent.get(selected.id) ?? null)
+		: null;
+	const homeFocusId =
+		homeParentId && homeParentId !== root?.id ? homeParentId : null;
+	const homeNode = getNodeById(graph?.nodes ?? [], homeParentId);
+	const externalSelection =
+		selected && selectedNodeId !== null && !currentContextIds.has(selected.id)
+			? {
+					node: selected,
+					homeTitle: homeNode?.title ?? "Project graph",
+					homeFocusId,
+				}
+			: null;
 
 	return (
 		<div className="relative h-full w-full">
+			{externalSelection && (
+				<div className="absolute left-4 top-4 z-10 rounded-lg border border-border bg-background/95 p-3 text-sm shadow-sm">
+					<div className="font-medium text-foreground">
+						Selected outside this canvas: "{externalSelection.node.title}"
+					</div>
+					<div className="mt-1 text-xs text-muted-foreground">
+						Lives under: {externalSelection.homeTitle}
+					</div>
+					<div className="mt-2 flex gap-2">
+						<button
+							type="button"
+							onClick={() => diveUpTo(externalSelection.homeFocusId)}
+							className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-accent"
+						>
+							Show on canvas
+						</button>
+						<button
+							type="button"
+							onClick={() => onSelectNode(null)}
+							className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+						>
+							Clear
+						</button>
+					</div>
+				</div>
+			)}
 			<ReactFlow
 				nodes={xyNodes}
 				edges={xyEdges}

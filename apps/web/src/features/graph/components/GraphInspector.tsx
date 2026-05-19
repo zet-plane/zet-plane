@@ -76,6 +76,13 @@ export function GraphInspector({
 		currentCanvasView?.peripheralStubs.some(
 			(stub) => stub.external.id === selected.id,
 		) ?? false;
+	const currentContextIds = graph
+		? getContextNodeIds(graph, focusedNodeId)
+		: new Set<string>();
+	const selectedIsOutsideFocus =
+		currentCanvasView !== null &&
+		!selectedIsPeripheral &&
+		!currentContextIds.has(selected.id);
 
 	return (
 		<aside className="zp-inspector w-80 shrink-0 overflow-auto border-l border-border bg-background p-4 text-sm">
@@ -105,6 +112,22 @@ export function GraphInspector({
 
 			{selectedIsPeripheral && (
 				<Section title="External to current canvas">
+					<Field
+						label="Home canvas"
+						value={homeNode?.title ?? "Project graph"}
+					/>
+					<button
+						type="button"
+						onClick={() => diveUpTo(homeFocusId)}
+						className="mt-2 w-full rounded-md border border-border px-3 py-1.5 text-left text-xs font-medium hover:bg-accent"
+					>
+						Jump to home canvas
+					</button>
+				</Section>
+			)}
+
+			{selectedIsOutsideFocus && (
+				<Section title="Outside current focus">
 					<Field
 						label="Home canvas"
 						value={homeNode?.title ?? "Project graph"}

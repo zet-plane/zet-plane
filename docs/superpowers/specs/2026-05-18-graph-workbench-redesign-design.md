@@ -167,6 +167,13 @@ Explore rail:
 - no commitment yet to server-side search, semantic search, or trace replay.
 - search/backtracking affordances are project-wide by default, but search mechanics, ranking, result grouping, and backend API shape are deferred from this spec.
 
+Explore search and browse results may be project-wide, but selection is not the same thing as canvas navigation. The rail should make context explicit by grouping or labeling results by their relationship to the current focus:
+
+- `Current canvas`: nodes represented in the current canvas, including direct children and peripheral satellites;
+- `Elsewhere in project`: nodes outside the current focused canvas, with a compact home path or composition parent label.
+
+Clicking an `Elsewhere in project` item selects the node and opens its inspector details, but it must not automatically change `focus`. This creates an `external selection` state: the workbench is inspecting a project-wide result while the canvas remains anchored to the current focused graph. Changing `focus` from this state requires an explicit user action such as `Show on canvas` or `Jump to home canvas`.
+
 Knowledge facets should preserve graph context. On the canvas, they highlight or dim knowledge summaries and their anchor nodes. In the left rail and inspector evidence lists, they may filter concrete knowledge rows.
 
 ### 4.3 Center Canvas
@@ -186,6 +193,16 @@ The current focus node itself is not repeated as a canvas node. At project root,
 
 Leaf nodes should not expose dive-in affordances. If a node has no direct composition children, it should not show a `dive` button and double-click should not enter it as a focus. If a user reaches an empty focus through an old/shared/manual URL, the app should not auto-redirect. It should show a light empty canvas state, keep the focus node explained in the inspector, and offer an explicit return to the parent canvas. Queue, dependency, and satellite navigation to a leaf node should navigate to its parent canvas and select the leaf node, rather than focusing the leaf node itself.
 
+When the selected node is outside the current canvas and is not represented as a peripheral satellite, the canvas should not synthesize a temporary node for it. Instead, the canvas may show a lightweight external-selection banner or overlay near the workbench chrome:
+
+```text
+Selected outside this canvas: "Node title"
+Lives under: Parent title
+[Show on canvas] [Clear]
+```
+
+This keeps the invariant that the center canvas renders the current focused sub-graph. Project-wide Explore can point at things outside that sub-graph, but it should not silently rewrite the user's spatial context.
+
 React Flow remains appropriate for this structure. Current React Flow docs support the needed custom nodes, custom edges, controls, viewport interactions, and overlay panels.
 
 ### 4.4 Right Inspector
@@ -198,6 +215,8 @@ When a node is selected, the inspector changes by mode:
 - Explore: knowledge evidence, category summaries, related knowledge, and revision history affordances.
 
 When the selected node is a peripheral satellite external to the current focused graph, the inspector must say so explicitly. It should show the node's home path or composition parent and provide an explicit jump action to that home canvas. The node is still selectable in the current context because its cross-boundary dependency matters here.
+
+When the selected node is completely outside the current focused graph, the inspector should use the same external-selection language: explain that the node belongs elsewhere in the project, show its home path or composition parent, and provide a primary `Jump to home canvas` action. The action should navigate to the selected node's composition parent canvas and keep the node selected. If the selected node itself is a non-leaf parent, `Show on canvas` may instead focus that node's own sub-graph when the label makes that behavior explicit.
 
 When no node is selected, the inspector explains the current focused graph context:
 
@@ -440,6 +459,17 @@ Out of scope for this redesign:
 - The right inspector is persistent; `nodeId` changes its content but does not control whether the inspector exists.
 - Knowledge is summarized on canvas by default and expanded in the Explore inspector.
 - No graph mutation controls are visible in this phase.
+
+### 10.1 Interaction Rules To Test
+
+The first implementation should cover these navigation and selection rules:
+
+- Explore clicking a node visible in the current canvas selects and highlights it without changing `focus`.
+- Explore clicking a peripheral satellite selects the satellite in place and exposes an explicit home jump.
+- Explore clicking an `Elsewhere in project` node keeps the current `focus`, updates `nodeId`, and shows external-selection messaging in the canvas or inspector.
+- `Jump to home canvas` from an external selection navigates to the node's composition parent canvas and keeps the node selected.
+- Clearing selection removes external-selection messaging without changing `focus`.
+- Diagnose queue behavior remains focus-scoped and does not inherit project-wide Explore result semantics.
 
 ## 11. First Implementation Boundary
 

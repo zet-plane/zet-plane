@@ -1,12 +1,7 @@
 import type { KnowledgeEntryResponse } from "@zet-plane/contracts";
-import { useCallback, useMemo, useState } from "react";
-import { canvasView } from "../domain/canvas-view";
-import {
-	buildCompositionParentMap,
-	type GraphWorkbenchFilters,
-} from "../domain/graph-workbench";
+import { useCallback, useState } from "react";
+import type { GraphWorkbenchFilters } from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
-import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
 import { GraphCanvas } from "./GraphCanvas";
 import { GraphInspector } from "./GraphInspector";
 import { GraphLeftRail } from "./GraphLeftRail";
@@ -53,64 +48,16 @@ export function GraphWorkbench({
 	onQueryChange,
 	onKnowledgeNodesVisibleChange,
 }: GraphWorkbenchProps) {
-	const { focusedNodeId, diveInto } = useCanvasNavigation();
 	const [filters, setFilters] = useState<GraphWorkbenchFilters>({
 		status: null,
 		type: null,
 	});
 
-	const currentCanvasView = useMemo(() => {
-		if (!graph) return null;
-		try {
-			return canvasView(graph, focusedNodeId);
-		} catch {
-			return null;
-		}
-	}, [graph, focusedNodeId]);
-
-	const visibleIds = useMemo(() => {
-		const ids = new Set<string>();
-		if (!currentCanvasView) return ids;
-		ids.add(currentCanvasView.hero.id);
-		for (const child of currentCanvasView.children) ids.add(child.id);
-		for (const stub of currentCanvasView.peripheralStubs) {
-			ids.add(stub.external.id);
-		}
-		return ids;
-	}, [currentCanvasView]);
-
-	const compositionParent = useMemo(
-		() =>
-			graph ? buildCompositionParentMap(graph) : new Map<string, string>(),
-		[graph],
-	);
-
 	const smartSelectNode = useCallback(
 		(id: string | null) => {
-			if (!id) {
-				onSelectNode(null);
-				return;
-			}
-
-			const detailShowsHero =
-				currentCanvasView !== null &&
-				selectedNodeId === currentCanvasView.hero.id;
-			const isExternal = !visibleIds.has(id);
-			if (detailShowsHero && isExternal) {
-				const parent = compositionParent.get(id);
-				if (parent) diveInto(parent);
-			}
-
 			onSelectNode(id);
 		},
-		[
-			compositionParent,
-			currentCanvasView,
-			diveInto,
-			onSelectNode,
-			selectedNodeId,
-			visibleIds,
-		],
+		[onSelectNode],
 	);
 
 	return (

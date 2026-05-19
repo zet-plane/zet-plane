@@ -2,8 +2,11 @@ import type { NodeResponse } from "@zet-plane/contracts";
 import { useMemo, useState } from "react";
 import {
 	buildAttentionGroups,
+	buildCompositionParentMap,
 	countCompositionChildren,
 	type GraphWorkbenchFilters,
+	getContextNodeIds,
+	getNodeById,
 } from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
 import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
@@ -51,6 +54,19 @@ export function GraphLeftRail({
 						node.title.toLowerCase().includes(normalizedQuery) ||
 						(node.description ?? "").toLowerCase().includes(normalizedQuery),
 				);
+	const exploreContextIds = useMemo(() => {
+		if (!graph) return new Set<string>();
+		try {
+			return getContextNodeIds(graph, focusedNodeId);
+		} catch {
+			return new Set<string>();
+		}
+	}, [graph, focusedNodeId]);
+	const compositionParent = useMemo(
+		() =>
+			graph ? buildCompositionParentMap(graph) : new Map<string, string>(),
+		[graph],
+	);
 
 	return (
 		<aside
@@ -90,6 +106,9 @@ export function GraphLeftRail({
 					) : (
 						<ExploreRailContent
 							nodes={exploreNodes}
+							allNodes={nodes}
+							currentCanvasIds={exploreContextIds}
+							compositionParent={compositionParent}
 							query={query}
 							selectedNodeId={selectedNodeId}
 							onQueryChange={onQueryChange}
@@ -204,17 +223,26 @@ function FilterChips({
 
 function ExploreRailContent({
 	nodes,
+	allNodes,
+	currentCanvasIds,
+	compositionParent,
 	query,
 	selectedNodeId,
 	onQueryChange,
 	onSelectNode,
 }: {
 	nodes: NodeResponse[];
+	allNodes: NodeResponse[];
+	currentCanvasIds: Set<string>;
+	compositionParent: Map<string, string>;
 	query: string;
 	selectedNodeId: string | null;
 	onQueryChange: (query: string) => void;
 	onSelectNode: (id: string | null) => void;
 }) {
+	const currentNodes = nodes.filter((node) => currentCanvasIds.has(node.id));
+	const elsewhereNodes = nodes.filter((node) => !currentCanvasIds.has(node.id));
+
 	return (
 		<div className="space-y-3">
 			<label className="block text-xs font-medium text-muted-foreground">
@@ -227,25 +255,76 @@ function ExploreRailContent({
 					className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
 				/>
 			</label>
-			<div className="space-y-2">
-				{nodes.length === 0 ? (
-					<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
-						No nodes match the current search.
-					</div>
-				) : (
-					nodes.map((node) => (
-						<NodeButton
-							key={node.id}
-							node={node}
-							meta={`${node.type} · ${node.status}`}
-							selected={selectedNodeId === node.id}
-							onSelectNode={onSelectNode}
-						/>
-					))
-				)}
-			</div>
+			{nodes.length === 0 ? (
+				<div className="rounded-md border border-border p-3 text-sm text-muted-foreground">
+					No nodes match the current search.
+				</div>
+			) : (
+				<div className="space-y-4">
+					<ExploreNodeSection
+						title="Current canvas"
+						nodes={currentNodes}
+						selectedNodeId={selectedNodeId}
+						getMeta={(node) => `${node.type} · ${node.status}`}
+						onSelectNode={onSelectNode}
+					/>
+					<ExploreNodeSection
+						title="Elsewhere in project"
+						nodes={elsewhereNodes}
+						selectedNodeId={selectedNodeId}
+						getMeta={(node) =>
+							`Home: ${homeCanvasLabel(node, allNodes, compositionParent)}`
+						}
+						onSelectNode={onSelectNode}
+					/>
+				</div>
+			)}
 		</div>
 	);
+}
+
+function ExploreNodeSection({
+	title,
+	nodes,
+	selectedNodeId,
+	getMeta,
+	onSelectNode,
+}: {
+	title: string;
+	nodes: NodeResponse[];
+	selectedNodeId: string | null;
+	getMeta: (node: NodeResponse) => string;
+	onSelectNode: (id: string | null) => void;
+}) {
+	if (nodes.length === 0) return null;
+
+	return (
+		<section className="space-y-2">
+			<h3 className="text-xs font-semibold uppercase text-muted-foreground">
+				{title}
+			</h3>
+			{nodes.map((node) => (
+				<NodeButton
+					key={node.id}
+					node={node}
+					meta={getMeta(node)}
+					selected={selectedNodeId === node.id}
+					onSelectNode={onSelectNode}
+				/>
+			))}
+		</section>
+	);
+}
+
+function homeCanvasLabel(
+	node: NodeResponse,
+	nodes: NodeResponse[],
+	compositionParent: Map<string, string>,
+) {
+	const parentId = compositionParent.get(node.id);
+	const root = nodes.find((candidate) => candidate.isProjectRoot);
+	if (!parentId || parentId === root?.id) return "Project graph";
+	return getNodeById(nodes, parentId)?.title ?? "Project graph";
 }
 
 function NodeButton({
