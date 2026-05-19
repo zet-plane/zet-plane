@@ -15,6 +15,16 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
 
+  // Store raw body buffer on request for webhook signature verification
+  app.getInstance().addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    try {
+      ;(req as any).rawBody = body
+      done(null, JSON.parse((body as Buffer).toString()))
+    } catch (err) {
+      done(err as Error, undefined)
+    }
+  })
+
   app.setGlobalPrefix("api");
 
   const config = new DocumentBuilder()
