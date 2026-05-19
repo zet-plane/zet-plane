@@ -145,16 +145,16 @@ Responsive behavior:
 
 Diagnose rail:
 
-- Attention Queue grouped by `Blocked`, `Checkpoints`, `Staging`, and later `Signals`;
+- Attention Queue grouped by `Blocked`, `Blocked inside`, `Checkpoints`, `Staging`, and later `Signals`;
 - status/type filter chips;
 - item click selects the node in the current canvas context when it is visible as a child or peripheral satellite;
 - parent-canvas navigation is explicit, not automatic, when the node is already represented in the current canvas.
 
-Status/type filters affect both the canvas and the Attention Queue. They should highlight matching nodes and dim non-matching nodes instead of hard-hiding graph elements, so dependency context and spatial memory remain intact. The queue should list only matching attention items.
+Status/type filters affect both the canvas and the Attention Queue. They filter by the node's own `status` and `type`, not by subtree aggregate state. They should highlight matching nodes and dim non-matching nodes instead of hard-hiding graph elements, so dependency context and spatial memory remain intact. The queue should list only matching attention items. Subtree aggregate problems surface as `Blocked inside` items rather than making an active container match `Status: blocked`.
 
 Attention Queue ordering:
 
-- group order follows diagnostic severity: `Blocked`, `Checkpoints`, `Staging`, then later `Signals`;
+- group order follows diagnostic severity: `Blocked`, `Blocked inside`, `Checkpoints`, `Staging`, then later `Signals`;
 - items within each group follow the current graph/layout order, preserving spatial memory with the canvas.
 
 Attention Queue scope defaults to the current focused graph context. At project root this is project-wide; after diving into a scaffold or growth node, it follows that sub-graph context. For the first implementation, the queue should only list problems that are represented in the current canvas: direct children, peripheral satellite nodes, and the staging lane. A future `Project-wide` toggle is useful, but it is deferred from the first implementation.

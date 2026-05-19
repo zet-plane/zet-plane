@@ -105,7 +105,7 @@ Common elements on both:
 - **Title** (truncated with ellipsis, full text in hover-peek).
 - **Knowledge chip** (`K3`) — trailing chip showing direct knowledge-entry count on the node.
 - **Dive-in glyph** (`↳5`) — trailing, clickable; enters the sub-graph rooted at this node. Only present when the node has composition children.
-- **Aggregate bar** — thin colored band along the pill's bottom edge, present only when the node has composition children. Proportions of `active / blocked / completed` from the existing [domain/aggregate-status](../../../apps/web/src/features/graph/domain/aggregate-status.ts) machinery. The pill's own background tint is driven by *worst-of-children* status (current behavior).
+- **Aggregate bar** — thin colored band along the pill's bottom edge, present only when the node has composition children. Proportions of `active / blocked / completed` come from the existing [domain/aggregate-status](../../../apps/web/src/features/graph/domain/aggregate-status.ts) machinery. The pill's own status dot and background tint are driven by the node's own `status`; subtree problems are surfaced by the aggregate bar and Diagnose groups such as `Blocked inside`, not by overriding the node's status.
 
 **Hover-peek** — a tooltip-anchored panel reveals the numeric aggregate breakdown plus the top 3 children by name. Replaces today's inline `0 blocked / 1 active / 3 completed` text line.
 

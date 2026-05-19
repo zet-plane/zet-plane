@@ -4,6 +4,7 @@ import type {
 	NodeResponse,
 } from "@zet-plane/contracts";
 
+import { aggregateStatus } from "./aggregate-status";
 import { canvasView } from "./canvas-view";
 import type { ProjectGraph } from "./types";
 
@@ -14,7 +15,7 @@ export type KnowledgeSummary = {
 };
 
 export type AttentionGroup = {
-	label: "Blocked" | "Checkpoints" | "Staging";
+	label: "Blocked" | "Blocked inside" | "Checkpoints" | "Staging";
 	nodes: NodeResponse[];
 };
 
@@ -162,13 +163,28 @@ export function buildAttentionGroups(
 	focusedNodeId: NodeResponse["id"] | null,
 	filters: GraphWorkbenchFilters = { status: null, type: null },
 ): AttentionGroup[] {
-	const contextNodes = getContextNodes(graph, focusedNodeId);
+	const heroId = canvasView(graph, focusedNodeId).hero.id;
+	const contextNodes = getContextNodes(graph, focusedNodeId).filter(
+		(node) => node.id !== heroId,
+	);
+	const aggregateById = aggregateStatus(graph);
 	const filteredNodes = contextNodes.filter((node) =>
 		nodeMatchesFilters(node, filters),
 	);
 	const blocked = filteredNodes.filter((node) => node.status === "blocked");
+	const blockedInside = filteredNodes.filter(
+		(node) =>
+			node.status !== "blocked" &&
+			!node.isProjectRoot &&
+			node.role !== "project_root" &&
+			aggregateById.get(node.id)?.worst === "blocked",
+	);
+	const blockedInsideIds = new Set(blockedInside.map((node) => node.id));
 	const checkpoints = filteredNodes.filter(
-		(node) => node.isCheckpoint && node.status !== "blocked",
+		(node) =>
+			node.isCheckpoint &&
+			node.status !== "blocked" &&
+			!blockedInsideIds.has(node.id),
 	);
 	const staging = filteredNodes.filter(
 		(node) => node.role === "staging_root" || node.type === "staging",
@@ -176,6 +192,7 @@ export function buildAttentionGroups(
 
 	const groups: AttentionGroup[] = [
 		{ label: "Blocked", nodes: blocked },
+		{ label: "Blocked inside", nodes: blockedInside },
 		{ label: "Checkpoints", nodes: checkpoints },
 		{ label: "Staging", nodes: staging },
 	];

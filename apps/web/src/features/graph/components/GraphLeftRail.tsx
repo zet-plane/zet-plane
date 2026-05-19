@@ -262,7 +262,7 @@ function NodeButton({
 	return (
 		<button
 			type="button"
-			onClick={() => onSelectNode(node.id)}
+			onClick={() => onSelectNode(selected ? null : node.id)}
 			className={
 				selected
 					? "block w-full rounded-md border border-primary bg-primary px-3 py-2 text-left text-primary-foreground"

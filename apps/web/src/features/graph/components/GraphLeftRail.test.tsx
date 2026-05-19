@@ -129,6 +129,25 @@ describe("GraphLeftRail", () => {
 		expect(screen.queryByText("Checkpoint child")).not.toBeInTheDocument();
 	});
 
+	it("clears diagnose selection when the selected attention item is clicked again", () => {
+		const onSelectNode = vi.fn();
+
+		render(
+			<GraphLeftRail
+				graph={graph}
+				view="diagnose"
+				query=""
+				selectedNodeId="blocked-child"
+				onQueryChange={vi.fn()}
+				onSelectNode={onSelectNode}
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: /Blocked child/ }));
+
+		expect(onSelectNode).toHaveBeenCalledWith(null);
+	});
+
 	it("keeps filter chips visible when a type filter yields no matches", () => {
 		function Harness() {
 			const [filters, setFilters] = useState<GraphWorkbenchFilters>({

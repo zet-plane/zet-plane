@@ -254,6 +254,60 @@ describe("graphWorkbench helpers", () => {
 		).toEqual([graph.nodes[4]]);
 	});
 
+	it("separates blocked nodes from active containers with blocked descendants", () => {
+		const graph: ProjectGraph = {
+			nodes: [
+				mkNode("root", { isProjectRoot: true }),
+				mkNode("active-container", {
+					type: "scaffold",
+					title: "Active container",
+					status: "active",
+				}),
+				mkNode("blocked-descendant", { status: "blocked" }),
+			],
+			edges: [
+				mkEdge("c-container", "root", "active-container", "composition"),
+				mkEdge(
+					"c-blocked",
+					"active-container",
+					"blocked-descendant",
+					"composition",
+				),
+			],
+		};
+
+		expect(buildAttentionGroups(graph, null)).toEqual([
+			{ label: "Blocked inside", nodes: [graph.nodes[1]] },
+		]);
+	});
+
+	it("does not include the focused canvas hero in attention groups", () => {
+		const graph: ProjectGraph = {
+			nodes: [
+				mkNode("root", { isProjectRoot: true }),
+				mkNode("active-container", {
+					type: "scaffold",
+					title: "Active container",
+					status: "active",
+				}),
+				mkNode("blocked-descendant", { status: "blocked" }),
+			],
+			edges: [
+				mkEdge("c-container", "root", "active-container", "composition"),
+				mkEdge(
+					"c-blocked",
+					"active-container",
+					"blocked-descendant",
+					"composition",
+				),
+			],
+		};
+
+		expect(buildAttentionGroups(graph, "active-container")).toEqual([
+			{ label: "Blocked", nodes: [graph.nodes[2]] },
+		]);
+	});
+
 	it("summarizes the current context instead of the whole graph", () => {
 		const entries = [
 			mkEntry("e-visible", "visible", "decision"),

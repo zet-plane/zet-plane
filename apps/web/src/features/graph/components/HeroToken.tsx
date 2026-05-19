@@ -1,16 +1,13 @@
-import type { NodeResponse } from '@zet-plane/contracts';
-import { Flag } from 'lucide-react';
-import { effectiveNodeStatus } from '../domain/effective-status';
-import type { AggregatedStatus } from '../domain/types';
+import type { NodeResponse } from "@zet-plane/contracts";
+import { Flag } from "lucide-react";
 
 type Props = {
 	node: NodeResponse;
-	aggregation: AggregatedStatus | undefined;
 };
 
-export function HeroToken({ node, aggregation }: Props) {
+export function HeroToken({ node }: Props) {
 	if (node.isProjectRoot) return <ProjectHero node={node} />;
-	return <ScaffoldHero node={node} aggregation={aggregation} />;
+	return <ScaffoldHero node={node} />;
 }
 
 function ProjectHero({ node }: { node: NodeResponse }) {
@@ -25,18 +22,15 @@ function ProjectHero({ node }: { node: NodeResponse }) {
 	);
 }
 
-function ScaffoldHero({
-	node,
-	aggregation,
-}: { node: NodeResponse; aggregation: AggregatedStatus | undefined }) {
-	const displayStatus = effectiveNodeStatus(node.status, aggregation);
-	const classes = ['zp-hero', 'zp-hero--scaffold', `zp-pill--${displayStatus}`];
-	if (node.isCheckpoint) classes.push('zp-pill--checkpoint');
+function ScaffoldHero({ node }: { node: NodeResponse }) {
+	const displayStatus = node.status;
+	const classes = ["zp-hero", "zp-hero--scaffold", `zp-pill--${displayStatus}`];
+	if (node.isCheckpoint) classes.push("zp-pill--checkpoint");
 
 	return (
-		<div className={classes.join(' ')}>
+		<div className={classes.join(" ")}>
 			{node.isCheckpoint && (
-				<span className="zp-pill__flag" aria-label="checkpoint">
+				<span className="zp-pill__flag" role="img" aria-label="checkpoint">
 					<Flag size={11} />
 				</span>
 			)}
