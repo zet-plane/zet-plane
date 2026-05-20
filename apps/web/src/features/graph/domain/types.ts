@@ -24,7 +24,16 @@ export type LayoutedNode = NodeResponse & {
 	parentId: NodeResponse["id"] | null;
 };
 
+export type LayoutedAuxiliaryNode = {
+	id: string;
+	width: number;
+	height: number;
+	position: { x: number; y: number };
+	parentId: string | null;
+};
+
 export type LayoutedGraph = {
 	nodes: LayoutedNode[];
 	edges: EdgeResponse[];
+	auxiliaryNodes?: LayoutedAuxiliaryNode[];
 };

@@ -14,6 +14,7 @@ export function ProjectSwitcher({ activeProjectId }: Props) {
 				navigate({
 					to: "/projects/$projectId/graph",
 					params: { projectId: e.target.value },
+					search: { view: "diagnose" },
 				})
 			}
 			className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs"

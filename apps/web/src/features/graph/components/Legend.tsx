@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function Legend() {
-	const [open, setOpen] = useState(true);
+	const [open, setOpen] = useState(false);
+	const { t } = useTranslation("graph");
 
 	return (
 		<div className="absolute right-3 bottom-3 z-10 rounded-md border border-border bg-background text-xs shadow-sm">
@@ -9,22 +11,74 @@ export function Legend() {
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				className="block w-full px-2 py-1 text-left font-medium hover:bg-accent"
+				aria-expanded={open}
+				aria-controls="zp-graph-legend-panel"
 			>
-				{open ? 'Legend ▾' : 'Legend ▸'}
+				{open ? t("legend.titleOpen") : t("legend.titleClosed")}
 			</button>
 			{open && (
-				<div className="space-y-2 border-t border-border p-2">
-					<Row label="Active" swatch={<Swatch color="var(--zp-status-active)" />} />
-					<Row label="Blocked" swatch={<Swatch color="var(--zp-status-blocked)" />} />
-					<Row label="Completed" swatch={<Swatch color="var(--zp-status-completed)" />} />
-					<Row label="Archived" swatch={<Swatch color="var(--zp-status-archived)" />} />
+				<div
+					id="zp-graph-legend-panel"
+					className="space-y-2 border-t border-border p-2"
+				>
+					<Row
+						label={t("status.active")}
+						swatch={
+							<Swatch
+								color="var(--zp-status-active)"
+								testId="legend-swatch-active"
+							/>
+						}
+					/>
+					<Row
+						label={t("status.blocked")}
+						swatch={
+							<Swatch
+								color="var(--zp-status-blocked)"
+								testId="legend-swatch-blocked"
+							/>
+						}
+					/>
+					<Row
+						label={t("status.completed")}
+						swatch={
+							<Swatch
+								color="var(--zp-status-completed)"
+								testId="legend-swatch-completed"
+							/>
+						}
+					/>
+					<Row
+						label={t("status.archived")}
+						swatch={
+							<Swatch
+								color="var(--zp-status-archived)"
+								testId="legend-swatch-archived"
+							/>
+						}
+					/>
 					<hr className="border-border" />
-					<Row label="Scaffold (flag-tab)" swatch={<ScaffoldGlyph />} />
-					<Row label="Growth (compact)" swatch={<GrowthGlyph />} />
-					<Row label="Knowledge (violet)" swatch={<KnowledgeGlyph />} />
+					<Row
+						label={t("legend.scaffold")}
+						swatch={<ScaffoldGlyph testId="legend-glyph-scaffold" />}
+					/>
+					<Row
+						label={t("legend.growth")}
+						swatch={<GrowthGlyph testId="legend-glyph-growth" />}
+					/>
+					<Row
+						label={t("legend.knowledge")}
+						swatch={<KnowledgeGlyph testId="legend-glyph-knowledge" />}
+					/>
 					<hr className="border-border" />
-					<Row label="Checkpoint" swatch={<span>⚑</span>} />
-					<Row label="Dive in" swatch={<span>↳N</span>} />
+					<Row
+						label={t("legend.checkpoint")}
+						swatch={<CheckpointGlyph testId="legend-glyph-checkpoint" />}
+					/>
+					<Row
+						label={t("legend.diveIn")}
+						swatch={<span aria-hidden="true">↳N</span>}
+					/>
 				</div>
 			)}
 		</div>
@@ -39,33 +93,78 @@ function Row({ swatch, label }: { swatch: React.ReactNode; label: string }) {
 		</div>
 	);
 }
-function Swatch({ color }: { color: string }) {
-	return <span className="inline-block h-3 w-3 rounded-sm" style={{ background: color }} />;
-}
-function ScaffoldGlyph() {
+function Swatch({ color, testId }: { color: string; testId?: string }) {
 	return (
 		<span
-			className="inline-block h-3 w-5 rounded-full"
+			data-testid={testId}
+			aria-hidden="true"
+			className="inline-block h-3 w-3 rounded-sm"
+			style={{ background: color }}
+		/>
+	);
+}
+function ScaffoldGlyph({ testId }: { testId?: string }) {
+	return (
+		<span
+			data-testid={testId}
+			aria-hidden="true"
+			className="inline-block h-5 w-3"
 			style={{
-				background: 'var(--zp-status-active-bg)',
-				borderLeft: '3px solid var(--zp-accent-scaffold)',
+				borderWidth: "2px",
+				borderStyle: "solid",
+				borderLeftColor: "var(--zp-accent-scaffold)",
+				borderTopColor: "var(--zp-accent-scaffold)",
+				borderBottomColor: "var(--zp-accent-scaffold)",
+				borderRightWidth: "0",
+				borderRadius: "999px 0 0 999px",
+				opacity: 0.95,
 			}}
 		/>
 	);
 }
-function GrowthGlyph() {
+function CheckpointGlyph({ testId }: { testId?: string }) {
 	return (
 		<span
+			data-testid={testId}
+			aria-hidden="true"
+			className="zp-checkpoint-legend-glyph relative inline-block h-5 w-3"
+			style={{
+				borderWidth: "2px",
+				borderStyle: "solid",
+				borderLeftColor: "var(--zp-status-blocked)",
+				borderTopColor: "var(--zp-status-blocked)",
+				borderBottomColor: "var(--zp-status-blocked)",
+				borderRightWidth: "0",
+				borderRadius: "999px 0 0 999px",
+				opacity: 0.95,
+			}}
+		>
+			<span className="zp-checkpoint-marker__dot" />
+		</span>
+	);
+}
+function GrowthGlyph({ testId }: { testId?: string }) {
+	return (
+		<span
+			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-2 w-5 rounded-full"
-			style={{ background: 'var(--zp-status-active-bg)' }}
+			style={{
+				background: "var(--zp-color-accent-signal-soft)",
+				borderLeftWidth: "3px",
+				borderLeftStyle: "solid",
+				borderLeftColor: "var(--zp-accent-growth)",
+			}}
 		/>
 	);
 }
-function KnowledgeGlyph() {
+function KnowledgeGlyph({ testId }: { testId?: string }) {
 	return (
 		<span
+			data-testid={testId}
+			aria-hidden="true"
 			className="inline-block h-2 w-5 rounded-full"
-			style={{ background: 'rgba(166, 123, 216, 0.35)' }}
+			style={{ background: "var(--zp-color-semantic-knowledge-soft)" }}
 		/>
 	);
 }

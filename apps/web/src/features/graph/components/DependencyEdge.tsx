@@ -5,10 +5,11 @@ import {
 	getBezierPath,
 } from "@xyflow/react";
 import type { NodeResponse } from "@zet-plane/contracts";
-import { edgeStatusClass } from "./status-classes";
+import { edgeStateClass } from "./status-classes";
 
 export type DependencyEdgeData = {
 	targetStatus: NodeResponse["status"];
+	selected: boolean;
 	dimmed: boolean;
 	variant?: "flow" | "knowledge" | "peripheral";
 };
@@ -34,12 +35,18 @@ export function DependencyEdge(props: EdgeProps<DependencyEdgeType>) {
 		sourcePosition,
 		targetPosition,
 	});
-	const classes = ["zp-edge", edgeStatusClass(data?.targetStatus ?? "active")];
-	if (data?.dimmed) classes.push("zp-edge--dim");
+	const classes = [
+		"zp-edge",
+		edgeStateClass({
+			selected: data?.selected ?? false,
+			dimmed: data?.dimmed ?? false,
+			blocked: data?.targetStatus === "blocked",
+		}),
+	];
 	const isKnowledge = data?.variant === "knowledge";
 	const isPeripheral = data?.variant === "peripheral";
 	const style = isKnowledge
-		? { stroke: "var(--zp-edge-knowledge, #a67bd8)", strokeDasharray: "4 4", strokeWidth: 1.25 }
+		? { strokeDasharray: "4 4", strokeWidth: 1.25 }
 		: isPeripheral
 			? { strokeDasharray: "3 4", strokeWidth: 1.25 }
 			: undefined;

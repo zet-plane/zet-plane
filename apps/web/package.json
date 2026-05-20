@@ -11,6 +11,8 @@
 		"test:watch": "vitest",
 		"test:e2e": "playwright test",
 		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"lint:fix:unsafe": "biome check --write --unsafe .",
 		"format": "biome format --write ."
 	},
 	"dependencies": {
@@ -26,10 +28,12 @@
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"elkjs": "^0.11.1",
+		"i18next": "^26.2.0",
 		"lucide-react": "^1.14.0",
 		"radix-ui": "^1.4.3",
 		"react": "^19.2.5",
 		"react-dom": "^19.2.5",
+		"react-i18next": "^17.0.8",
 		"shadcn": "^4.7.0",
 		"tailwind-merge": "^3.6.0",
 		"tailwindcss": "^4.3.0",
@@ -38,6 +42,7 @@
 		"zustand": "^5.0.13"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "2.4.15",
 		"@playwright/test": "^1.59.1",
 		"@tanstack/router-devtools": "^1.166.13",
 		"@tanstack/router-plugin": "^1.167.35",

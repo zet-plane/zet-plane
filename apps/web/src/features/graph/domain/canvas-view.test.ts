@@ -93,7 +93,29 @@ describe('canvasView', () => {
     expect(view.siblingDependencyEdges).toEqual([]);
     expect(view.peripheralStubs).toHaveLength(1);
     expect(view.peripheralStubs[0].external.id).toBe('g2');
+    expect(view.peripheralStubs[0].jumpTargetId).toBe('s2');
     expect(view.peripheralStubs[0].edges.map((e) => e.id)).toEqual(['e5']);
+  });
+
+  it('keeps scaffold peripheral stubs jumpable to themselves', () => {
+    const graph: ProjectGraph = {
+      nodes: [
+        mkNode('root', { isProjectRoot: true, type: 'scaffold' }),
+        mkNode('s1', { type: 'scaffold' }),
+        mkNode('s2', { type: 'scaffold' }),
+        mkNode('g1', { type: 'growth' }),
+      ],
+      edges: [
+        mkEdge('e1', 'root', 's1', 'composition'),
+        mkEdge('e2', 'root', 's2', 'composition'),
+        mkEdge('e3', 's1', 'g1', 'composition'),
+        mkEdge('e4', 'g1', 's2', 'dependency'),
+      ],
+    };
+    const view = canvasView(graph, 's1');
+    expect(view.peripheralStubs).toHaveLength(1);
+    expect(view.peripheralStubs[0].external.id).toBe('s2');
+    expect(view.peripheralStubs[0].jumpTargetId).toBe('s2');
   });
 
   it('returns empty children when hero has no composition children', () => {

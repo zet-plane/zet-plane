@@ -1,13 +1,36 @@
-type EmptyProps = { rootOnly?: boolean };
+import { useTranslation } from "react-i18next";
 
-export function EmptyState({ rootOnly }: EmptyProps) {
+type EmptyProps = {
+	rootOnly?: boolean;
+	focusTitle?: string;
+	onReturnToParent?: () => void;
+};
+
+export function EmptyState({
+	rootOnly,
+	focusTitle,
+	onReturnToParent,
+}: EmptyProps) {
+	const { t } = useTranslation("graph");
+
 	return (
 		<div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
 			<div>
-				{rootOnly
-					? "This project doesn't have any work nodes yet."
-					: "Nothing to display."}
+				{focusTitle
+					? t("canvas.focusEmpty", { title: focusTitle })
+					: rootOnly
+						? t("canvas.rootEmpty")
+						: t("canvas.empty")}
 			</div>
+			{onReturnToParent && (
+				<button
+					type="button"
+					onClick={onReturnToParent}
+					className="rounded-md border border-border px-3 py-1.5 text-xs text-foreground hover:bg-accent"
+				>
+					{t("canvas.returnToParent")}
+				</button>
+			)}
 		</div>
 	);
 }
@@ -28,11 +51,14 @@ export function ErrorState({
 	error: Error;
 	onRetry?: () => void;
 }) {
+	const { t } = useTranslation("graph");
+	const { t: tCommon } = useTranslation("common");
+
 	return (
 		<div className="flex h-full items-center justify-center p-6">
 			<div className="max-w-md rounded-lg border border-destructive bg-background p-4 text-center text-sm">
 				<div className="mb-2 font-medium text-destructive">
-					Failed to load graph
+					{t("canvas.errorTitle")}
 				</div>
 				<div className="mb-3 text-muted-foreground">{error.message}</div>
 				{onRetry && (
@@ -41,7 +67,7 @@ export function ErrorState({
 						onClick={onRetry}
 						className="rounded-md border border-border px-3 py-1 text-xs hover:bg-accent"
 					>
-						Retry
+						{tCommon("actions.retry")}
 					</button>
 				)}
 			</div>

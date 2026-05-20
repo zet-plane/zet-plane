@@ -15,7 +15,7 @@ vi.mock("./elk-layout", () => ({
 	layoutGraph: layoutGraphMock,
 }));
 
-import { useLayoutedGraph } from "./use-layouted-graph";
+import { type AuxiliaryLayout, useLayoutedGraph } from "./use-layouted-graph";
 
 function node(id: string, title: string) {
 	return {
@@ -144,7 +144,7 @@ describe("useLayoutedGraph", () => {
 		expect(layoutGraphMock).toHaveBeenCalledTimes(1);
 	});
 
-	it("adds extra layout height for nodes with visible aggregation summaries", async () => {
+	it("keeps aggregation summaries inside the status badge without adding layout height", async () => {
 		const graph: ProjectGraph = {
 			nodes: [node("root", "Root"), node("child", "Child")],
 			edges: [edge("e1", "root", "child", "composition")],
@@ -166,6 +166,114 @@ describe("useLayoutedGraph", () => {
 			(layoutNode: { id: string; height: number }) => layoutNode.id === "child",
 		);
 
-		expect(rootNode?.height).toBeGreaterThan(childNode?.height ?? 0);
+		expect(rootNode?.height).toBe(childNode?.height);
+	});
+
+	it("sizes visible dive buttons from the full graph even when layout edges are dependencies only", async () => {
+		layoutGraphMock.mockResolvedValueOnce({
+			nodes: [
+				{ id: "before", position: { x: 0, y: 0 }, width: 140, height: 32 },
+				{ id: "parent", position: { x: 0, y: 48 }, width: 180, height: 35 },
+			],
+		});
+		const visibleGraph: ProjectGraph = {
+			nodes: [node("before", "Before"), node("parent", "Parent")],
+			edges: [edge("d1", "before", "parent", "dependency")],
+		};
+		const geometryGraph: ProjectGraph = {
+			nodes: [
+				...visibleGraph.nodes,
+				node("child-a", "Child A"),
+				node("child-b", "Child B"),
+			],
+			edges: [
+				...visibleGraph.edges,
+				edge("c1", "parent", "child-a", "composition"),
+				edge("c2", "parent", "child-b", "composition"),
+			],
+		};
+
+		renderHook(() => useLayoutedGraph(visibleGraph, [], geometryGraph));
+
+		await waitFor(() => expect(layoutGraphMock).toHaveBeenCalledTimes(1));
+
+		const call = layoutGraphMock.mock.calls[0]?.[0] as
+			| {
+					nodes: Array<{ id: string; width: number }>;
+			  }
+			| undefined;
+		const beforeNode = call?.nodes.find(
+			(layoutNode: { id: string; width: number }) => layoutNode.id === "before",
+		);
+		const parentNode = call?.nodes.find(
+			(layoutNode: { id: string; width: number }) => layoutNode.id === "parent",
+		);
+
+		expect(parentNode?.width).toBeGreaterThan(beforeNode?.width ?? 0);
+	});
+
+	it("reruns layout when auxiliary layout nodes are added", async () => {
+		layoutGraphMock
+			.mockResolvedValueOnce({
+				nodes: [
+					{ id: "root", position: { x: 0, y: 0 }, width: 128, height: 44 },
+					{
+						id: "child",
+						position: { x: 24, y: 32 },
+						width: 128,
+						height: 44,
+					},
+				],
+			})
+			.mockResolvedValueOnce({
+				nodes: [
+					{ id: "root", position: { x: 0, y: 0 }, width: 128, height: 44 },
+					{
+						id: "child",
+						position: { x: 24, y: 32 },
+						width: 128,
+						height: 44,
+					},
+					{
+						id: "knowledge:k1",
+						position: { x: 200, y: 32 },
+						width: 180,
+						height: 34,
+					},
+				],
+			});
+		const graph: ProjectGraph = {
+			nodes: [node("root", "Root"), node("child", "Child")],
+			edges: [edge("e1", "root", "child", "dependency")],
+		};
+		const auxiliaryLayout = {
+			nodes: [{ id: "knowledge:k1", width: 180, height: 34, parentId: null }],
+			edges: [{ id: "knowledge:k1", fromId: "child", toId: "knowledge:k1" }],
+		};
+
+		type HookProps = { extras: AuxiliaryLayout | undefined };
+		const { rerender } = renderHook(
+			({ extras }: HookProps) => useLayoutedGraph(graph, [], graph, extras),
+			{ initialProps: { extras: undefined } as HookProps },
+		);
+
+		await waitFor(() => expect(layoutGraphMock).toHaveBeenCalledTimes(1));
+
+		rerender({ extras: auxiliaryLayout });
+
+		await waitFor(() => expect(layoutGraphMock).toHaveBeenCalledTimes(2));
+		expect(layoutGraphMock.mock.calls[1]?.[0]).toEqual({
+			nodes: expect.arrayContaining([
+				expect.objectContaining({
+					id: "knowledge:k1",
+					width: 180,
+					height: 34,
+					parentId: null,
+				}),
+			]),
+			edges: expect.arrayContaining([
+				{ id: "knowledge:k1", fromId: "child", toId: "knowledge:k1" },
+			]),
+		});
 	});
 });

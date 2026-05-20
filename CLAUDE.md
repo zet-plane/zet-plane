@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Turborepo + pnpm workspace. `apps/server` (NestJS backend) is where active development happens; `apps/web` (Next.js dashboard) and `apps/cli` (local SDK that pushes hook events) are scaffolded but minimal. Shared workspace packages live under `packages/` (`tsconfig`, `types`).
 
-Workspace root scripts (`pnpm build|dev|lint|test`) fan out via Turbo. To work on a single app, `cd` into it and run its own scripts — faster and avoids Turbo cache noise.
+Workspace root scripts (`pnpm build|dev|lint|test`) fan out via Turbo. To work on a single app, `cd` into it and run its own scripts — faster and avoids Turbo cache noise. Any per-app script can also be invoked from the repo root via `pnpm --filter <pkg> <script>` (e.g. `pnpm --filter @zet-plane/web lint:fix`) when you don't want to change directories.
 
 ## Commands
 

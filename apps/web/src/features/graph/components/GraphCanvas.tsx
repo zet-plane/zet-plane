@@ -1,44 +1,96 @@
 import {
-	Background,
 	Controls,
 	type Edge,
+	Handle,
+	MarkerType,
 	type Node,
+	type NodeProps,
+	Position,
 	ReactFlow,
 	ReactFlowProvider,
-} from '@xyflow/react';
-import { useCallback, useMemo } from 'react';
-import '@xyflow/react/dist/style.css';
-import { aggregateStatus } from '../domain/aggregate-status';
-import { breadcrumb } from '../domain/breadcrumb';
-import { canvasView, type PeripheralStub as PeripheralStubModel } from '../domain/canvas-view';
-import type { ProjectGraph } from '../domain/types';
-import { useCanvasNavigation } from '../hooks/use-canvas-navigation';
-import { useKnowledgeToggle } from '../hooks/use-knowledge-toggle';
-import { useLayoutedGraph } from '../layout/use-layouted-graph';
-import { Breadcrumb } from './Breadcrumb';
-import { DependencyEdge } from './DependencyEdge';
-import { EmptyState, ErrorState, LoadingState } from './EmptyState';
-import { HeroToken } from './HeroToken';
-import { KnowledgeToggle } from './KnowledgeToggle';
-import { PeripheralStub } from './PeripheralStub';
-import { Pill, type PillData } from './Pill';
-import { StagingPanel } from './StagingPanel';
+} from "@xyflow/react";
+import type {
+	KnowledgeEntryResponse,
+	NodeResponse,
+} from "@zet-plane/contracts";
+import { useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import "@xyflow/react/dist/style.css";
+import { aggregateStatus } from "../domain/aggregate-status";
+import {
+	canvasView,
+	type PeripheralStub as PeripheralStubModel,
+} from "../domain/canvas-view";
+import {
+	buildCompositionParentMap,
+	type GraphWorkbenchFilters,
+	getContextNodeIds,
+	getKnowledgeSummary,
+	getNodeById,
+	getOneHopEdgeIds,
+	getOneHopNodeIds,
+	nodeMatchesFilters,
+} from "../domain/graph-workbench";
+import type { ProjectGraph } from "../domain/types";
+import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
+import {
+	type AuxiliaryLayout,
+	useLayoutedGraph,
+} from "../layout/use-layouted-graph";
+import { DependencyEdge } from "./DependencyEdge";
+import { EmptyState, ErrorState, LoadingState } from "./EmptyState";
+import { PeripheralStub } from "./PeripheralStub";
+import { Pill, type PillData } from "./Pill";
+import { StagingLane, type StagingLaneData } from "./StagingLane";
 
-const nodeTypes = { pill: Pill, peripheral: PeripheralStub };
+type KnowledgeNodeData = {
+	entry: KnowledgeEntryResponse;
+};
+
+type KnowledgeNode = Node<KnowledgeNodeData>;
+
+function KnowledgeCanvasNode({ data }: NodeProps<KnowledgeNode>) {
+	return (
+		<div className="zp-pill zp-pill--knowledge">
+			<Handle
+				type="target"
+				position={Position.Left}
+				id="main"
+				style={{ opacity: 0 }}
+			/>
+			<span className="zp-pill__title">{data.entry.title}</span>
+			<span className="zp-pill__chip">
+				{data.entry.category[0].toUpperCase()}
+			</span>
+		</div>
+	);
+}
+
+const nodeTypes = {
+	pill: Pill,
+	peripheral: PeripheralStub,
+	stagingLane: StagingLane,
+	knowledgeNode: KnowledgeCanvasNode,
+};
 const edgeTypes = { dependency: DependencyEdge };
 
 const PERIPHERAL_GAP = 60;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
 const PERIPHERAL_V_SPACING = 12;
+const KNOWLEDGE_NODE_WIDTH = 180;
+const KNOWLEDGE_NODE_HEIGHT = 34;
 
 type Props = {
 	graph: ProjectGraph | undefined;
+	entries?: KnowledgeEntryResponse[];
 	isLoading: boolean;
 	error: Error | null;
 	onRetry?: () => void;
 	selectedNodeId: string | null;
 	onSelectNode: (id: string | null) => void;
+	knowledgeNodesVisible?: boolean;
+	filters?: GraphWorkbenchFilters;
 };
 
 export function GraphCanvas(props: Props) {
@@ -49,9 +101,20 @@ export function GraphCanvas(props: Props) {
 	);
 }
 
-function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelectNode }: Props) {
+function CanvasInner({
+	graph,
+	entries = [],
+	isLoading,
+	error,
+	onRetry,
+	selectedNodeId,
+	onSelectNode,
+	knowledgeNodesVisible = false,
+	filters = { status: null, type: null },
+}: Props) {
+	const { t } = useTranslation("graph");
+	const { t: tCommon } = useTranslation("common");
 	const { focusedNodeId, diveInto, diveUpTo } = useCanvasNavigation();
-	const knowledge = useKnowledgeToggle();
 
 	const aggregation = useMemo(
 		() => (graph ? aggregateStatus(graph) : new Map()),
@@ -62,19 +125,46 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 		const counts = new Map<string, number>();
 		if (!graph) return counts;
 		for (const e of graph.edges) {
-			if (e.type !== 'composition') continue;
+			if (e.type !== "composition") continue;
 			counts.set(e.fromId, (counts.get(e.fromId) ?? 0) + 1);
 		}
 		return counts;
 	}, [graph]);
+	const compositionParent = useMemo(
+		() =>
+			graph ? buildCompositionParentMap(graph) : new Map<string, string>(),
+		[graph],
+	);
+
+	const selectedOneHopEdgeIds = useMemo(
+		() =>
+			graph && selectedNodeId
+				? getOneHopEdgeIds(graph.edges, selectedNodeId)
+				: new Set<string>(),
+		[graph, selectedNodeId],
+	);
+	const selectedRelatedNodeIds = useMemo(
+		() =>
+			graph && selectedNodeId
+				? getOneHopNodeIds(graph.edges, selectedNodeId)
+				: new Set<string>(),
+		[graph, selectedNodeId],
+	);
+	const currentContextIds = useMemo(() => {
+		if (!graph) return new Set<string>();
+		try {
+			return getContextNodeIds(graph, focusedNodeId);
+		} catch {
+			return new Set<string>();
+		}
+	}, [graph, focusedNodeId]);
+	const selected = getNodeById(graph?.nodes ?? [], selectedNodeId);
+	const selectedIsInCurrentContext =
+		selectedNodeId !== null && currentContextIds.has(selectedNodeId);
+	const hasSelectedNode = selectedNodeId !== null && selectedIsInCurrentContext;
 
 	const view = useMemo(
 		() => (graph ? canvasView(graph, focusedNodeId) : null),
-		[graph, focusedNodeId],
-	);
-
-	const crumbs = useMemo(
-		() => (graph ? breadcrumb(graph, focusedNodeId) : []),
 		[graph, focusedNodeId],
 	);
 
@@ -85,36 +175,88 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			edges: view.siblingDependencyEdges,
 		};
 	}, [view]);
+	const knowledgeLayout = useMemo<AuxiliaryLayout>(() => {
+		if (!knowledgeNodesVisible || !subGraphForLayout) {
+			return { nodes: [], edges: [] };
+		}
 
-	const { data: layouted, isLayouting, error: layoutErr } = useLayoutedGraph(subGraphForLayout);
+		const visibleNodeIds = new Set(
+			subGraphForLayout.nodes.map((node) => node.id),
+		);
+		const visibleEntries = entries.filter((entry) =>
+			visibleNodeIds.has(entry.nodeId),
+		);
+
+		return {
+			nodes: visibleEntries.map((entry) => ({
+				id: knowledgeNodeId(entry),
+				width: KNOWLEDGE_NODE_WIDTH,
+				height: KNOWLEDGE_NODE_HEIGHT,
+				parentId: null,
+			})),
+			edges: visibleEntries.map((entry) => ({
+				id: knowledgeNodeId(entry),
+				fromId: entry.nodeId,
+				toId: knowledgeNodeId(entry),
+			})),
+		};
+	}, [entries, knowledgeNodesVisible, subGraphForLayout]);
+
+	const {
+		data: layouted,
+		isLayouting,
+		error: layoutErr,
+	} = useLayoutedGraph(subGraphForLayout, entries, graph, knowledgeLayout);
 
 	const onNodeClick = useCallback(
 		(_: unknown, n: Node) => {
+			if (n.type === "stagingLane") return;
+			if (n.type === "knowledgeNode") return;
 			onSelectNode(n.id);
 		},
 		[onSelectNode],
 	);
 	const onPaneClick = useCallback(() => onSelectNode(null), [onSelectNode]);
 
-	if (isLoading) return <LoadingState message="Loading graph…" />;
+	if (isLoading) return <LoadingState message={t("canvas.loading")} />;
 	if (error) return <ErrorState error={error} onRetry={onRetry} />;
 	if (layoutErr) return <ErrorState error={layoutErr} />;
 	if (!view) return <EmptyState rootOnly />;
-	if (isLayouting || !layouted) return <LoadingState message="Laying out…" />;
+	if (view.children.length === 0) {
+		if (focusedNodeId) {
+			const parentId = compositionParent.get(focusedNodeId);
+			return (
+				<EmptyState
+					focusTitle={view.hero.title}
+					onReturnToParent={
+						parentId ? () => diveUpTo(parentId) : () => diveUpTo(null)
+					}
+				/>
+			);
+		}
+		return <EmptyState rootOnly />;
+	}
+	if (isLayouting || !layouted)
+		return <LoadingState message={t("canvas.layouting")} />;
 
 	const pillNodes: Node[] = layouted.nodes.map((n) => {
+		const knowledgeSummary = getKnowledgeSummary(entries, n.id);
+		const dimmed =
+			!nodeMatchesFilters(n, filters) ||
+			(hasSelectedNode && !selectedRelatedNodeIds.has(n.id));
 		const data: PillData = {
 			node: n,
 			aggregation: aggregation.get(n.id),
-			knowledgeCount: 0,
+			knowledgeCount: knowledgeSummary.count,
+			knowledgeCategories: knowledgeSummary.categories,
 			childCount: compositionChildCount.get(n.id) ?? 0,
 			selected: selectedNodeId === n.id,
-			dimmed: false,
+			dimmed,
 			onDive: diveInto,
 		};
 		return {
 			id: n.id,
-			type: 'pill',
+			type: "pill",
 			position: n.position,
 			width: n.width,
 			height: n.height,
@@ -130,98 +272,229 @@ function CanvasInner({ graph, isLoading, error, onRetry, selectedNodeId, onSelec
 			{ x: n.position.x, y: n.position.y, width: n.width, height: n.height },
 		]),
 	);
+	const childBbox = computeBbox(childRects.values());
 	const peripheralPlacements = layoutPeripherals(
 		view.peripheralStubs,
 		childRects,
 		selectedNodeId,
 		diveInto,
+		hasSelectedNode ? selectedRelatedNodeIds : null,
 	);
 	const peripheralNodes: Node[] = peripheralPlacements.map((p) => p.node);
-	const placementByStubId = new Map(peripheralPlacements.map((p) => [p.stubId, p.placement]));
+	const placementByStubId = new Map(
+		peripheralPlacements.map((p) => [p.stubId, p.placement]),
+	);
 
 	const peripheralEdges: Edge[] = view.peripheralStubs.flatMap((stub) => {
 		const placement = placementByStubId.get(stub.external.id);
 		if (!placement) return [];
 		const childHandle = childHandleFor(placement, stub.side);
-		const peripheralHandle = 'main';
+		const peripheralHandle = "main";
 		return stub.edges.map((e) => {
 			const targetStatus =
-				stub.side === 'right'
+				stub.side === "right"
 					? stub.external.status
-					: (layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active');
-			const childIsSource = stub.side === 'right';
+					: (layouted.nodes.find((n) => n.id === e.toId)?.status ?? "active");
+			const childIsSource = stub.side === "right";
+			const selected = selectedOneHopEdgeIds.has(e.id);
+			const dimmed = hasSelectedNode && !selected;
 			return {
 				id: e.id,
 				source: e.fromId,
 				target: e.toId,
 				sourceHandle: childIsSource ? childHandle : peripheralHandle,
 				targetHandle: childIsSource ? peripheralHandle : childHandle,
-				type: 'dependency',
+				markerEnd: directedMarker(targetStatus, selected, dimmed),
+				type: "dependency",
 				data: {
 					targetStatus,
-					dimmed: true,
-					variant: 'peripheral',
+					selected,
+					dimmed,
+					variant: "peripheral",
 				} as Record<string, unknown>,
 			};
 		});
 	});
 
-	const xyNodes: Node[] = [...pillNodes, ...peripheralNodes];
+	const stagingNodes =
+		graph?.nodes.filter(
+			(node) => node.role === "staging_root" || node.type === "staging",
+		) ?? [];
+	const stagingLaneData: StagingLaneData = {
+		nodes: stagingNodes,
+		selectedNodeId,
+		onSelect: onSelectNode,
+	};
+	const stagingLaneNode: Node | null =
+		view.isTopLevel && graph
+			? {
+					id: "__staging_lane__",
+					type: "stagingLane",
+					position: { x: childBbox.maxX + 96, y: childBbox.minY },
+					width: 280,
+					height: Math.max(220, childBbox.maxY - childBbox.minY),
+					data: stagingLaneData as unknown as Record<string, unknown>,
+					selectable: false,
+					draggable: false,
+				}
+			: null;
+
+	const entryByKnowledgeNodeId = new Map(
+		entries.map((entry) => [knowledgeNodeId(entry), entry]),
+	);
+	const knowledgeNodes: Node[] = (layouted.auxiliaryNodes ?? []).flatMap(
+		(layoutNode) => {
+			const entry = entryByKnowledgeNodeId.get(layoutNode.id);
+			if (!entry) return [];
+			return [
+				{
+					id: layoutNode.id,
+					type: "knowledgeNode",
+					position: layoutNode.position,
+					width: layoutNode.width,
+					height: layoutNode.height,
+					data: { entry } as unknown as Record<string, unknown>,
+					selectable: false,
+					draggable: false,
+				},
+			];
+		},
+	);
+	const knowledgeEdges: Edge[] = knowledgeLayout.edges.map((edge) => ({
+		id: edge.id,
+		source: edge.fromId,
+		target: edge.toId,
+		sourceHandle: "r-s",
+		targetHandle: "main",
+		markerEnd: directedMarker("active", false, false),
+		type: "dependency",
+		data: {
+			targetStatus: "active",
+			selected: false,
+			dimmed: hasSelectedNode,
+			variant: "knowledge",
+		} as Record<string, unknown>,
+	}));
+
+	const xyNodes: Node[] = [...pillNodes, ...peripheralNodes, ...knowledgeNodes];
+	if (stagingLaneNode) xyNodes.push(stagingLaneNode);
 
 	const xyEdges: Edge[] = [
-		...layouted.edges.map((e) => ({
-			id: e.id,
-			source: e.fromId,
-			target: e.toId,
-			type: 'dependency',
-			data: {
-				targetStatus: layouted.nodes.find((n) => n.id === e.toId)?.status ?? 'active',
-				dimmed: false,
-				variant: 'flow',
-			} as Record<string, unknown>,
-		})),
+		...layouted.edges.map((e) => {
+			const targetStatus =
+				layouted.nodes.find((n) => n.id === e.toId)?.status ?? "active";
+			const selected = selectedOneHopEdgeIds.has(e.id);
+			const dimmed = hasSelectedNode && !selected;
+			return {
+				id: e.id,
+				source: e.fromId,
+				target: e.toId,
+				markerEnd: directedMarker(targetStatus, selected, dimmed),
+				type: "dependency",
+				data: {
+					targetStatus,
+					selected,
+					dimmed,
+					variant: "flow",
+				} as Record<string, unknown>,
+			};
+		}),
 		...peripheralEdges,
+		...knowledgeEdges,
 	];
-
-	const heroAggregation = aggregation.get(view.hero.id);
+	const root = graph?.nodes.find((node) => node.isProjectRoot) ?? null;
+	const homeParentId = selected
+		? (compositionParent.get(selected.id) ?? null)
+		: null;
+	const homeFocusId =
+		homeParentId && homeParentId !== root?.id ? homeParentId : null;
+	const homeNode = getNodeById(graph?.nodes ?? [], homeParentId);
+	const externalSelection =
+		selected && selectedNodeId !== null && !currentContextIds.has(selected.id)
+			? {
+					node: selected,
+					homeTitle: homeNode?.title ?? t("leftRail.projectGraph"),
+					homeFocusId,
+				}
+			: null;
 
 	return (
-		<div className="relative flex h-full w-full">
-			<div className="relative flex flex-1 flex-col">
-				<div className="flex items-center justify-between border-b border-border px-3 py-2">
-					<Breadcrumb segments={crumbs} onSegmentClick={(id) => diveUpTo(id)} />
-					<KnowledgeToggle visible={knowledge.visible} onToggle={knowledge.toggle} />
+		<div className="relative h-full w-full">
+			{externalSelection && (
+				<div className="absolute left-4 top-4 z-10 rounded-lg border border-border bg-background/95 p-3 text-sm shadow-sm">
+					<div className="font-medium text-foreground">
+						{t("canvas.selectedOutside", {
+							title: externalSelection.node.title,
+						})}
+					</div>
+					<div className="mt-1 text-xs text-muted-foreground">
+						{t("canvas.livesUnder", { title: externalSelection.homeTitle })}
+					</div>
+					<div className="mt-2 flex gap-2">
+						<button
+							type="button"
+							onClick={() => diveUpTo(externalSelection.homeFocusId)}
+							className="rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-accent"
+						>
+							{t("canvas.showOnCanvas")}
+						</button>
+						<button
+							type="button"
+							onClick={() => onSelectNode(null)}
+							className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+						>
+							{tCommon("actions.clear")}
+						</button>
+					</div>
 				</div>
-				<div className="flex justify-center px-6 py-4">
-					<HeroToken node={view.hero} aggregation={heroAggregation} />
-				</div>
-				<div className="relative flex-1">
-					<ReactFlow
-						nodes={xyNodes}
-						edges={xyEdges}
-						nodeTypes={nodeTypes}
-						edgeTypes={edgeTypes}
-						onNodeClick={onNodeClick}
-						onPaneClick={onPaneClick}
-						onNodeDoubleClick={(_, n) => diveInto(n.id)}
-						proOptions={{ hideAttribution: true }}
-						fitView
-					>
-						<Background />
-						<Controls />
-					</ReactFlow>
-				</div>
-			</div>
-			{view.isTopLevel && graph && (
-				<StagingPanel nodes={graph.nodes} onSelect={(id) => diveInto(id)} />
 			)}
+			<ReactFlow
+				nodes={xyNodes}
+				edges={xyEdges}
+				nodeTypes={nodeTypes}
+				edgeTypes={edgeTypes}
+				onNodeClick={onNodeClick}
+				onPaneClick={onPaneClick}
+				onNodeDoubleClick={(_, n) => {
+					const childCount = compositionChildCount.get(n.id) ?? 0;
+					if (childCount > 0) diveInto(n.id);
+				}}
+				proOptions={{ hideAttribution: true }}
+				fitView
+			>
+				<Controls />
+			</ReactFlow>
 		</div>
 	);
 }
 
+function knowledgeNodeId(entry: KnowledgeEntryResponse): string {
+	return `knowledge:${entry.id}`;
+}
+
+function directedMarker(
+	targetStatus: NodeResponse["status"],
+	selected: boolean,
+	dimmed: boolean,
+) {
+	const color = selected
+		? "var(--zp-edge-selected)"
+		: dimmed
+			? "var(--zp-edge-dim)"
+			: targetStatus === "blocked"
+				? "var(--zp-status-blocked)"
+				: "var(--zp-edge-neutral)";
+	return {
+		type: MarkerType.ArrowClosed,
+		width: 14,
+		height: 14,
+		color,
+	};
+}
+
 type Rect = { x: number; y: number; width: number; height: number };
 type Bbox = { minX: number; maxX: number; minY: number; maxY: number };
-type Placement = 'top' | 'right' | 'bottom' | 'left';
+type Placement = "top" | "right" | "bottom" | "left";
 
 function computeBbox(rects: Iterable<Rect>): Bbox {
 	let minX = Infinity;
@@ -245,10 +518,10 @@ function computeBbox(rects: Iterable<Rect>): Bbox {
 //   - in a horizontal row, head/tail go to 'left'/'right'; middle to 'top'/'bottom'.
 function pickPlacement(bbox: Bbox, anchor: Rect): Placement {
 	const d = [
-		{ d: anchor.y - bbox.minY, side: 'top' as Placement },
-		{ d: bbox.maxX - (anchor.x + anchor.width), side: 'right' as Placement },
-		{ d: bbox.maxY - (anchor.y + anchor.height), side: 'bottom' as Placement },
-		{ d: anchor.x - bbox.minX, side: 'left' as Placement },
+		{ d: anchor.y - bbox.minY, side: "top" as Placement },
+		{ d: bbox.maxX - (anchor.x + anchor.width), side: "right" as Placement },
+		{ d: bbox.maxY - (anchor.y + anchor.height), side: "bottom" as Placement },
+		{ d: anchor.x - bbox.minX, side: "left" as Placement },
 	];
 	d.sort((a, b) => a.d - b.d);
 	return d[0].side;
@@ -267,28 +540,28 @@ function slotAdjacentTo(anchor: Rect, placement: Placement): Rect {
 	const cx = anchor.x + anchor.width / 2;
 	const cy = anchor.y + anchor.height / 2;
 	switch (placement) {
-		case 'left':
+		case "left":
 			return {
 				x: anchor.x - PERIPHERAL_GAP - PERIPHERAL_WIDTH,
 				y: cy - PERIPHERAL_HEIGHT / 2,
 				width: PERIPHERAL_WIDTH,
 				height: PERIPHERAL_HEIGHT,
 			};
-		case 'right':
+		case "right":
 			return {
 				x: anchor.x + anchor.width + PERIPHERAL_GAP,
 				y: cy - PERIPHERAL_HEIGHT / 2,
 				width: PERIPHERAL_WIDTH,
 				height: PERIPHERAL_HEIGHT,
 			};
-		case 'top':
+		case "top":
 			return {
 				x: cx - PERIPHERAL_WIDTH / 2,
 				y: anchor.y - PERIPHERAL_GAP - PERIPHERAL_HEIGHT,
 				width: PERIPHERAL_WIDTH,
 				height: PERIPHERAL_HEIGHT,
 			};
-		case 'bottom':
+		case "bottom":
 			return {
 				x: cx - PERIPHERAL_WIDTH / 2,
 				y: anchor.y + anchor.height + PERIPHERAL_GAP,
@@ -309,6 +582,7 @@ function layoutPeripherals(
 	childRects: Map<string, Rect>,
 	selectedNodeId: string | null,
 	onJump: (id: string) => void,
+	relatedNodeIds: Set<string> | null,
 ): PeripheralLayout[] {
 	if (stubs.length === 0 || childRects.size === 0) return [];
 	const bbox = computeBbox(childRects.values());
@@ -326,7 +600,7 @@ function layoutPeripherals(
 	for (const stub of stubs) {
 		const connected: Rect[] = [];
 		for (const e of stub.edges) {
-			const childId = stub.side === 'left' ? e.toId : e.fromId;
+			const childId = stub.side === "left" ? e.toId : e.fromId;
 			const rect = childRects.get(childId);
 			if (rect) connected.push(rect);
 		}
@@ -348,12 +622,12 @@ function layoutPeripherals(
 		// to the placement axis.
 		while (occupied.some((r) => rectsOverlap(r, slot))) {
 			switch (placement) {
-				case 'left':
-				case 'right':
+				case "left":
+				case "right":
 					slot.y += PERIPHERAL_HEIGHT + PERIPHERAL_V_SPACING;
 					break;
-				case 'top':
-				case 'bottom':
+				case "top":
+				case "bottom":
 					slot.x += PERIPHERAL_WIDTH + PERIPHERAL_V_SPACING;
 					break;
 			}
@@ -367,15 +641,18 @@ function layoutPeripherals(
 		placement: p.placement,
 		node: {
 			id: p.stub.external.id,
-			type: 'peripheral',
+			type: "peripheral",
 			position: { x: p.x, y: p.y },
 			width: PERIPHERAL_WIDTH,
 			height: PERIPHERAL_HEIGHT,
 			data: {
 				node: p.stub.external,
 				placement: p.placement,
-				direction: p.stub.side === 'left' ? 'incoming' : 'outgoing',
+				direction: p.stub.side === "left" ? "incoming" : "outgoing",
 				selected: selectedNodeId === p.stub.external.id,
+				dimmed:
+					relatedNodeIds !== null && !relatedNodeIds.has(p.stub.external.id),
+				jumpTargetId: p.stub.jumpTargetId,
 				onJump,
 			} as unknown as Record<string, unknown>,
 			selectable: true,
@@ -389,17 +666,17 @@ function layoutPeripherals(
 // to a child, 'right' = outgoing from a child).
 function childHandleFor(
 	placement: Placement,
-	stubSide: 'left' | 'right',
+	stubSide: "left" | "right",
 ): string {
-	const childIsSource = stubSide === 'right';
+	const childIsSource = stubSide === "right";
 	switch (placement) {
-		case 'left':
-			return childIsSource ? 'l-s' : 'l-t';
-		case 'right':
-			return childIsSource ? 'r-s' : 'r-t';
-		case 'top':
-			return childIsSource ? 't-s' : 't-t';
-		case 'bottom':
-			return childIsSource ? 'b-s' : 'b-t';
+		case "left":
+			return childIsSource ? "l-s" : "l-t";
+		case "right":
+			return childIsSource ? "r-s" : "r-t";
+		case "top":
+			return childIsSource ? "t-s" : "t-t";
+		case "bottom":
+			return childIsSource ? "b-s" : "b-t";
 	}
 }

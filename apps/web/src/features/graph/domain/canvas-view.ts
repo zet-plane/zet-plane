@@ -4,6 +4,7 @@ import type { ProjectGraph } from './types';
 export type PeripheralStub = {
   external: NodeResponse;
   side: 'left' | 'right';
+  jumpTargetId: string;
   edges: EdgeResponse[];
 };
 
@@ -20,6 +21,10 @@ export function canvasView(
   focusedNodeId: string | null,
 ): CanvasView {
   const nodesById = new Map(graph.nodes.map((n) => [n.id, n]));
+  const compositionParentById = new Map<string, string>();
+  for (const e of graph.edges) {
+    if (e.type === 'composition') compositionParentById.set(e.toId, e.fromId);
+  }
 
   const root = graph.nodes.find((n) => n.isProjectRoot);
   if (!root) {
@@ -61,7 +66,15 @@ export function canvasView(
     if (existing) {
       existing.edges.push(e);
     } else {
-      stubsByExternalId.set(externalId, { external, side, edges: [e] });
+      stubsByExternalId.set(externalId, {
+        external,
+        side,
+        jumpTargetId:
+          external.type === 'growth'
+            ? (compositionParentById.get(external.id) ?? external.id)
+            : external.id,
+        edges: [e],
+      });
     }
   }
 

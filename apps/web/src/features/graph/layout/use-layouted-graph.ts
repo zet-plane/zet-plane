@@ -1,21 +1,21 @@
+import type { KnowledgeEntryResponse } from "@zet-plane/contracts";
 import { useEffect, useMemo, useState } from "react";
-import { aggregateStatus } from "../domain/aggregate-status";
+import { measurePillSize, type PillVariant } from "../components/pill-geometry";
 import { topologyHash } from "../domain/topology-hash";
 import type {
+	LayoutedAuxiliaryNode,
 	LayoutedGraph,
 	LayoutedNode,
 	ProjectGraph,
 } from "../domain/types";
 import { type LayoutInput, type LayoutOutput, layoutGraph } from "./elk-layout";
-import { measureNodeText } from "./measure-text";
+import { resetMeasureCache } from "./measure-text";
 
-const NODE_TITLE_FONT = "600 14px Inter Variable";
-const NODE_TITLE_MAX_WIDTH = 220;
-const NODE_TITLE_LINE_HEIGHT = 20;
-const NODE_HORIZONTAL_PADDING = 24;
-const NODE_VERTICAL_PADDING = 24;
-const NODE_SUMMARY_GAP = 4;
-const NODE_SUMMARY_LINE_HEIGHT = 13;
+function variantFor(nodeType: string): PillVariant {
+	if (nodeType === "scaffold") return "scaffold";
+	if (nodeType === "growth") return "growth";
+	return "default";
+}
 
 type LayoutState = {
 	data: LayoutedGraph | undefined;
@@ -35,65 +35,96 @@ type LayoutRun = {
 	cancel: () => void;
 };
 
-function createLayoutKey(graph: ProjectGraph): string {
+export type AuxiliaryLayout = {
+	nodes: LayoutInput["nodes"];
+	edges: LayoutInput["edges"];
+};
+
+const EMPTY_AUXILIARY_LAYOUT: AuxiliaryLayout = { nodes: [], edges: [] };
+
+function createLayoutKey(
+	graph: ProjectGraph,
+	knowledgeCountByNodeId: Map<string, number>,
+	geometryGraph: ProjectGraph = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
+): string {
 	const textKey = graph.nodes
 		.map(
-			(node) => [node.id, node.title, node.description, node.status] as const,
+			(node) =>
+				[
+					node.id,
+					node.title,
+					node.description,
+					node.status,
+					node.type,
+					knowledgeCountByNodeId.get(node.id) ?? 0,
+				] as const,
 		)
 		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
+	const auxiliaryKey = {
+		nodes: auxiliaryLayout.nodes
+			.map((node) => ({
+				id: node.id,
+				width: node.width,
+				height: node.height,
+				parentId: node.parentId,
+			}))
+			.sort((left, right) => left.id.localeCompare(right.id)),
+		edges: auxiliaryLayout.edges
+			.map((edge) => ({
+				id: edge.id,
+				fromId: edge.fromId,
+				toId: edge.toId,
+			}))
+			.sort((left, right) => left.id.localeCompare(right.id)),
+	};
 
 	return JSON.stringify({
 		topology: topologyHash(graph),
+		geometryTopology: topologyHash(geometryGraph),
 		text: textKey,
+		auxiliary: auxiliaryKey,
 	});
 }
 
-function createSummaryNodeIds(graph: ProjectGraph): Set<string> {
-	const aggregateById = aggregateStatus(graph);
-	const nodesWithCompositionChildren = new Set<string>();
-
+function createCompositionChildCount(graph: ProjectGraph): Map<string, number> {
+	const counts = new Map<string, number>();
 	for (const edge of graph.edges) {
-		if (edge.type === "composition") {
-			nodesWithCompositionChildren.add(edge.fromId);
-		}
+		if (edge.type !== "composition") continue;
+		counts.set(edge.fromId, (counts.get(edge.fromId) ?? 0) + 1);
 	}
-
-	const summaryNodeIds = new Set<string>();
-	for (const nodeId of nodesWithCompositionChildren) {
-		const aggregation = aggregateById.get(nodeId);
-		if (!aggregation) continue;
-		const total =
-			aggregation.counts.blocked +
-			aggregation.counts.active +
-			aggregation.counts.completed;
-		if (total > 0) {
-			summaryNodeIds.add(nodeId);
-		}
-	}
-
-	return summaryNodeIds;
+	return counts;
 }
 
-function createLayoutInput(graph: ProjectGraph): LayoutInput {
-	const summaryNodeIds = createSummaryNodeIds(graph);
+function createKnowledgeCountByNodeId(
+	entries: KnowledgeEntryResponse[],
+): Map<string, number> {
+	const counts = new Map<string, number>();
+	for (const entry of entries) {
+		counts.set(entry.nodeId, (counts.get(entry.nodeId) ?? 0) + 1);
+	}
+	return counts;
+}
+
+function createLayoutInput(
+	graph: ProjectGraph,
+	knowledgeCountByNodeId: Map<string, number>,
+	geometryGraph: ProjectGraph = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
+): LayoutInput {
+	const childCountByNodeId = createCompositionChildCount(geometryGraph);
 	const nodes = graph.nodes.map((node) => {
-		const textSize = measureNodeText({
-			text: node.title,
-			font: NODE_TITLE_FONT,
-			maxWidth: NODE_TITLE_MAX_WIDTH,
-			lineHeight: NODE_TITLE_LINE_HEIGHT,
+		const { width, height } = measurePillSize({
+			title: node.title,
+			variant: variantFor(node.type),
+			knowledgeCount: knowledgeCountByNodeId.get(node.id) ?? 0,
+			childCount: childCountByNodeId.get(node.id) ?? 0,
 		});
-		const summaryHeight = summaryNodeIds.has(node.id)
-			? NODE_SUMMARY_GAP + NODE_SUMMARY_LINE_HEIGHT
-			: 0;
 
 		return {
 			id: node.id,
-			width: Math.max(1, textSize.width + NODE_HORIZONTAL_PADDING * 2),
-			height: Math.max(
-				1,
-				textSize.height + summaryHeight + NODE_VERTICAL_PADDING * 2,
-			),
+			width: Math.max(1, width),
+			height: Math.max(1, height),
 			parentId: null,
 		};
 	});
@@ -103,7 +134,10 @@ function createLayoutInput(graph: ProjectGraph): LayoutInput {
 		toId: edge.toId,
 	}));
 
-	return { nodes, edges };
+	return {
+		nodes: [...nodes, ...auxiliaryLayout.nodes],
+		edges: [...edges, ...auxiliaryLayout.edges],
+	};
 }
 
 function runLayoutInline(input: LayoutInput): LayoutRun {
@@ -116,10 +150,28 @@ function runLayoutInline(input: LayoutInput): LayoutRun {
 function mergeLayoutResult(
 	graph: ProjectGraph,
 	result: LayoutOutput,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
 ): LayoutedGraph {
 	const layoutById = new Map(result.nodes.map((node) => [node.id, node]));
+	const auxiliaryNodes = auxiliaryLayout.nodes.map(
+		(node): LayoutedAuxiliaryNode => {
+			const layoutNode = layoutById.get(node.id);
 
-	return {
+			if (layoutNode === undefined) {
+				throw new Error(`Missing layout result for auxiliary node ${node.id}`);
+			}
+
+			return {
+				id: node.id,
+				width: layoutNode.width,
+				height: layoutNode.height,
+				position: layoutNode.position,
+				parentId: node.parentId,
+			};
+		},
+	);
+
+	const layoutedGraph: LayoutedGraph = {
 		nodes: graph.nodes.map((node): LayoutedNode => {
 			const layoutNode = layoutById.get(node.id);
 
@@ -137,9 +189,59 @@ function mergeLayoutResult(
 		}),
 		edges: graph.edges,
 	};
+	if (auxiliaryNodes.length > 0) {
+		layoutedGraph.auxiliaryNodes = auxiliaryNodes;
+	}
+	return layoutedGraph;
 }
 
-export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
+function hasFontsApi(): boolean {
+	if (typeof document === "undefined") return false;
+	const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
+	return fonts?.ready !== undefined;
+}
+
+function useFontsReady(): boolean {
+	// Initial state must be `false` in real browsers: `document.fonts.status`
+	// can read "loaded" before CSS-driven web fonts have started loading,
+	// because no font requests are pending *yet*. We always wait for
+	// `document.fonts.ready` so measurements happen against the typeface CSS
+	// will actually render. In non-browser test envs (no FontFaceSet) we
+	// short-circuit to `true` so server-side / jsdom tests don't hang.
+	const [ready, setReady] = useState<boolean>(() => !hasFontsApi());
+
+	useEffect(() => {
+		if (ready) return;
+		const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
+		if (fonts?.ready === undefined) {
+			setReady(true);
+			return;
+		}
+		let cancelled = false;
+		fonts.ready.then(() => {
+			if (cancelled) return;
+			// Drop widths measured with fallback fonts so the next layout
+			// pass re-measures against the real (now-loaded) typeface.
+			resetMeasureCache();
+			setReady(true);
+		});
+		return () => {
+			cancelled = true;
+		};
+	}, [ready]);
+
+	return ready;
+}
+
+const EMPTY_ENTRIES: KnowledgeEntryResponse[] = [];
+
+export function useLayoutedGraph(
+	graph: ProjectGraph | undefined,
+	entries: KnowledgeEntryResponse[] = EMPTY_ENTRIES,
+	geometryGraph: ProjectGraph | undefined = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
+): LayoutState {
+	const fontsReady = useFontsReady();
 	const [state, setState] = useState<LayoutRunState>({
 		layoutKey: undefined,
 		layoutResult: undefined,
@@ -147,9 +249,21 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 		error: null,
 	});
 
+	const knowledgeCountByNodeId = useMemo(
+		() => createKnowledgeCountByNodeId(entries),
+		[entries],
+	);
+
 	const layoutKey = useMemo(() => {
-		return graph === undefined ? undefined : createLayoutKey(graph);
-	}, [graph]);
+		return graph === undefined
+			? undefined
+			: createLayoutKey(
+					graph,
+					knowledgeCountByNodeId,
+					geometryGraph ?? graph,
+					auxiliaryLayout,
+				);
+	}, [graph, geometryGraph, knowledgeCountByNodeId, auxiliaryLayout]);
 
 	const data = useMemo(() => {
 		if (
@@ -161,8 +275,8 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			return undefined;
 		}
 
-		return mergeLayoutResult(graph, state.layoutResult);
-	}, [graph, layoutKey, state.layoutKey, state.layoutResult]);
+		return mergeLayoutResult(graph, state.layoutResult, auxiliaryLayout);
+	}, [graph, layoutKey, state.layoutKey, state.layoutResult, auxiliaryLayout]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: layoutKey is a content hash of graph; depending on graph would trigger redundant layouts on identical inputs.
 	useEffect(() => {
@@ -180,6 +294,16 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			};
 		}
 
+		// Web fonts (e.g. Inter Variable) are async — measuring pill widths
+		// before they load gives canvas measureText fallback-font results
+		// that are narrower than the real CSS render, which makes ELK's
+		// (correct) centering land on too-small wrappers. Defer until ready.
+		if (!fontsReady) {
+			return () => {
+				cancelled = true;
+			};
+		}
+
 		setState((current) => ({
 			layoutKey: current.layoutKey,
 			layoutResult: current.layoutResult,
@@ -187,7 +311,12 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			error: null,
 		}));
 
-		const input = createLayoutInput(graph);
+		const input = createLayoutInput(
+			graph,
+			knowledgeCountByNodeId,
+			geometryGraph ?? graph,
+			auxiliaryLayout,
+		);
 		const run = runLayoutInline(input);
 
 		void run.promise
@@ -220,7 +349,7 @@ export function useLayoutedGraph(graph: ProjectGraph | undefined): LayoutState {
 			cancelled = true;
 			run.cancel();
 		};
-	}, [layoutKey]);
+	}, [layoutKey, fontsReady]);
 
 	return {
 		data,
