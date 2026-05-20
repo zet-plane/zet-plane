@@ -135,42 +135,42 @@ test.describe("Semantic demo canvas", () => {
 
 		await expect(page.locator(".zp-workbench")).toHaveCSS(
 			"background-color",
-			"rgb(237, 243, 248)",
+			"rgb(238, 246, 252)",
 		);
 		await expect(page.locator(".zp-workbench__canvas")).toHaveCSS(
 			"background-color",
-			"rgb(247, 251, 255)",
+			"rgb(248, 252, 255)",
 		);
 		const canvasBackgroundImage = await page
 			.locator(".zp-workbench__canvas")
 			.evaluate((element) => getComputedStyle(element).backgroundImage);
 		expect(canvasBackgroundImage.match(/linear-gradient/g)?.length).toBe(2);
-		expect(canvasBackgroundImage).toContain("128, 157, 188");
+		expect(canvasBackgroundImage).toContain("80, 142, 196");
 
 		const activePill = page.locator(`[data-id="${PRD_ID}"] .zp-pill`);
 		await expect(activePill).toHaveCSS(
 			"background-color",
 			"rgb(255, 255, 255)",
 		);
-		await expect(activePill).toHaveCSS("color", "rgb(32, 48, 71)");
+		await expect(activePill).toHaveCSS("color", "rgb(23, 43, 67)");
 		await expect(page.locator(`[data-id="${IDEA_ID}"] .zp-pill`)).toHaveCSS(
 			"color",
-			"rgb(95, 112, 132)",
+			"rgb(90, 111, 132)",
 		);
 
 		const neutralEdge = page.locator("path.zp-edge--neutral").first();
 		await expect(neutralEdge).toBeAttached();
-		await expect(neutralEdge).toHaveCSS("stroke", "rgb(114, 137, 161)");
+		await expect(neutralEdge).toHaveCSS("stroke", "rgb(111, 142, 170)");
 
 		await activePill.click();
-		await expect(activePill).toHaveCSS("outline-color", "rgb(79, 127, 174)");
+		await expect(activePill).toHaveCSS("outline-color", "rgb(37, 127, 193)");
 		await expect(page.locator("path.zp-edge--selected").first()).toHaveCSS(
 			"stroke",
-			"rgb(79, 127, 174)",
+			"rgb(37, 127, 193)",
 		);
 		await expect(page.locator("path.zp-edge--dim").first()).toHaveCSS(
 			"stroke",
-			`${"rgba"}(114, 137, 161, 0.32)`,
+			`${"rgba"}(111, 142, 170, 0.32)`,
 		);
 
 		const stagingLane = page.getByLabel("Staging lane");
@@ -178,22 +178,22 @@ test.describe("Semantic demo canvas", () => {
 			"background-color",
 			"rgb(255, 255, 255)",
 		);
-		await expect(stagingLane).toHaveCSS("color", "rgb(32, 48, 71)");
+		await expect(stagingLane).toHaveCSS("color", "rgb(23, 43, 67)");
 
 		await page.getByRole("button", { name: /Legend/ }).click();
-		await expect(page.getByText("Knowledge (violet)")).toBeVisible();
+		await expect(page.getByText("Knowledge (indigo)")).toBeVisible();
 		const knowledgeGlyph = page
-			.getByText("Knowledge (violet)")
+			.getByText("Knowledge (indigo)")
 			.locator("xpath=preceding-sibling::span")
 			.locator("span")
 			.first();
 		await expect(knowledgeGlyph).toHaveCSS(
 			"background-color",
-			"rgb(232, 232, 246)",
+			"rgb(232, 239, 251)",
 		);
 	});
 
-	test("Scaffold pills show a flag-tab silhouette and dive glyph; Growth pills don't", async ({
+	test("Scaffold pills show an arc marker and dive glyph; Growth pills don't", async ({
 		page,
 		baseURL,
 	}) => {
@@ -369,16 +369,16 @@ test.describe("Semantic demo canvas", () => {
 
 		const legend = page.getByRole("button", { name: /Legend/ });
 		await expect(legend).toBeVisible();
-		await expect(page.getByText("Scaffold (flag-tab)")).not.toBeVisible();
+		await expect(page.getByText("Scaffold (arc marker)")).not.toBeVisible();
 
 		await legend.click();
-		await expect(page.getByText("Scaffold (flag-tab)")).toBeVisible();
+		await expect(page.getByText("Scaffold (arc marker)")).toBeVisible();
 		await expect(page.getByText("Growth (compact)")).toBeVisible();
-		await expect(page.getByText("Knowledge (violet)")).toBeVisible();
+		await expect(page.getByText("Knowledge (indigo)")).toBeVisible();
 		await expect(page.getByText("Dive in")).toBeVisible();
 
 		await legend.click();
-		await expect(page.getByText("Scaffold (flag-tab)")).not.toBeVisible();
+		await expect(page.getByText("Scaffold (arc marker)")).not.toBeVisible();
 	});
 
 	test("knowledge toggle is backed by the URL", async ({ page, baseURL }) => {

@@ -44,16 +44,16 @@ Foundation colors define the product's calm workbench character.
 
 | Token | Hex | Purpose |
 |---|---:|---|
-| `fg.strong` | `#203047` | Primary text, strongest non-black anchor |
-| `fg.default` | `#53657b` | Secondary text and labels |
-| `fg.muted` | `#5f7084` | Small muted text that still meets contrast |
-| `ui.muted` | `#748497` | Muted non-text UI marks and archived markers |
-| `surface.app` | `#edf3f8` | App background |
+| `fg.strong` | `#172b43` | Primary text, strongest non-black anchor |
+| `fg.default` | `#52677d` | Secondary text and labels |
+| `fg.muted` | `#5a6f84` | Small muted text that still meets contrast |
+| `ui.muted` | `#7b91a6` | Muted non-text UI marks |
+| `surface.app` | `#eef6fc` | App background |
 | `surface.panel` | `#ffffff` | Sidebars, top bar, inspector, cards |
-| `surface.canvas` | `#f7fbff` | Graph canvas base |
-| `border.subtle` | `#d8e2ed` | Decorative panel dividers and low-emphasis separators |
-| `border.control` | `#7289a1` | Required control boundaries and meaningful outlines |
-| `grid.blueprint` | `rgb(128 157 188 / 0.16)` | Canvas grid only |
+| `surface.canvas` | `#f8fcff` | Graph canvas base |
+| `border.subtle` | `#d4e4f2` | Decorative panel dividers and low-emphasis separators |
+| `border.control` | `#6f8eaa` | Required control boundaries and meaningful outlines |
+| `grid.blueprint` | `rgb(80 142 196 / 0.16)` | Canvas grid only |
 
 Foundation colors may occupy large areas.
 
@@ -64,12 +64,13 @@ moving through a blueprint, not like generic SaaS blue.
 
 | Token | Hex | Purpose |
 |---|---:|---|
-| `signal.blue` | `#4f7fae` | Primary selection, active path, focused graph signal |
-| `signal.strong` | `#456f9d` | Accessible signal foreground and filled-control color |
-| `signal.soft` | `#dceaf6` | Subtle selected backgrounds and hover fills |
-| `signal.glow` | `rgb(79 127 174 / 0.24)` | Selected/related path glow |
-| `edge.neutral` | `#7289a1` | Default dependency edge |
-| `edge.dim` | `rgb(114 137 161 / 0.32)` | Non-relevant dependency edge |
+| `signal.blue` | `#257fc1` | Primary selection, active path, focused graph signal |
+| `signal.strong` | `#1f6fa8` | Accessible signal foreground and filled-control color |
+| `signal.soft` | `#e5f0f9` | Subtle selected backgrounds and hover fills |
+| `signal.glow` | `rgb(37 127 193 / 0.24)` | Selected/related path glow |
+| `signal.flow` | `#39bfe2` | Bright flow highlight for selected paths only |
+| `edge.neutral` | `#6f8eaa` | Default dependency edge |
+| `edge.dim` | `rgb(111 142 170 / 0.32)` | Non-relevant dependency edge |
 
 Signal blue is the product's primary brand accent. It may be used at medium
 area only when it marks interaction or graph flow. It should not become a large
@@ -82,17 +83,22 @@ selection unless the user is diagnosing a problem.
 
 | Token | Hex | Purpose |
 |---|---:|---|
-| `status.active` | `#4f7fae` | Active status marker, aligned with signal blue |
-| `status.blocked` | `#c96f5b` | Blocked marker and blocked dependency path |
-| `status.blockedSoft` | `#f4e2dc` | Soft blocked background |
-| `status.completed` | `#6a9676` | Completed marker |
-| `status.completedSoft` | `#e1ede4` | Soft completed background |
-| `status.archived` | `#748497` | Archived marker |
+| `status.active` | `#257fc1` | Active status marker, aligned with signal blue |
+| `status.blocked` | `#d75f8d` | Blocked marker and blocked dependency path |
+| `status.blockedSoft` | `#f8e2eb` | Soft blocked background |
+| `status.completed` | `#218f78` | Completed marker |
+| `status.completedSoft` | `#dff5ef` | Soft completed background |
+| `status.archived` | `#6f8eaa` | Archived marker |
+| `status.archivedSoft` | `#edf4fa` | Soft archived background |
 
 Status color is small-area by default: dots, bottom bars, edge highlights,
 compact badges, and diagnostic accents. Node bodies should not be filled by
 status color. When a status color is used for normal-size text or a filled
 control, use a stronger foreground token rather than the marker color.
+
+The status layer intentionally keeps independent hues for readability, but it
+does not define the brand personality. The brand remains blueprint-blue; status
+colors are restrained operational cues.
 
 ### 3.4 Semantic Families
 
@@ -100,11 +106,11 @@ Semantic family colors identify graph meaning. They should be stable but quiet.
 
 | Token | Hex | Purpose |
 |---|---:|---|
-| `semantic.scaffold` | `#b78a4a` | Scaffold tab, module marker, checkpoint adjacency |
-| `semantic.growth` | `#4f8f93` | Growth marker and optional tiny type cue |
-| `semantic.knowledge` | `#6f72b8` | Knowledge probe rail and knowledge node family |
-| `semantic.knowledgeSoft` | `#e8e8f6` | Knowledge probe background |
-| `semantic.staging` | `#8fa0b4` | Staging lane marker and unanchored cue |
+| `semantic.scaffold` | `#5f8fb8` | Scaffold arc marker, module marker, checkpoint adjacency |
+| `semantic.growth` | `#28a98b` | Growth marker and optional tiny type cue |
+| `semantic.knowledge` | `#4c68c9` | Knowledge probe rail and knowledge node family |
+| `semantic.knowledgeSoft` | `#e8effb` | Knowledge probe background |
+| `semantic.staging` | `#9fb4c9` | Staging lane marker and unanchored cue |
 
 These colors should not become equal-weight node backgrounds. Type is expressed
 through silhouette, edge tabs, and compact markers first; color is a supporting
@@ -132,9 +138,9 @@ The preferred CSS form is role plus channel plus alpha:
 
 ```css
 :root {
-  --zp-rgb-signal-blue: 79 127 174;
+  --zp-rgb-signal-blue: 37 127 193;
   --zp-alpha-16: 0.16;
-  --zp-color-grid-blueprint: rgb(128 157 188 / var(--zp-alpha-16));
+  --zp-color-grid-blueprint: rgb(80 142 196 / var(--zp-alpha-16));
   --zp-color-signal-glow: rgb(var(--zp-rgb-signal-blue) / var(--zp-alpha-24));
 }
 ```
@@ -230,10 +236,10 @@ related paths use `signal.blue`, optionally with `signal.glow`.
 Nodes use a neutral surface. Status is a compact marker. Type is expressed by
 shape and small accents:
 
-- scaffold: subtle brass side tab or module cue;
+- scaffold: subtle gray-blue arc marker or module cue;
 - growth: capsule silhouette with small teal marker;
 - staging: neutral lane item with unanchored cue;
-- knowledge: violet probe or compact knowledge pill.
+- knowledge: indigo probe or compact knowledge pill.
 
 ### 5.4 Knowledge
 
@@ -261,25 +267,26 @@ Light-theme role examples:
 
 ```css
 :root {
-  --zp-color-fg-strong: #203047;
-  --zp-color-fg-default: #53657b;
-  --zp-color-fg-muted: #5f7084;
-  --zp-color-ui-muted: #748497;
+  --zp-color-fg-strong: #172b43;
+  --zp-color-fg-default: #52677d;
+  --zp-color-fg-muted: #5a6f84;
+  --zp-color-ui-muted: #7b91a6;
 
-  --zp-color-surface-app: #edf3f8;
+  --zp-color-surface-app: #eef6fc;
   --zp-color-surface-panel: #ffffff;
-  --zp-color-surface-canvas: #f7fbff;
+  --zp-color-surface-canvas: #f8fcff;
 
-  --zp-color-border-subtle: #d8e2ed;
-  --zp-color-border-control: #7289a1;
+  --zp-color-border-subtle: #d4e4f2;
+  --zp-color-border-control: #6f8eaa;
 
-  --zp-color-accent-signal: #4f7fae;
-  --zp-color-accent-signal-strong: #456f9d;
-  --zp-color-accent-signal-soft: #dceaf6;
-  --zp-rgb-accent-signal: 79 127 174;
+  --zp-color-accent-signal: #257fc1;
+  --zp-color-accent-signal-strong: #1f6fa8;
+  --zp-color-accent-signal-soft: #e5f0f9;
+  --zp-rgb-accent-signal: 37 127 193;
 
-  --zp-color-status-blocked: #c96f5b;
-  --zp-color-semantic-knowledge: #6f72b8;
+  --zp-color-status-blocked: #d75f8d;
+  --zp-color-status-completed: #218f78;
+  --zp-color-semantic-knowledge: #4c68c9;
 
   --zp-alpha-08: 0.08;
   --zp-alpha-16: 0.16;
@@ -316,21 +323,21 @@ Initial light-theme contrast checks:
 
 | Pair | Ratio | Result | Use |
 |---|---:|---|---|
-| `fg.strong` on `surface.panel` | `13.33:1` | Pass AA text | Primary text |
-| `fg.strong` on `surface.canvas` | `12.82:1` | Pass AA text | Canvas labels |
-| `fg.default` on `surface.panel` | `5.97:1` | Pass AA text | Body and labels |
-| `fg.default` on `surface.canvas` | `5.75:1` | Pass AA text | Canvas text |
-| `fg.muted` on `surface.panel` | `5.08:1` | Pass AA text | Small muted labels |
-| `fg.muted` on `surface.app` | `4.54:1` | Pass AA text | App-level labels |
-| `signal.strong` on `surface.panel` | `5.23:1` | Pass AA text | Link/focus text |
-| white text on `signal.strong` | `5.23:1` | Pass AA text | Filled active controls |
-| `signal.blue` on `surface.canvas` | `4.06:1` | Pass non-text | Edges and markers |
-| `status.blocked` on `surface.canvas` | `3.42:1` | Pass non-text | Blocked markers |
-| `status.completed` on `surface.canvas` | `3.24:1` | Pass non-text | Completed markers |
-| `status.archived` on `surface.canvas` | `3.68:1` | Pass non-text | Archived markers |
-| `edge.neutral` on `surface.canvas` | `3.48:1` | Pass non-text | Default dependency edge |
-| `border.subtle` on `surface.panel` | `1.31:1` | Decorative only | Non-essential dividers |
-| `border.control` on `surface.panel` | `3.62:1` | Pass non-text | Input/control boundary |
+| `fg.strong` on `surface.panel` | `14.35:1` | Pass AA text | Primary text |
+| `fg.strong` on `surface.canvas` | `13.92:1` | Pass AA text | Canvas labels |
+| `fg.default` on `surface.panel` | `5.84:1` | Pass AA text | Body and labels |
+| `fg.default` on `surface.canvas` | `5.66:1` | Pass AA text | Canvas text |
+| `fg.muted` on `surface.panel` | `5.20:1` | Pass AA text | Small muted labels |
+| `fg.muted` on `surface.app` | `4.76:1` | Pass AA text | App-level labels |
+| `signal.strong` on `surface.panel` | `5.39:1` | Pass AA text | Link/focus text |
+| white text on `signal.strong` | `5.39:1` | Pass AA text | Filled active controls |
+| `signal.blue` on `surface.canvas` | `4.17:1` | Pass non-text | Edges and markers |
+| `status.blocked` on `surface.canvas` | `3.44:1` | Pass non-text | Blocked markers |
+| `status.completed` on `surface.canvas` | `3.87:1` | Pass non-text | Completed markers |
+| `status.archived` on `surface.canvas` | `3.32:1` | Pass non-text | Archived markers |
+| `edge.neutral` on `surface.canvas` | `3.32:1` | Pass non-text | Default dependency edge |
+| `border.subtle` on `surface.panel` | `1.30:1` | Decorative only | Non-essential dividers |
+| `border.control` on `surface.panel` | `3.43:1` | Pass non-text | Input/control boundary |
 
 Rules for implementation:
 

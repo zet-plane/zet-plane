@@ -1,41 +1,41 @@
 :root {
 	/* Zet Plane brand role tokens: Flowing Circuit Blueprint */
-	--zp-color-fg-strong: #203047;
-	--zp-color-fg-default: #53657b;
-	--zp-color-fg-muted: #5f7084;
-	--zp-color-ui-muted: #748497;
+	--zp-color-fg-strong: #172b43;
+	--zp-color-fg-default: #52677d;
+	--zp-color-fg-muted: #5a6f84;
+	--zp-color-ui-muted: #7b91a6;
 
-	--zp-color-surface-app: #edf3f8;
+	--zp-color-surface-app: #eef6fc;
 	--zp-color-surface-panel: #ffffff;
-	--zp-color-surface-canvas: #f7fbff;
+	--zp-color-surface-canvas: #f8fcff;
 
-	--zp-color-border-subtle: #d8e2ed;
-	--zp-color-border-control: #7289a1;
+	--zp-color-border-subtle: #d4e4f2;
+	--zp-color-border-control: #6f8eaa;
 
-	--zp-color-accent-signal: #4f7fae;
-	--zp-color-accent-signal-strong: #456f9d;
-	--zp-color-accent-signal-soft: #dceaf6;
-	--zp-rgb-accent-signal: 79 127 174;
+	--zp-color-accent-signal: #257fc1;
+	--zp-color-accent-signal-strong: #1f6fa8;
+	--zp-color-accent-signal-soft: #e5f0f9;
+	--zp-rgb-accent-signal: 37 127 193;
 
-	--zp-color-status-blocked: #c96f5b;
-	--zp-color-status-blocked-soft: #f4e2dc;
-	--zp-color-status-completed: #6a9676;
-	--zp-color-status-completed-soft: #e1ede4;
-	--zp-color-status-archived: #748497;
-	--zp-color-status-archived-soft: #edf1f5;
+	--zp-color-status-blocked: #d75f8d;
+	--zp-color-status-blocked-soft: #f8e2eb;
+	--zp-color-status-completed: #218f78;
+	--zp-color-status-completed-soft: #dff5ef;
+	--zp-color-status-archived: #6f8eaa;
+	--zp-color-status-archived-soft: #edf4fa;
 
-	--zp-color-semantic-scaffold: #b78a4a;
-	--zp-color-semantic-growth: #4f8f93;
-	--zp-color-semantic-knowledge: #6f72b8;
-	--zp-color-semantic-knowledge-soft: #e8e8f6;
-	--zp-color-semantic-staging: #8fa0b4;
+	--zp-color-semantic-scaffold: #5f8fb8;
+	--zp-color-semantic-growth: #28a98b;
+	--zp-color-semantic-knowledge: #4c68c9;
+	--zp-color-semantic-knowledge-soft: #e8effb;
+	--zp-color-semantic-staging: #9fb4c9;
 
-	--zp-rgb-grid-blueprint: 128 157 188;
+	--zp-rgb-grid-blueprint: 80 142 196;
 	--zp-rgb-shadow: 35 48 66;
-	--zp-rgb-status-blocked: 201 111 91;
-	--zp-rgb-status-completed: 106 150 118;
-	--zp-rgb-status-archived: 116 132 151;
-	--zp-rgb-semantic-knowledge: 111 114 184;
+	--zp-rgb-status-blocked: 215 95 141;
+	--zp-rgb-status-completed: 33 143 120;
+	--zp-rgb-status-archived: 111 142 170;
+	--zp-rgb-semantic-knowledge: 76 104 201;
 
 	--zp-alpha-04: 0.04;
 	--zp-alpha-08: 0.08;
@@ -53,7 +53,7 @@
 	--zp-border-control: var(--zp-color-border-control);
 	--zp-edge-neutral: var(--zp-color-border-control);
 	--zp-edge-selected: var(--zp-color-accent-signal);
-	--zp-edge-dim: rgb(114 137 161 / var(--zp-alpha-32));
+	--zp-edge-dim: rgb(111 142 170 / var(--zp-alpha-32));
 	--zp-type-scaffold: var(--zp-color-semantic-scaffold);
 	--zp-type-growth: var(--zp-color-semantic-growth);
 	--zp-type-knowledge: var(--zp-color-semantic-knowledge);
@@ -228,20 +228,11 @@
 	content: "";
 	position: absolute;
 	left: 0;
-	top: 50%;
-	transform: translateY(-50%);
+	top: 6px;
+	bottom: 6px;
 	width: 14px;
-	height: 100%;
 	background: var(--zp-type-scaffold);
-	clip-path: polygon(
-		0 0,
-		100% 0,
-		100% 35%,
-		60% 50%,
-		100% 65%,
-		100% 100%,
-		0 100%
-	);
+	border-radius: 0 999px 999px 0;
 }
 .zp-pill--scaffold.zp-pill--checkpoint::before {
 	opacity: 1;
@@ -367,20 +358,11 @@
 	content: "";
 	position: absolute;
 	left: 0;
-	top: 50%;
-	transform: translateY(-50%);
+	top: 6px;
+	bottom: 6px;
 	width: 20px;
-	height: 100%;
 	background: var(--zp-accent-scaffold);
-	clip-path: polygon(
-		0 0,
-		100% 0,
-		100% 35%,
-		60% 50%,
-		100% 65%,
-		100% 100%,
-		0 100%
-	);
+	border-radius: 0 999px 999px 0;
 }
 .zp-hero--project {
 	background: var(--zp-surface-panel);

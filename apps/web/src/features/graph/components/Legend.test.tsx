@@ -9,14 +9,14 @@ describe("Legend", () => {
 		const toggle = screen.getByRole("button", { name: /Legend/ });
 		expect(toggle).toBeInTheDocument();
 		expect(toggle).toHaveAttribute("aria-expanded", "false");
-		expect(screen.queryByText("Scaffold (flag-tab)")).not.toBeInTheDocument();
+		expect(screen.queryByText("Scaffold (arc marker)")).not.toBeInTheDocument();
 
 		fireEvent.click(toggle);
 
 		expect(toggle).toHaveAttribute("aria-expanded", "true");
 		expect(toggle).toHaveAttribute("aria-controls", "zp-graph-legend-panel");
 		expect(document.getElementById("zp-graph-legend-panel")).not.toBeNull();
-		expect(screen.getByText("Scaffold (flag-tab)")).toBeInTheDocument();
+		expect(screen.getByText("Scaffold (arc marker)")).toBeInTheDocument();
 	});
 
 	it("renders token-backed swatches and glyphs", () => {
