@@ -13,6 +13,10 @@ const navigation = vi.hoisted(() => ({
 	diveUpTo: vi.fn(),
 }));
 
+const layoutHook = vi.hoisted(() => ({
+	calls: [] as unknown[][],
+}));
+
 vi.mock("@xyflow/react", () => ({
 	Background: () => null,
 	Controls: () => null,
@@ -53,22 +57,39 @@ vi.mock("../hooks/use-canvas-navigation", () => ({
 }));
 
 vi.mock("../layout/use-layouted-graph", () => ({
-	useLayoutedGraph: (graph: ProjectGraph | undefined) => ({
-		data: graph
-			? {
-					nodes: graph.nodes.map((node, index) => ({
-						...node,
-						width: 120,
-						height: 36,
-						position: { x: index * 160, y: 0 },
-						parentId: null,
-					})),
-					edges: graph.edges,
-				}
-			: undefined,
-		isLayouting: false,
-		error: null,
-	}),
+	useLayoutedGraph: (
+		graph: ProjectGraph | undefined,
+		_entries?: unknown[],
+		_geometryGraph?: ProjectGraph,
+		auxiliaryLayout?: {
+			nodes: Array<{ id: string; width: number; height: number }>;
+		},
+	) => {
+		layoutHook.calls.push([graph, _entries, _geometryGraph, auxiliaryLayout]);
+		return {
+			data: graph
+				? {
+						nodes: graph.nodes.map((node, index) => ({
+							...node,
+							width: 120,
+							height: 36,
+							position: { x: index * 160, y: 0 },
+							parentId: null,
+						})),
+						edges: graph.edges,
+						auxiliaryNodes: (auxiliaryLayout?.nodes ?? []).map(
+							(node, index) => ({
+								...node,
+								position: { x: 320 + index * 200, y: 0 },
+								parentId: null,
+							}),
+						),
+					}
+				: undefined,
+			isLayouting: false,
+			error: null,
+		};
+	},
 }));
 
 const mkNode = (
@@ -110,6 +131,7 @@ describe("GraphCanvas knowledge nodes", () => {
 		navigation.focusedNodeId = null;
 		navigation.diveInto.mockClear();
 		navigation.diveUpTo.mockClear();
+		layoutHook.calls = [];
 	});
 
 	it("renders explicit knowledge nodes only when the URL-backed toggle is enabled", () => {
@@ -155,6 +177,10 @@ describe("GraphCanvas knowledge nodes", () => {
 
 		rerender(<GraphCanvas {...props} knowledgeNodesVisible />);
 
+		expect(layoutHook.calls.at(-1)?.[3]).toEqual({
+			nodes: [{ id: "knowledge:k1", width: 180, height: 34, parentId: null }],
+			edges: [{ id: "knowledge:k1", fromId: "child", toId: "knowledge:k1" }],
+		});
 		expect(screen.getByTestId("react-flow")).toHaveAttribute(
 			"data-node-ids",
 			expect.stringContaining("knowledge:k1"),

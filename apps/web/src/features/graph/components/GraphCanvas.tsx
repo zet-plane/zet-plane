@@ -33,7 +33,10 @@ import {
 } from "../domain/graph-workbench";
 import type { ProjectGraph } from "../domain/types";
 import { useCanvasNavigation } from "../hooks/use-canvas-navigation";
-import { useLayoutedGraph } from "../layout/use-layouted-graph";
+import {
+	type AuxiliaryLayout,
+	useLayoutedGraph,
+} from "../layout/use-layouted-graph";
 import { DependencyEdge } from "./DependencyEdge";
 import { EmptyState, ErrorState, LoadingState } from "./EmptyState";
 import { PeripheralStub } from "./PeripheralStub";
@@ -75,6 +78,8 @@ const PERIPHERAL_GAP = 60;
 const PERIPHERAL_WIDTH = 200;
 const PERIPHERAL_HEIGHT = 36;
 const PERIPHERAL_V_SPACING = 12;
+const KNOWLEDGE_NODE_WIDTH = 180;
+const KNOWLEDGE_NODE_HEIGHT = 34;
 
 type Props = {
 	graph: ProjectGraph | undefined;
@@ -170,12 +175,38 @@ function CanvasInner({
 			edges: view.siblingDependencyEdges,
 		};
 	}, [view]);
+	const knowledgeLayout = useMemo<AuxiliaryLayout>(() => {
+		if (!knowledgeNodesVisible || !subGraphForLayout) {
+			return { nodes: [], edges: [] };
+		}
+
+		const visibleNodeIds = new Set(
+			subGraphForLayout.nodes.map((node) => node.id),
+		);
+		const visibleEntries = entries.filter((entry) =>
+			visibleNodeIds.has(entry.nodeId),
+		);
+
+		return {
+			nodes: visibleEntries.map((entry) => ({
+				id: knowledgeNodeId(entry),
+				width: KNOWLEDGE_NODE_WIDTH,
+				height: KNOWLEDGE_NODE_HEIGHT,
+				parentId: null,
+			})),
+			edges: visibleEntries.map((entry) => ({
+				id: knowledgeNodeId(entry),
+				fromId: entry.nodeId,
+				toId: knowledgeNodeId(entry),
+			})),
+		};
+	}, [entries, knowledgeNodesVisible, subGraphForLayout]);
 
 	const {
 		data: layouted,
 		isLayouting,
 		error: layoutErr,
-	} = useLayoutedGraph(subGraphForLayout, entries, graph);
+	} = useLayoutedGraph(subGraphForLayout, entries, graph, knowledgeLayout);
 
 	const onNodeClick = useCallback(
 		(_: unknown, n: Node) => {
@@ -308,23 +339,31 @@ function CanvasInner({
 				}
 			: null;
 
-	const knowledgePlacements = knowledgeNodesVisible
-		? layoutKnowledgeNodes(entries, childRects)
-		: [];
-	const knowledgeNodes: Node[] = knowledgePlacements.map((placement) => ({
-		id: `knowledge:${placement.entry.id}`,
-		type: "knowledgeNode",
-		position: placement.position,
-		width: 180,
-		height: 34,
-		data: { entry: placement.entry } as unknown as Record<string, unknown>,
-		selectable: false,
-		draggable: false,
-	}));
-	const knowledgeEdges: Edge[] = knowledgePlacements.map((placement) => ({
-		id: `knowledge:${placement.entry.id}`,
-		source: placement.entry.nodeId,
-		target: `knowledge:${placement.entry.id}`,
+	const entryByKnowledgeNodeId = new Map(
+		entries.map((entry) => [knowledgeNodeId(entry), entry]),
+	);
+	const knowledgeNodes: Node[] = (layouted.auxiliaryNodes ?? []).flatMap(
+		(layoutNode) => {
+			const entry = entryByKnowledgeNodeId.get(layoutNode.id);
+			if (!entry) return [];
+			return [
+				{
+					id: layoutNode.id,
+					type: "knowledgeNode",
+					position: layoutNode.position,
+					width: layoutNode.width,
+					height: layoutNode.height,
+					data: { entry } as unknown as Record<string, unknown>,
+					selectable: false,
+					draggable: false,
+				},
+			];
+		},
+	);
+	const knowledgeEdges: Edge[] = knowledgeLayout.edges.map((edge) => ({
+		id: edge.id,
+		source: edge.fromId,
+		target: edge.toId,
 		sourceHandle: "r-s",
 		targetHandle: "main",
 		markerEnd: directedMarker("active", false, false),
@@ -429,34 +468,8 @@ function CanvasInner({
 	);
 }
 
-function layoutKnowledgeNodes(
-	entries: KnowledgeEntryResponse[],
-	anchorRects: Map<string, Rect>,
-): Array<{
-	entry: KnowledgeEntryResponse;
-	position: { x: number; y: number };
-}> {
-	const countsByNode = new Map<string, number>();
-	const placements: Array<{
-		entry: KnowledgeEntryResponse;
-		position: { x: number; y: number };
-	}> = [];
-
-	for (const entry of entries) {
-		const anchor = anchorRects.get(entry.nodeId);
-		if (!anchor) continue;
-		const index = countsByNode.get(entry.nodeId) ?? 0;
-		countsByNode.set(entry.nodeId, index + 1);
-		placements.push({
-			entry,
-			position: {
-				x: anchor.x + anchor.width + 36,
-				y: anchor.y + index * 42,
-			},
-		});
-	}
-
-	return placements;
+function knowledgeNodeId(entry: KnowledgeEntryResponse): string {
+	return `knowledge:${entry.id}`;
 }
 
 function directedMarker(

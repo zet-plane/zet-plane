@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { measurePillSize, type PillVariant } from "../components/pill-geometry";
 import { topologyHash } from "../domain/topology-hash";
 import type {
+	LayoutedAuxiliaryNode,
 	LayoutedGraph,
 	LayoutedNode,
 	ProjectGraph,
@@ -34,10 +35,18 @@ type LayoutRun = {
 	cancel: () => void;
 };
 
+export type AuxiliaryLayout = {
+	nodes: LayoutInput["nodes"];
+	edges: LayoutInput["edges"];
+};
+
+const EMPTY_AUXILIARY_LAYOUT: AuxiliaryLayout = { nodes: [], edges: [] };
+
 function createLayoutKey(
 	graph: ProjectGraph,
 	knowledgeCountByNodeId: Map<string, number>,
 	geometryGraph: ProjectGraph = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
 ): string {
 	const textKey = graph.nodes
 		.map(
@@ -52,11 +61,29 @@ function createLayoutKey(
 				] as const,
 		)
 		.sort(([leftId], [rightId]) => leftId.localeCompare(rightId));
+	const auxiliaryKey = {
+		nodes: auxiliaryLayout.nodes
+			.map((node) => ({
+				id: node.id,
+				width: node.width,
+				height: node.height,
+				parentId: node.parentId,
+			}))
+			.sort((left, right) => left.id.localeCompare(right.id)),
+		edges: auxiliaryLayout.edges
+			.map((edge) => ({
+				id: edge.id,
+				fromId: edge.fromId,
+				toId: edge.toId,
+			}))
+			.sort((left, right) => left.id.localeCompare(right.id)),
+	};
 
 	return JSON.stringify({
 		topology: topologyHash(graph),
 		geometryTopology: topologyHash(geometryGraph),
 		text: textKey,
+		auxiliary: auxiliaryKey,
 	});
 }
 
@@ -83,6 +110,7 @@ function createLayoutInput(
 	graph: ProjectGraph,
 	knowledgeCountByNodeId: Map<string, number>,
 	geometryGraph: ProjectGraph = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
 ): LayoutInput {
 	const childCountByNodeId = createCompositionChildCount(geometryGraph);
 	const nodes = graph.nodes.map((node) => {
@@ -106,7 +134,10 @@ function createLayoutInput(
 		toId: edge.toId,
 	}));
 
-	return { nodes, edges };
+	return {
+		nodes: [...nodes, ...auxiliaryLayout.nodes],
+		edges: [...edges, ...auxiliaryLayout.edges],
+	};
 }
 
 function runLayoutInline(input: LayoutInput): LayoutRun {
@@ -119,10 +150,28 @@ function runLayoutInline(input: LayoutInput): LayoutRun {
 function mergeLayoutResult(
 	graph: ProjectGraph,
 	result: LayoutOutput,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
 ): LayoutedGraph {
 	const layoutById = new Map(result.nodes.map((node) => [node.id, node]));
+	const auxiliaryNodes = auxiliaryLayout.nodes.map(
+		(node): LayoutedAuxiliaryNode => {
+			const layoutNode = layoutById.get(node.id);
 
-	return {
+			if (layoutNode === undefined) {
+				throw new Error(`Missing layout result for auxiliary node ${node.id}`);
+			}
+
+			return {
+				id: node.id,
+				width: layoutNode.width,
+				height: layoutNode.height,
+				position: layoutNode.position,
+				parentId: node.parentId,
+			};
+		},
+	);
+
+	const layoutedGraph: LayoutedGraph = {
 		nodes: graph.nodes.map((node): LayoutedNode => {
 			const layoutNode = layoutById.get(node.id);
 
@@ -140,6 +189,10 @@ function mergeLayoutResult(
 		}),
 		edges: graph.edges,
 	};
+	if (auxiliaryNodes.length > 0) {
+		layoutedGraph.auxiliaryNodes = auxiliaryNodes;
+	}
+	return layoutedGraph;
 }
 
 function hasFontsApi(): boolean {
@@ -186,6 +239,7 @@ export function useLayoutedGraph(
 	graph: ProjectGraph | undefined,
 	entries: KnowledgeEntryResponse[] = EMPTY_ENTRIES,
 	geometryGraph: ProjectGraph | undefined = graph,
+	auxiliaryLayout: AuxiliaryLayout = EMPTY_AUXILIARY_LAYOUT,
 ): LayoutState {
 	const fontsReady = useFontsReady();
 	const [state, setState] = useState<LayoutRunState>({
@@ -203,8 +257,13 @@ export function useLayoutedGraph(
 	const layoutKey = useMemo(() => {
 		return graph === undefined
 			? undefined
-			: createLayoutKey(graph, knowledgeCountByNodeId, geometryGraph ?? graph);
-	}, [graph, geometryGraph, knowledgeCountByNodeId]);
+			: createLayoutKey(
+					graph,
+					knowledgeCountByNodeId,
+					geometryGraph ?? graph,
+					auxiliaryLayout,
+				);
+	}, [graph, geometryGraph, knowledgeCountByNodeId, auxiliaryLayout]);
 
 	const data = useMemo(() => {
 		if (
@@ -216,8 +275,8 @@ export function useLayoutedGraph(
 			return undefined;
 		}
 
-		return mergeLayoutResult(graph, state.layoutResult);
-	}, [graph, layoutKey, state.layoutKey, state.layoutResult]);
+		return mergeLayoutResult(graph, state.layoutResult, auxiliaryLayout);
+	}, [graph, layoutKey, state.layoutKey, state.layoutResult, auxiliaryLayout]);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: layoutKey is a content hash of graph; depending on graph would trigger redundant layouts on identical inputs.
 	useEffect(() => {
@@ -256,6 +315,7 @@ export function useLayoutedGraph(
 			graph,
 			knowledgeCountByNodeId,
 			geometryGraph ?? graph,
+			auxiliaryLayout,
 		);
 		const run = runLayoutInline(input);
 
