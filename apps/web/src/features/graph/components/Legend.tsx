@@ -108,12 +108,16 @@ function ScaffoldGlyph({ testId }: { testId?: string }) {
 		<span
 			data-testid={testId}
 			aria-hidden="true"
-			className="inline-block h-3 w-5 rounded-full"
+			className="inline-block h-5 w-3"
 			style={{
-				background: "var(--zp-color-accent-signal-soft)",
-				borderLeftWidth: "3px",
-				borderLeftStyle: "solid",
+				borderWidth: "2px",
+				borderStyle: "solid",
 				borderLeftColor: "var(--zp-accent-scaffold)",
+				borderTopColor: "var(--zp-accent-scaffold)",
+				borderBottomColor: "var(--zp-accent-scaffold)",
+				borderRightWidth: "0",
+				borderRadius: "999px 0 0 999px",
+				opacity: 0.95,
 			}}
 		/>
 	);

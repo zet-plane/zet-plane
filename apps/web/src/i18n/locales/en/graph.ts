@@ -106,7 +106,7 @@ export const graph = {
 	legend: {
 		titleOpen: "Legend down",
 		titleClosed: "Legend right",
-		scaffold: "Scaffold (arc marker)",
+		scaffold: "Scaffold (crescent marker)",
 		growth: "Growth (compact)",
 		knowledge: "Knowledge (indigo)",
 		checkpoint: "Checkpoint",

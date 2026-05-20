@@ -9,14 +9,16 @@ describe("Legend", () => {
 		const toggle = screen.getByRole("button", { name: /Legend/ });
 		expect(toggle).toBeInTheDocument();
 		expect(toggle).toHaveAttribute("aria-expanded", "false");
-		expect(screen.queryByText("Scaffold (arc marker)")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("Scaffold (crescent marker)"),
+		).not.toBeInTheDocument();
 
 		fireEvent.click(toggle);
 
 		expect(toggle).toHaveAttribute("aria-expanded", "true");
 		expect(toggle).toHaveAttribute("aria-controls", "zp-graph-legend-panel");
 		expect(document.getElementById("zp-graph-legend-panel")).not.toBeNull();
-		expect(screen.getByText("Scaffold (arc marker)")).toBeInTheDocument();
+		expect(screen.getByText("Scaffold (crescent marker)")).toBeInTheDocument();
 	});
 
 	it("renders token-backed swatches and glyphs", () => {
@@ -37,8 +39,8 @@ describe("Legend", () => {
 			background: "var(--zp-status-archived)",
 		});
 		expectTokenStyle("legend-glyph-scaffold", {
-			background: "var(--zp-color-accent-signal-soft)",
 			borderLeftColor: "var(--zp-accent-scaffold)",
+			borderRightWidth: "0px",
 		});
 		expectTokenStyle("legend-glyph-growth", {
 			background: "var(--zp-color-accent-signal-soft)",
@@ -53,7 +55,10 @@ describe("Legend", () => {
 function expectTokenStyle(
 	testId: string,
 	expected: Partial<
-		Pick<CSSStyleDeclaration, "background" | "borderLeftColor">
+		Pick<
+			CSSStyleDeclaration,
+			"background" | "borderLeftColor" | "borderRightWidth"
+		>
 	>,
 ) {
 	const element = screen.getByTestId(testId);
@@ -63,5 +68,8 @@ function expectTokenStyle(
 	}
 	if (expected.borderLeftColor !== undefined) {
 		expect(element.style.borderLeftColor).toBe(expected.borderLeftColor);
+	}
+	if (expected.borderRightWidth !== undefined) {
+		expect(element.style.borderRightWidth).toBe(expected.borderRightWidth);
 	}
 }

@@ -109,7 +109,7 @@ export const graph = {
 	legend: {
 		titleOpen: "图例向下",
 		titleClosed: "图例向右",
-		scaffold: "脚手架（圆弧标记）",
+		scaffold: "脚手架（弦月标记）",
 		growth: "增长（紧凑）",
 		knowledge: "知识（靛蓝）",
 		checkpoint: "检查点",

@@ -319,7 +319,7 @@
 
 /* Scaffold variant */
 .zp-pill--scaffold {
-	padding-left: 20px;
+	padding-left: 30px;
 	font-size: 13.5px;
 	font-weight: 500;
 	box-shadow:
@@ -329,12 +329,14 @@
 .zp-pill--scaffold::before {
 	content: "";
 	position: absolute;
-	left: 0;
+	left: 6px;
 	top: 6px;
 	bottom: 6px;
-	width: 14px;
-	background: var(--zp-type-scaffold);
-	border-radius: 0 999px 999px 0;
+	width: 10px;
+	border: 2px solid var(--zp-type-scaffold);
+	border-right: 0;
+	border-radius: 999px 0 0 999px;
+	opacity: 0.95;
 }
 .zp-pill--scaffold.zp-pill--checkpoint::before {
 	opacity: 1;
@@ -454,17 +456,19 @@
 	margin-left: 10px;
 }
 .zp-hero--scaffold {
-	padding-left: 28px;
+	padding-left: 30px;
 }
 .zp-hero--scaffold::before {
 	content: "";
 	position: absolute;
-	left: 0;
+	left: 6px;
 	top: 6px;
 	bottom: 6px;
-	width: 20px;
-	background: var(--zp-accent-scaffold);
-	border-radius: 0 999px 999px 0;
+	width: 10px;
+	border: 2px solid var(--zp-accent-scaffold);
+	border-right: 0;
+	border-radius: 999px 0 0 999px;
+	opacity: 0.95;
 }
 .zp-hero--project {
 	background: var(--zp-surface-panel);
