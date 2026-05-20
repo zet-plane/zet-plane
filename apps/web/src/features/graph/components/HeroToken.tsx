@@ -1,5 +1,4 @@
 import type { NodeResponse } from "@zet-plane/contracts";
-import { Flag } from "lucide-react";
 
 type Props = {
 	node: NodeResponse;
@@ -30,8 +29,12 @@ function ScaffoldHero({ node }: { node: NodeResponse }) {
 	return (
 		<div className={classes.join(" ")}>
 			{node.isCheckpoint && (
-				<span className="zp-pill__flag" role="img" aria-label="checkpoint">
-					<Flag size={11} />
+				<span
+					className="zp-checkpoint-marker zp-checkpoint-marker--blocked"
+					role="img"
+					aria-label="checkpoint"
+				>
+					<span className="zp-checkpoint-marker__dot" />
 				</span>
 			)}
 			<span className="zp-hero__title">{node.title}</span>

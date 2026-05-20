@@ -146,4 +146,19 @@ describe("Pill", () => {
 		const { container } = renderPill(data);
 		expect(container.querySelector(".zp-pill--checkpoint")).not.toBeNull();
 	});
+
+	it("renders checkpoint as a dot inside the scaffold crescent", () => {
+		const data = mkData();
+		data.node = { ...data.node, isCheckpoint: true };
+		const { container } = renderPill(data);
+
+		const marker = screen.getByLabelText("checkpoint");
+		expect(marker).toHaveClass("zp-checkpoint-marker");
+		expect(marker).toHaveClass("zp-checkpoint-marker--blocked");
+		expect(
+			container.querySelector(".zp-checkpoint-marker__dot"),
+		).not.toBeNull();
+		expect(container.querySelector(".zp-pill__flag")).toBeNull();
+		expect(marker.querySelector("svg")).toBeNull();
+	});
 });

@@ -73,7 +73,7 @@ export function Legend() {
 					<hr className="border-border" />
 					<Row
 						label={t("legend.checkpoint")}
-						swatch={<span aria-hidden="true">⚑</span>}
+						swatch={<CheckpointGlyph testId="legend-glyph-checkpoint" />}
 					/>
 					<Row
 						label={t("legend.diveIn")}
@@ -120,6 +120,27 @@ function ScaffoldGlyph({ testId }: { testId?: string }) {
 				opacity: 0.95,
 			}}
 		/>
+	);
+}
+function CheckpointGlyph({ testId }: { testId?: string }) {
+	return (
+		<span
+			data-testid={testId}
+			aria-hidden="true"
+			className="zp-checkpoint-legend-glyph relative inline-block h-5 w-3"
+			style={{
+				borderWidth: "2px",
+				borderStyle: "solid",
+				borderLeftColor: "var(--zp-status-blocked)",
+				borderTopColor: "var(--zp-status-blocked)",
+				borderBottomColor: "var(--zp-status-blocked)",
+				borderRightWidth: "0",
+				borderRadius: "999px 0 0 999px",
+				opacity: 0.95,
+			}}
+		>
+			<span className="zp-checkpoint-marker__dot" />
+		</span>
 	);
 }
 function GrowthGlyph({ testId }: { testId?: string }) {

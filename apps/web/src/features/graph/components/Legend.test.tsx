@@ -49,6 +49,18 @@ describe("Legend", () => {
 		expectTokenStyle("legend-glyph-knowledge", {
 			background: "var(--zp-color-semantic-knowledge-soft)",
 		});
+		expectTokenStyle("legend-glyph-checkpoint", {
+			borderLeftColor: "var(--zp-status-blocked)",
+			borderRightWidth: "0px",
+		});
+		expect(screen.getByTestId("legend-glyph-checkpoint")).toHaveClass(
+			"zp-checkpoint-legend-glyph",
+		);
+		expect(
+			screen
+				.getByTestId("legend-glyph-checkpoint")
+				.querySelector(".zp-checkpoint-marker__dot"),
+		).not.toBeNull();
 	});
 });
 

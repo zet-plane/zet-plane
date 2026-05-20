@@ -3,7 +3,6 @@ import type {
 	KnowledgeEntryResponse,
 	NodeResponse,
 } from "@zet-plane/contracts";
-import { Flag } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { AggregatedStatus } from "../domain/types";
@@ -140,8 +139,12 @@ export function Pill({ data }: NodeProps<PillNode>) {
 				style={{ opacity: 0 }}
 			/>
 			{node.type === "scaffold" && node.isCheckpoint && (
-				<span className="zp-pill__flag" role="img" aria-label="checkpoint">
-					<Flag size={9} />
+				<span
+					className="zp-checkpoint-marker zp-checkpoint-marker--blocked"
+					role="img"
+					aria-label="checkpoint"
+				>
+					<span className="zp-checkpoint-marker__dot" />
 				</span>
 			)}
 			<span className={statusBadgeClasses.join(" ")} style={statusBadgeStyle}>

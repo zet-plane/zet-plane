@@ -341,13 +341,34 @@
 .zp-pill--scaffold.zp-pill--checkpoint::before {
 	opacity: 1;
 }
-.zp-pill__flag {
+.zp-pill--scaffold.zp-pill--checkpoint::before,
+.zp-hero--scaffold.zp-pill--checkpoint::before {
+	border-color: var(--zp-status-blocked);
+	border-right: 0;
+}
+.zp-checkpoint-marker {
 	position: absolute;
-	left: 3px;
+	left: 5px;
+	top: 6px;
+	bottom: 6px;
+	z-index: 1;
+	display: grid;
+	width: 4px;
+	place-items: center;
+	pointer-events: none;
+}
+.zp-checkpoint-marker__dot {
+	display: block;
+	width: 4px;
+	height: 4px;
+	border-radius: 999px;
+	background: var(--zp-status-blocked);
+}
+.zp-checkpoint-legend-glyph .zp-checkpoint-marker__dot {
+	position: absolute;
+	left: -3px;
 	top: 50%;
 	transform: translateY(-50%);
-	color: #fff;
-	line-height: 1;
 }
 
 /* Growth variant */
