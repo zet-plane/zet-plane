@@ -1,5 +1,4 @@
 import {
-	Background,
 	Controls,
 	type Edge,
 	Handle,
@@ -424,7 +423,6 @@ function CanvasInner({
 				proOptions={{ hideAttribution: true }}
 				fitView
 			>
-				<Background />
 				<Controls />
 			</ReactFlow>
 		</div>
