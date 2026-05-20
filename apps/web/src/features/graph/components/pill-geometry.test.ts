@@ -13,7 +13,7 @@ import {
 	PILL_MIN_WIDTH,
 	PILL_PADDING_LEFT_SCAFFOLD,
 	PILL_PADDING_X,
-	PILL_STATUS_DOT_WIDTH,
+	PILL_STATUS_BADGE_WIDTH,
 	PILL_TITLE_FONT_DEFAULT,
 	PILL_TITLE_FONT_GROWTH,
 	PILL_TITLE_FONT_SCAFFOLD,
@@ -31,7 +31,6 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(measureNodeTextMock).toHaveBeenCalledWith(
 			expect.objectContaining({ font: PILL_TITLE_FONT_DEFAULT }),
@@ -44,7 +43,6 @@ describe("measurePillSize", () => {
 			variant: "scaffold",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(measureNodeTextMock).toHaveBeenCalledWith(
 			expect.objectContaining({ font: PILL_TITLE_FONT_SCAFFOLD }),
@@ -57,7 +55,6 @@ describe("measurePillSize", () => {
 			variant: "growth",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(measureNodeTextMock).toHaveBeenCalledWith(
 			expect.objectContaining({ font: PILL_TITLE_FONT_GROWTH }),
@@ -71,7 +68,6 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(width).toBe(PILL_MIN_WIDTH);
 	});
@@ -82,14 +78,12 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const withProbe = measurePillSize({
 			title: "Wide enough title to exceed min width and prevent floor clamp",
 			variant: "default",
 			knowledgeCount: 2,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(withProbe.width).toBeGreaterThan(without.width);
 	});
@@ -100,14 +94,12 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const withDive = measurePillSize({
 			title: "Wide enough title to exceed min width and prevent floor clamp",
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 3,
-			hasSummaryBar: false,
 		});
 		expect(withDive.width).toBeGreaterThan(without.width);
 	});
@@ -118,14 +110,12 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 1,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const triple = measurePillSize({
 			title: "Wide enough title to exceed min width and prevent floor clamp",
 			variant: "default",
 			knowledgeCount: 999,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(triple.width).toBeGreaterThan(single.width);
 	});
@@ -136,14 +126,12 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const scaffold = measurePillSize({
 			title: "Wide enough title to exceed min width and prevent floor clamp",
 			variant: "scaffold",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(scaffold.width).toBe(
 			def.width + (PILL_PADDING_LEFT_SCAFFOLD - PILL_PADDING_X),
@@ -156,47 +144,42 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const growth = measurePillSize({
 			title: "Wide enough title to exceed min width and prevent floor clamp",
 			variant: "growth",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(growth.width).toBeGreaterThan(def.width);
 	});
 
-	it("includes the status dot in width", () => {
+	it("includes the combined status badge in width", () => {
 		measureNodeTextMock.mockReturnValueOnce({ width: 200, height: 18 });
 		const { width } = measurePillSize({
 			title: "long enough to dodge min width",
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
-		// width = padX*2 + dot + gap + text  ⇒  width >= dot + text + padX*2
-		expect(width).toBeGreaterThanOrEqual(200 + PILL_STATUS_DOT_WIDTH);
+		// width = padX*2 + badge + gap + text  ⇒  width >= badge + text + padX*2
+		expect(width).toBeGreaterThanOrEqual(200 + PILL_STATUS_BADGE_WIDTH);
 	});
 
-	it("adds height for the summary bar", () => {
+	it("keeps internal status summaries inside the badge without adding height", () => {
 		const without = measurePillSize({
 			title: "x",
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const withBar = measurePillSize({
 			title: "x",
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: true,
 		});
-		expect(withBar.height).toBeGreaterThan(without.height);
+		expect(withBar.height).toBe(without.height);
 	});
 
 	it("uses tighter vertical padding for growth pills", () => {
@@ -205,14 +188,12 @@ describe("measurePillSize", () => {
 			variant: "default",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		const growth = measurePillSize({
 			title: "x",
 			variant: "growth",
 			knowledgeCount: 0,
 			childCount: 0,
-			hasSummaryBar: false,
 		});
 		expect(growth.height).toBeLessThan(def.height);
 	});

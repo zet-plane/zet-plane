@@ -77,6 +77,30 @@ describe("Pill", () => {
 		expect(container.querySelector(".zp-node-status--blocked")).toBeNull();
 	});
 
+	it("wraps the self status dot with an internal status ring when descendants exist", () => {
+		const { container } = renderPill(
+			mkData({
+				aggregation: {
+					worst: "blocked",
+					counts: { active: 2, blocked: 1, completed: 3, archived: 0 },
+				},
+				childCount: 6,
+			}),
+		);
+
+		const badge = container.querySelector(".zp-status-badge");
+		expect(badge).not.toBeNull();
+		expect(badge).toHaveClass("zp-status-badge--self-active");
+		expect(badge).toHaveClass("zp-status-badge--internal-blocked");
+		expect(badge).toHaveStyle({
+			"--zp-internal-active": "120deg",
+			"--zp-internal-blocked": "60deg",
+			"--zp-internal-completed": "180deg",
+		});
+		expect(container.querySelector(".zp-node-status")).not.toBeNull();
+		expect(container.querySelector(".zp-pill__agg")).toBeNull();
+	});
+
 	it("renders knowledge probe rail when knowledge categories are present", () => {
 		renderPill(
 			mkData({

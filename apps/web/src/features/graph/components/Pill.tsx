@@ -4,6 +4,7 @@ import type {
 	NodeResponse,
 } from "@zet-plane/contracts";
 import { Flag } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type { AggregatedStatus } from "../domain/types";
 
@@ -45,13 +46,35 @@ export function Pill({ data }: NodeProps<PillNode>) {
 	if (selected) classes.push("zp-pill--selected");
 	if (dimmed) classes.push("zp-pill--dimmed");
 
-	const showAggBar = childCount > 0 && aggregation !== undefined;
+	const showInternalRing = childCount > 0 && aggregation !== undefined;
 	const counts = aggregation?.counts ?? {
 		active: 0,
 		blocked: 0,
 		completed: 0,
 		archived: 0,
 	};
+	const internalTotal =
+		counts.active + counts.blocked + counts.completed + counts.archived;
+	const degree = (count: number) =>
+		internalTotal > 0 ? `${(count / internalTotal) * 360}deg` : "0deg";
+	const statusBadgeStyle = showInternalRing
+		? ({
+				"--zp-internal-active": degree(counts.active),
+				"--zp-internal-blocked": degree(counts.blocked),
+				"--zp-internal-completed": degree(counts.completed),
+				"--zp-internal-archived": degree(counts.archived),
+			} as CSSProperties)
+		: undefined;
+	const statusBadgeClasses = [
+		"zp-status-badge",
+		`zp-status-badge--self-${displayStatus}`,
+	];
+	if (showInternalRing) {
+		statusBadgeClasses.push(
+			"zp-status-badge--with-internal",
+			`zp-status-badge--internal-${aggregation.worst}`,
+		);
+	}
 
 	const dive = () => {
 		if (childCount > 0) onDive?.(node.id);
@@ -121,11 +144,13 @@ export function Pill({ data }: NodeProps<PillNode>) {
 					<Flag size={9} />
 				</span>
 			)}
-			<span
-				className={`zp-node-status zp-node-status--${displayStatus}`}
-				role="img"
-				aria-label={t("pill.status", { status: displayStatusLabel })}
-			/>
+			<span className={statusBadgeClasses.join(" ")} style={statusBadgeStyle}>
+				<span
+					className={`zp-node-status zp-node-status--${displayStatus}`}
+					role="img"
+					aria-label={t("pill.status", { status: displayStatusLabel })}
+				/>
+			</span>
 			<span className="zp-pill__title">{node.title}</span>
 			{knowledgeCount > 0 && (
 				<span
@@ -157,13 +182,6 @@ export function Pill({ data }: NodeProps<PillNode>) {
 				>
 					↳{childCount}
 				</button>
-			)}
-			{showAggBar && (
-				<span className="zp-pill__agg" aria-hidden>
-					<i className="zp-pill__agg-a" style={{ flex: counts.active }} />
-					<i className="zp-pill__agg-b" style={{ flex: counts.blocked }} />
-					<i className="zp-pill__agg-d" style={{ flex: counts.completed }} />
-				</span>
 			)}
 		</div>
 	);

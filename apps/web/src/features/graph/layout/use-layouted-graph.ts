@@ -1,7 +1,6 @@
 import type { KnowledgeEntryResponse } from "@zet-plane/contracts";
 import { useEffect, useMemo, useState } from "react";
 import { measurePillSize, type PillVariant } from "../components/pill-geometry";
-import { aggregateStatus } from "../domain/aggregate-status";
 import { topologyHash } from "../domain/topology-hash";
 import type {
 	LayoutedGraph,
@@ -61,32 +60,6 @@ function createLayoutKey(
 	});
 }
 
-function createSummaryNodeIds(graph: ProjectGraph): Set<string> {
-	const aggregateById = aggregateStatus(graph);
-	const nodesWithCompositionChildren = new Set<string>();
-
-	for (const edge of graph.edges) {
-		if (edge.type === "composition") {
-			nodesWithCompositionChildren.add(edge.fromId);
-		}
-	}
-
-	const summaryNodeIds = new Set<string>();
-	for (const nodeId of nodesWithCompositionChildren) {
-		const aggregation = aggregateById.get(nodeId);
-		if (!aggregation) continue;
-		const total =
-			aggregation.counts.blocked +
-			aggregation.counts.active +
-			aggregation.counts.completed;
-		if (total > 0) {
-			summaryNodeIds.add(nodeId);
-		}
-	}
-
-	return summaryNodeIds;
-}
-
 function createCompositionChildCount(graph: ProjectGraph): Map<string, number> {
 	const counts = new Map<string, number>();
 	for (const edge of graph.edges) {
@@ -111,7 +84,6 @@ function createLayoutInput(
 	knowledgeCountByNodeId: Map<string, number>,
 	geometryGraph: ProjectGraph = graph,
 ): LayoutInput {
-	const summaryNodeIds = createSummaryNodeIds(geometryGraph);
 	const childCountByNodeId = createCompositionChildCount(geometryGraph);
 	const nodes = graph.nodes.map((node) => {
 		const { width, height } = measurePillSize({
@@ -119,7 +91,6 @@ function createLayoutInput(
 			variant: variantFor(node.type),
 			knowledgeCount: knowledgeCountByNodeId.get(node.id) ?? 0,
 			childCount: childCountByNodeId.get(node.id) ?? 0,
-			hasSummaryBar: summaryNodeIds.has(node.id),
 		});
 
 		return {

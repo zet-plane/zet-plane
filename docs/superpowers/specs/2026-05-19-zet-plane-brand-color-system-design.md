@@ -91,10 +91,11 @@ selection unless the user is diagnosing a problem.
 | `status.archived` | `#6f8eaa` | Archived marker |
 | `status.archivedSoft` | `#edf4fa` | Soft archived background |
 
-Status color is small-area by default: dots, bottom bars, edge highlights,
-compact badges, and diagnostic accents. Node bodies should not be filled by
-status color. When a status color is used for normal-size text or a filled
-control, use a stronger foreground token rather than the marker color.
+Status color is small-area by default: self-status dots, thin internal-status
+rings, edge highlights, compact badges, and diagnostic accents. Node bodies
+should not be filled by status color. When a status color is used for normal-size
+text or a filled control, use a stronger foreground token rather than the marker
+color.
 
 The status layer intentionally keeps independent hues for readability, but it
 does not define the brand personality. The brand remains blueprint-blue; status
@@ -167,10 +168,11 @@ Medium areas:
 Small areas:
 
 - status dots;
+- internal status rings;
 - node type tabs;
 - knowledge probe dots;
 - blocked edges;
-- aggregate bars.
+- compact diagnostic badges.
 
 No status, type, or knowledge family color should fill a full node surface in
 normal state.
@@ -233,8 +235,9 @@ related paths use `signal.blue`, optionally with `signal.glow`.
 
 ### 5.3 Nodes
 
-Nodes use a neutral surface. Status is a compact marker. Type is expressed by
-shape and small accents:
+Nodes use a neutral surface. Status is a compact compound marker: the center dot
+reflects the node's own status, while an optional outer ring summarizes internal
+or child-node status. Type is expressed by shape and small accents:
 
 - scaffold: subtle gray-blue arc marker or module cue;
 - growth: capsule silhouette with small teal marker;

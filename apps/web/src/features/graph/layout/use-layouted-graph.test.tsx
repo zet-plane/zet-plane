@@ -144,7 +144,7 @@ describe("useLayoutedGraph", () => {
 		expect(layoutGraphMock).toHaveBeenCalledTimes(1);
 	});
 
-	it("adds extra layout height for nodes with visible aggregation summaries", async () => {
+	it("keeps aggregation summaries inside the status badge without adding layout height", async () => {
 		const graph: ProjectGraph = {
 			nodes: [node("root", "Root"), node("child", "Child")],
 			edges: [edge("e1", "root", "child", "composition")],
@@ -166,7 +166,7 @@ describe("useLayoutedGraph", () => {
 			(layoutNode: { id: string; height: number }) => layoutNode.id === "child",
 		);
 
-		expect(rootNode?.height).toBeGreaterThan(childNode?.height ?? 0);
+		expect(rootNode?.height).toBe(childNode?.height);
 	});
 
 	it("sizes visible dive buttons from the full graph even when layout edges are dependencies only", async () => {

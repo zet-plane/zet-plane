@@ -96,6 +96,31 @@ describe("brand color system tokens", () => {
 		);
 	});
 
+	it("renders internal node status as an outer ring around the self status dot", () => {
+		expect(styles).toContain(".zp-status-badge {");
+		expect(styles).toContain(
+			"--zp-status-track: rgb(var(--zp-rgb-accent-signal) / var(--zp-alpha-12));",
+		);
+		expect(styles).toContain("--zp-segment-gap: 5deg;");
+		expect(styles).toContain("background: var(--zp-status-track);");
+		expect(styles).toContain(".zp-status-badge--with-internal::after");
+		expect(styles).toContain("background: conic-gradient(");
+		expect(styles).toMatch(
+			/var\(--zp-status-active\)\s+0\s+max\(0deg,\s*calc\(var\(--zp-internal-active\) - var\(--zp-segment-gap\)\)\)/,
+		);
+		expect(styles).toContain("transparent");
+		expect(styles).toContain("var(--zp-internal-active)");
+		expect(styles).toContain("var(--zp-status-blocked)");
+		expect(styles).toContain("var(--zp-status-completed)");
+		expect(styles).toContain("var(--zp-status-archived)");
+		expect(styles).toContain(".zp-status-badge::before");
+		expect(styles).not.toContain("border: 1px solid var(--zp-surface-panel);");
+		expect(styles).not.toContain(
+			"border: 1px solid rgb(var(--zp-rgb-shadow) / var(--zp-alpha-12));",
+		);
+		expect(styles).not.toContain(".zp-pill__agg {\n\tposition: absolute;");
+	});
+
 	it("keeps documented text and non-text contrast ratios above WCAG targets", () => {
 		const colors = {
 			fgStrong: "#172b43",

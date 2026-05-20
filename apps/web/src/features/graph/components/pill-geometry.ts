@@ -15,7 +15,6 @@ export const PILL_PADDING_X = 12; // padding: 6px 12px
 export const PILL_PADDING_Y = 6;
 export const PILL_FLEX_GAP = 10; // gap: 10px
 export const PILL_MIN_WIDTH = 140;
-export const PILL_AGG_BAR_HEIGHT = 3; // .zp-pill__agg absolute, 3px tall
 
 // `.zp-pill--scaffold`
 export const PILL_PADDING_LEFT_SCAFFOLD = 20; // overrides padding-left
@@ -28,8 +27,8 @@ export const PILL_PADDING_Y_GROWTH = 4;
 // width before the status dot.
 export const PILL_GROWTH_DOT_WIDTH = 5 + 2;
 
-// `.zp-node-status` — always rendered by Pill.tsx
-export const PILL_STATUS_DOT_WIDTH = 7;
+// `.zp-status-badge` — always rendered by Pill.tsx, with optional internal ring
+export const PILL_STATUS_BADGE_WIDTH = 19;
 
 // `.zp-probe-rail` — rendered when knowledgeCount > 0
 // 1px border each side + 5px padding each side + N×5px dots with 3px gaps +
@@ -64,7 +63,6 @@ export type PillGeometryInput = {
 	variant: PillVariant;
 	knowledgeCount: number;
 	childCount: number;
-	hasSummaryBar: boolean;
 };
 
 export type PillGeometryOutput = {
@@ -126,7 +124,7 @@ export function measurePillSize(input: PillGeometryInput): PillGeometryOutput {
 	const showDive = input.childCount > 0;
 
 	const flexChildren = [
-		PILL_STATUS_DOT_WIDTH,
+		PILL_STATUS_BADGE_WIDTH,
 		text.width,
 		showProbe ? probeRailWidth(input.knowledgeCount) : 0,
 		showDive ? diveButtonWidth(input.childCount) : 0,
@@ -140,8 +138,7 @@ export function measurePillSize(input: PillGeometryInput): PillGeometryOutput {
 	const width = Math.max(PILL_MIN_WIDTH, innerWidth + padX);
 
 	const padY = paddingYFor(input.variant);
-	const summary = input.hasSummaryBar ? PILL_AGG_BAR_HEIGHT : 0;
-	const height = text.height + padY * 2 + summary;
+	const height = text.height + padY * 2;
 
 	return { width, height };
 }

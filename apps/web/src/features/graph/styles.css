@@ -129,26 +129,128 @@
 	background: rgb(var(--zp-rgb-accent-signal) / var(--zp-alpha-08));
 	color: var(--zp-color-accent-signal-strong);
 }
-.zp-pill__agg {
+.zp-status-badge {
+	--zp-internal-active: 0deg;
+	--zp-internal-blocked: 0deg;
+	--zp-internal-completed: 0deg;
+	--zp-internal-archived: 0deg;
+	--zp-status-track: rgb(var(--zp-rgb-accent-signal) / var(--zp-alpha-12));
+	--zp-segment-gap: 5deg;
+	position: relative;
+	box-sizing: border-box;
+	display: inline-grid;
+	place-items: center;
+	width: 19px;
+	height: 19px;
+	border-radius: 999px;
+	flex: 0 0 auto;
+	background: var(--zp-status-track);
+}
+.zp-status-badge--with-internal {
+	box-shadow: 0 0 0 3px rgb(var(--zp-rgb-accent-signal) / var(--zp-alpha-08));
+}
+.zp-status-badge--internal-blocked {
+	--zp-status-track: rgb(var(--zp-rgb-status-blocked) / var(--zp-alpha-12));
+	box-shadow: 0 0 0 3px rgb(var(--zp-rgb-status-blocked) / var(--zp-alpha-08));
+}
+.zp-status-badge--with-internal::after {
+	content: "";
 	position: absolute;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	height: 3px;
-	display: flex;
+	inset: 0;
+	border-radius: 999px;
+	background: conic-gradient(
+		var(--zp-status-active) 0
+			max(0deg, calc(var(--zp-internal-active) - var(--zp-segment-gap))),
+		transparent
+			max(0deg, calc(var(--zp-internal-active) - var(--zp-segment-gap)))
+			var(--zp-internal-active),
+		var(--zp-status-blocked) var(--zp-internal-active)
+			max(
+				var(--zp-internal-active),
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) -
+					var(--zp-segment-gap)
+				)
+			),
+		transparent
+			max(
+				var(--zp-internal-active),
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) -
+					var(--zp-segment-gap)
+				)
+			)
+			calc(var(--zp-internal-active) + var(--zp-internal-blocked)),
+		var(--zp-status-completed)
+			calc(var(--zp-internal-active) + var(--zp-internal-blocked))
+			max(
+				calc(var(--zp-internal-active) + var(--zp-internal-blocked)),
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) +
+					var(--zp-internal-completed) -
+					var(--zp-segment-gap)
+				)
+			),
+		transparent
+			max(
+				calc(var(--zp-internal-active) + var(--zp-internal-blocked)),
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) +
+					var(--zp-internal-completed) -
+					var(--zp-segment-gap)
+				)
+			)
+			calc(
+				var(--zp-internal-active) +
+				var(--zp-internal-blocked) +
+				var(--zp-internal-completed)
+			),
+		var(--zp-status-archived)
+			calc(
+				var(--zp-internal-active) +
+				var(--zp-internal-blocked) +
+				var(--zp-internal-completed)
+			)
+			max(
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) +
+					var(--zp-internal-completed)
+				),
+				calc(360deg - var(--zp-segment-gap))
+			),
+		transparent
+			max(
+				calc(
+					var(--zp-internal-active) +
+					var(--zp-internal-blocked) +
+					var(--zp-internal-completed)
+				),
+				calc(360deg - var(--zp-segment-gap))
+			)
+			360deg
+	);
 }
-.zp-pill__agg-a {
-	background: color-mix(in srgb, var(--zp-status-active), white 18%);
+.zp-status-badge::before {
+	content: "";
+	position: absolute;
+	inset: 4px;
+	z-index: 1;
+	border-radius: 999px;
+	background: var(--zp-surface-panel);
 }
-.zp-pill__agg-b {
-	background: color-mix(in srgb, var(--zp-status-blocked), white 12%);
-}
-.zp-pill__agg-d {
-	background: color-mix(in srgb, var(--zp-status-completed), white 14%);
+.zp-status-badge:not(.zp-status-badge--with-internal)::before {
+	display: none;
 }
 
-/* Compact status marker */
+/* Compact self status marker */
 .zp-node-status {
+	position: relative;
+	z-index: 2;
 	width: 7px;
 	height: 7px;
 	border-radius: 999px;
